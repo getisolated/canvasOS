@@ -20,6 +20,8 @@ object Device {
 
 /** All user settings in one place. */
 class Prefs(ctx: Context) {
+    // Kept for defaults that follow the TV (the clock format); never an Activity, so no leak.
+    private val appCtx: Context = ctx.applicationContext ?: ctx
     private val sp: SharedPreferences = ctx.getSharedPreferences("tvhome", Context.MODE_PRIVATE)
 
     /** Show the default profile portrait beside the home-screen clock and controls. */
@@ -130,9 +132,9 @@ class Prefs(ctx: Context) {
         get() = sp.getStringSet("pinned_inputs", emptySet())!!.toSet()
         set(v) = sp.edit().putStringSet("pinned_inputs", v).apply()
 
-    /** 24-hour clock ("14:05") instead of "2:05 PM". */
+    /** 24-hour clock ("14:05") instead of "2:05 PM"; follows the TV's own setting until the user picks one. */
     var clock24: Boolean
-        get() = sp.getBoolean("clock_24", false)
+        get() = sp.getBoolean("clock_24", android.text.format.DateFormat.is24HourFormat(appCtx))
         set(v) = sp.edit().putBoolean("clock_24", v).apply()
 
     /** [CLOCK_CORNER] (small, top right), [CLOCK_LARGE] (date and a large clock top left, as before v1.9) or [CLOCK_OFF]. */
@@ -208,6 +210,15 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("phone_server", true)
         set(v) = sp.edit().putBoolean("phone_server", v).apply()
 
+    /**
+     * "Récents": an app that opens successfully moves to the front of the grid (the default, as in
+     * every version so far). Off ("Fixe"): the order set with "Modifier l'accueil" is never touched,
+     * as on tvOS.
+     */
+    var dockRecents: Boolean
+        get() = sp.getBoolean("dock_recents", true)
+        set(v) = sp.edit().putBoolean("dock_recents", v).apply()
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"
@@ -226,31 +237,71 @@ class Prefs(ctx: Context) {
         const val INTRO_VIDEO = "video"
         const val INTRO_WORDMARK = "wordmark"
 
+        /**
+         * Apps that serve in the background, so memory cleanup must not stop them. Adding one here is
+         * enough: [keep] merges it into a list the user saved earlier, once (and never again after
+         * they remove it).
+         */
         val DEFAULT_KEEP = setOf(
             "com.dangbei.screencast",
             "com.weekd.miracastreceiver",
             "com.xiaodianshi.tv.yst",
             "dev.vodik7.atvtoolsserver",
+            "com.spotify.tv.android",                 // Spotify Connect: the phone plays through the TV
+            "com.plexapp.android",                    // Plex player, also a cast target
+            "com.plexapp.mediaserver.smb",            // Plex Media Server on the TV itself
+            "com.tailscale.ipn",                      // a VPN that dies as soon as it is stopped
+            "io.homeassistant.companion.android",     // sensors and notifications reach Home Assistant from here
+            "com.adguard.android",                    // DNS / ad filtering for the whole TV
         )
 
         /** The defaults from before new ones were tracked; a list saved then has already seen these. */
         private val KEEP_UNTRACKED = setOf("com.dangbei.screencast", "com.xiaodianshi.tv.yst", "dev.vodik7.atvtoolsserver")
 
-        /** Initial grid order on first run; everything else follows alphabetically. */
+        /**
+         * Initial grid order on first run; everything else follows alphabetically. First the Western
+         * streaming, music, media-server and tool apps, then the Chinese apps this launcher was first
+         * written for, and the TV's own settings last. Only installed apps show up, so a long list
+         * costs nothing. A package must appear once: [AppRepo.orderedVisible] ranks by the last index.
+         */
         val DEFAULT_ORDER = listOf(
+            // Streaming and TV
+            "com.netflix.ninja",
+            "com.google.android.youtube.tv",
+            "com.amazon.amazonvideo.livingroom",
+            "com.disney.disneyplus",
+            "com.canal.android.canal",
+            "tv.molotov.app",
+            "tv.arte.plus7",
+            "fr.francetv.apps",                       // à vérifier
+            "com.apple.atve.androidtv.appletv",
+            "com.wbd.stream",
+            "com.cbs.ott",
+            "com.crunchyroll.crunchyroid",
+            // Music
+            "com.spotify.tv.android",
+            "deezer.android.tv",
+            // Media servers and players
+            "com.plexapp.android",
+            "org.jellyfin.androidtv",
+            "org.xbmc.kodi",
+            "org.videolan.vlc",
+            "com.teamsmart.videomanager.tv",
+            "com.liskovsoft.smarttubetv.beta",
+            // Live and game streaming
+            "tv.twitch.android.app",
+            "com.limelight",
+            "com.valvesoftware.steamlink",
+            // Chinese apps
             "com.xiaodianshi.tv.yst",
             "com.ktcp.video",
             "com.starcor.mango",
-            "com.liskovsoft.smarttubetv.beta",
             "com.douyu.xl.douyutv",
             "com.huya.nftv",
             "com.fongmi.android.tv",
             "com.github.tvbox.osc.tk",
-            "org.xbmc.kodi",
             "com.quark.yun.tv",
             "com.dangbei.screencast",
-            "tv.twitch.android.app",
-            "com.limelight",
             "com.limelight.qiin",
             "com.android.tv.settings",
         )

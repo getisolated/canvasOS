@@ -390,6 +390,7 @@ class ConfigReceiver : BroadcastReceiver() {
         i.getStringExtra("focus_style")?.let { prefs.focusStyle = it }
         i.getStringExtra("clock_style")?.let { prefs.clockStyle = it }
         if (i.hasExtra("clock_24")) prefs.clock24 = i.getBooleanExtra("clock_24", false)
+        if (i.hasExtra("dock_recents")) prefs.dockRecents = i.getBooleanExtra("dock_recents", true)
         i.getStringExtra("intro")?.let { prefs.intro = it; prefs.introBoot = Intro.bootStamp(c) }
         i.getStringExtra("intro_source")?.let { prefs.introSource = it }
         i.getStringExtra("background")?.takeIf { it in Wallpapers.SOURCES || it in Backgrounds.THEMES }?.let {
@@ -409,6 +410,6 @@ class ConfigReceiver : BroadcastReceiver() {
         resultData = "guard=${prefs.guard} keep_adb=${prefs.keepAdb} secure_settings=${Guard.hasSecureSettings(c)} " +
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
             "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} own_icon=${prefs.ownIcon} settings_bg=${prefs.settingsBg} low_end=${Device.isLowEnd(c)} " +
-            "phone_server=${prefs.phoneServer}"
+            "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents}"
     }
 }

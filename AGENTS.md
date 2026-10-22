@@ -183,7 +183,7 @@ Signalez à l'utilisateur qu'ils existent ; ne les modifiez que s'il le demande.
 - Le cadre photo comme économiseur système (Cadre photo en économiseur), le délai d'inactivité (Délai avant le cadre photo) et son contenu (Contenu de l'économiseur) : photos ou Vues aériennes (Apple TV) (lues en streaming depuis Apple, environ 15–20 Mbit/s ; retour aux photos sans connexion). Sur Xiaomi, qui affiche son propre économiseur au lieu de celui d'Android, l'écran d'accueil lance le cadre photo 15 s avant celui de Xiaomi.
 - Entrées HDMI sur l'écran d'accueil : Centre de contrôle → Source → Afficher sur l'accueil….
 - Apps conservées lors du nettoyage de la mémoire (Apps à conserver).
-- Horloge (Format de l'heure, Horloge), animation de sélection (Effet de sélection), style du Centre de contrôle (Style du Centre de contrôle). Les deux derniers sont sur Auto par défaut, ce qui choisit l'aspect le plus léger sur les téléviseurs peu puissants.
+- Horloge (Format de l'heure, qui suit le format du téléviseur tant que l'utilisateur n'a rien choisi ; Horloge), Dock (Récents ou Fixe : si l'app ouverte passe en tête de l'accueil), animation de sélection (Effet de sélection), style du Centre de contrôle (Style du Centre de contrôle). Les deux derniers sont sur Auto par défaut, ce qui choisit l'aspect le plus léger sur les téléviseurs peu puissants.
 - Animation de démarrage, désactivée par défaut. L'app ne contient aucune vidéo : l'utilisateur en importe une depuis la page ouverte par le QR code, ou vous la poussez avec `adb push <vidéo> /sdcard/Android/data/com.getisolated.canvasos/files/intro.mp4`. Ne téléchargez pas pour l'utilisateur un clip protégé par une marque. Il en va de même pour une icône de réglages personnalisée (`files/settings_icon.png`) et un fond pour la page des réglages (`files/settings_bg.jpg`, une image 16:9 avec son sujet à gauche), qui peuvent aussi être importés depuis la page du téléphone.
 
 Chacun de ces réglages peut aussi être modifié par adb, par exemple :
@@ -196,6 +196,7 @@ adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com
 # own_icon / settings_bg true|false (l'icône de réglages / le fond de page importés, ou l'aspect intégré ; les fichiers sont conservés dans les deux cas)
 # background daily|scenery|fresh|anime|art|mine|custom|green|blue|purple|orange|graphite (source du fond d'écran de l'accueil, ou un dégradé intégré)
 # phone_server true|false (la page téléphone, activée par défaut ; désactivée, son adresse ne répond plus du tout)
+# dock_recents true|false (true par défaut : l'app ouverte passe en tête de l'accueil ; false : l'ordre choisi avec « Modifier l'accueil » est conservé)
 ```
 
 ## 9. Adapter canvasOS à un téléviseur mal pris en charge

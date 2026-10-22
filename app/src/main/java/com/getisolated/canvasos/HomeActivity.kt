@@ -696,8 +696,13 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         }
     }
 
-    /** Only successful app launches reorder the shelf; editing or failed launches never do. */
+    /**
+     * Only successful app launches reorder the shelf; editing or failed launches never do, and
+     * neither does a launch while the dock is "Fixe" (Prefs.dockRecents off): the arrangement the
+     * user made with "Modifier l'accueil" stays as it is.
+     */
     private fun rememberOpened(pkg: String) {
+        if (!prefs.dockRecents) return
         val visible = adapter.apps.map { it.pkg }
         prefs.order = RecentOrder.promote(pkg, visible, prefs.order)
         reload()
