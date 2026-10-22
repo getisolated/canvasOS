@@ -455,8 +455,71 @@ class SettingsActivity : Activity() {
             "Il se règle dans les options pour les développeurs du téléviseur.",
             { onOff(Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1) }) {}
         row("Réglages du téléviseur", "Ouvre les réglages d'origine du téléviseur.", { "" }, chevron = true) { runCatching { startActivity(TvControls(this).settingsIntent()) } }
+        row("Mise à jour", "Cherche la dernière version de canvasOS sur GitHub (Releases) et l'installe sur place : les réglages et les autorisations sont conservés. " +
+            "Appuyez une première fois pour vérifier, une seconde pour installer. L'installation demande le débogage local. " +
+            "canvasOS cherche aussi chaque jour qu'une version existe, sans rien télécharger.", { updateValue() }) { v -> updatePressed(v) }
         row("À propos", "canvasOS, un écran d'accueil Android TV inspiré de tvOS.",
             { "Version " + packageManager.getPackageInfo(packageName, 0).versionName }) {}
+    }
+
+    /** The newer Release the last check in this screen found (what a second press installs), or null. */
+    private var foundUpdate: Updater.Update? = null
+
+    /** What the "Mise à jour" row says after a check or a failure ("À jour (1.1.0)", "Releases inaccessibles"); null: what the saved state says. */
+    private var updateNote: String? = null
+
+    private fun updateValue(): String = Updater.working ?: updateNote
+        ?: Updater.pending(prefs)?.let { "$it disponible, OK pour installer" } ?: "Vérifier"
+
+    /**
+     * The "Mise à jour" row. Pressed once it asks GitHub; when that finds a newer version it says
+     * so, and the next press (or this one, if the row already said so) downloads and installs it.
+     * Installing replaces canvasOS, so the screen usually vanishes with the process.
+     */
+    private fun updatePressed(v: TextView) {
+        if (v.text.endsWith("…")) return
+        // What the row said when it was pressed: a version already on offer is installed without asking again.
+        val offered = foundUpdate != null || (updateNote == null && Updater.pending(prefs) != null)
+        fun say(text: String, detail: String? = null) = runOnUiThread {
+            v.text = text
+            if (detail != null) about.text = detail
+        }
+        v.text = "Vérification…"
+        Thread {
+            val update = foundUpdate ?: when (val c = Updater.check(applicationContext)) {
+                is Updater.Check.UpToDate -> {
+                    updateNote = "À jour (${c.version})"
+                    return@Thread say(updateNote!!, "canvasOS ${c.version} est la dernière version publiée.")
+                }
+                is Updater.Check.Unavailable -> {
+                    updateNote = "Releases inaccessibles"
+                    return@Thread say(updateNote!!, c.reason)
+                }
+                is Updater.Check.Available -> c.update
+            }
+            foundUpdate = update
+            updateNote = null
+            val mb = if (update.size > 0) " (${(update.size + 524_288) / 1_048_576} Mo)" else ""
+            val notes = if (update.notes.isEmpty()) "" else "\n\n" + update.notes.take(400)
+            if (!offered) return@Thread say(updateValue(), "canvasOS ${update.version}$mb est disponible. Appuyez sur OK pour le télécharger et l'installer.$notes")
+            if (!prefs.adbAuthorized) {
+                say("Choisissez Toujours autoriser…")
+                if (LocalAdb.shell(applicationContext, "echo ok", 60_000) == null) {
+                    updateNote = "Débogage local requis"
+                    return@Thread say(updateNote!!, "L'installation passe par le débogage local : autorisez-le (ligne « Débogage local » plus haut), puis réessayez.")
+                }
+            }
+            Updater.downloadAndInstall(applicationContext, update) { say(it) }
+                .onSuccess {
+                    // Normally the process is gone by now.
+                    updateNote = "Installée, redémarrage…"
+                    say(updateNote!!)
+                }
+                .onFailure {
+                    updateNote = "Échec, OK pour réessayer"
+                    say(updateNote!!, it.message)
+                }
+        }.start()
     }
 
     private fun appPicker(title: String, selected: Set<String>, includeHidden: Boolean = false, source: List<AppEntry>? = null, toggle: (String, Boolean) -> Unit) {

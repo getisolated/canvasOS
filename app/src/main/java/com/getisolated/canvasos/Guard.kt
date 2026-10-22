@@ -437,6 +437,8 @@ class ConfigReceiver : BroadcastReceiver() {
         }
         resultData += " now_playing=${prefs.nowPlaying} banners=${prefs.banners} banner_apps=${prefs.bannerApps.sorted().joinToString(",")} " +
             "listener=${Banners.listenerGranted(c)} overlay=${Settings.canDrawOverlays(c)}"
+        // Asks GitHub for the latest Release now (a few seconds at most) and says what it found.
+        if (i.getBooleanExtra("check_update", false)) resultData += " update=${Updater.checkForConfig(c)}"
         // Must stay last: a weather_city is looked up over the network, so this may call goAsync(),
         // after which resultData can only be set through the pending result (Weather.config does).
         Weather.config(this, c, i)

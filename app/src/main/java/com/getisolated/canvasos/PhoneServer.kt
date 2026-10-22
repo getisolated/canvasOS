@@ -285,10 +285,8 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
     }
 
     /**
-     * Installs the uploaded APK with the shell's `pm`, which needs a file the shell can read: app
-     * storage under Android/data is, the cache NanoHTTPD writes uploads to is not. The file goes in
-     * through stdin (`-S`): handed a path on shared storage, `pm` on Android 9 and later can fail
-     * with "Unable to open file", because system_server opens it and may not read there.
+     * Installs the uploaded APK ([Installer]). `pm` needs a file the shell can read: app storage
+     * under Android/data is, the cache NanoHTTPD writes uploads to is not, hence the copy below.
      */
     private fun installApk(session: IHTTPSession): Response {
         val length = session.headers["content-length"]?.toLongOrNull() ?: -1L
@@ -306,7 +304,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         val info = runCatching { pm.getPackageArchiveInfo(part.path, 0) }.getOrNull()
         // Installing itself would kill this server halfway; and each release is signed differently anyway.
         if (info?.packageName == ctx.packageName)
-            return json(failure("C'est canvasOS lui-même : mettez-le à jour depuis un ordinateur (AGENTS.md, étape 3)."))
+            return json(failure("C'est canvasOS lui-même : mettez-le à jour dans Réglages de l'accueil → Système → Mise à jour, ou depuis un ordinateur (AGENTS.md, étape 3)."))
         val label = info?.applicationInfo?.let {
             it.sourceDir = part.path
             it.publicSourceDir = part.path
@@ -317,12 +315,13 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
             val apk = File(dir, APK_FILE)
             try {
                 part.copyTo(apk, overwrite = true)
-                val out = LocalAdb.shell(ctx, "pm install -r -S ${apk.length()} < ${PhoneApi.shellQuote(apk.absolutePath)}", 180_000)
-                when {
-                    out == null -> json(JSONObject().put("ok", false).put("reason", "unreachable"))
-                    "Success" in out -> json(JSONObject().put("ok", true).put("message", "Installée : $label"))
-                    else -> json(failure(listOfNotNull(PhoneApi.installHint(out), out.trim().takeLast(400).ifEmpty { null }).joinToString("\n")))
-                }
+                Installer.install(ctx, apk).fold(
+                    onSuccess = { json(JSONObject().put("ok", true).put("message", "Installée : $label")) },
+                    onFailure = { e ->
+                        if ((e as? Installer.Failure)?.unreachable == true) json(JSONObject().put("ok", false).put("reason", "unreachable"))
+                        else json(failure(e.message.orEmpty()))
+                    },
+                )
             } finally {
                 apk.delete()
             }

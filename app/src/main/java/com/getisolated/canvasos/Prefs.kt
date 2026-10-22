@@ -282,6 +282,16 @@ class Prefs(ctx: Context) {
         get() = sp.getString("tmdb_key", "")!!
         set(v) = sp.edit().putString("tmdb_key", v.trim()).apply()
 
+    /** When [Updater] last asked GitHub for the latest Release (epoch ms), whatever the answer; 0 = never. Paces the daily check in [KeeperService]. */
+    var updateCheckedAt: Long
+        get() = sp.getLong("update_checked_at", 0L)
+        set(v) = sp.edit().putLong("update_checked_at", v).apply()
+
+    /** The newer version the last check found ("1.2.0"), or "" when up to date or unknown; [Updater.pending] drops it once installed. */
+    var updateAvailable: String
+        get() = sp.getString("update_available", "")!!
+        set(v) = sp.edit().putString("update_available", v).apply()
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"

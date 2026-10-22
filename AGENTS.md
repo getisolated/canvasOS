@@ -87,6 +87,13 @@ Une fois canvasOS installé et le débogage local autorisé (étape 6), les APK 
 
 Si GitHub est inaccessible, compilez depuis les sources : clonez le dépôt (https://github.com/getisolated/canvasOS), puis `./gradlew assembleStandardRelease assembleGuardRelease` (nécessite JDK 17 et un SDK Android ; renseignez `sdk.dir` dans `local.properties`). Les APK se trouvent dans `app/build/outputs/apk/standard/release/app-standard-release.apk` et `app/build/outputs/apk/guard/release/app-guard-release.apk`. Une version compilée localement n'a pas la clé des Releases (elle est signée avec la clé debug de cet ordinateur) : même règle de désinstallation que ci-dessus, et aussi dans l'autre sens, pour repasser plus tard à une Release.
 
+**Mises à jour suivantes.** Une fois canvasOS installé et le débogage local autorisé (étape 6), l'utilisateur n'a plus besoin de l'ordinateur : Réglages de l'accueil → Système → **Mise à jour** cherche la dernière Release du dépôt public (`canvasOS.apk`, ou `canvasOS-guard.apk` pour la version guard), puis l'installe sur place, avec les réglages et les autorisations. Une première pression vérifie, la seconde télécharge et installe ; sans débogage local, la ligne demande de l'autoriser. canvasOS vérifie aussi une fois par jour qu'une version existe (rien n'est téléchargé sans cette seconde pression) et l'annonce sous le Centre de contrôle. Un `adb install -r` depuis un ordinateur marche toujours. Pour savoir si une version plus récente existe, depuis l'ordinateur :
+
+```sh
+adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com.getisolated.canvasos/.ConfigReceiver --ez check_update true
+# data="… update=<version|none|unavailable>" : la version à installer, none si canvasOS est à jour, unavailable si GitHub est injoignable ou n'a pas de Release publique
+```
+
 ## 4. En faire l'écran d'accueil
 
 Version standard :

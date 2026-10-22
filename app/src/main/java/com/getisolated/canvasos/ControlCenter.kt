@@ -812,7 +812,9 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
 
     fun refresh() {
         if (destroyed) return
-        status.text = if (prefs.adbAuthorized) "" else "Débogage local non autorisé : extinction, veille et nettoyage complet indisponibles"
+        // Only when nothing more pressing is said: the update hint comes second.
+        status.text = if (!prefs.adbAuthorized) "Débogage local non autorisé : extinction, veille et nettoyage complet indisponibles"
+        else Updater.pending(prefs)?.let { "canvasOS $it disponible : Réglages → Mise à jour" }.orEmpty()
         status.visibility = if (status.text.isEmpty()) View.GONE else View.VISIBLE
         // The address is the subtitle by itself: "Connecté · 192.168.1.20" does not fit the capsule,
         // and what a computer needs to reach the TV (AGENTS.md steps 0 and 1) is the address.

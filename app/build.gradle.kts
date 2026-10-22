@@ -97,6 +97,9 @@ android {
         disable += "ExpiredTargetSdkVersion"
     }
 
+    // BuildConfig.VERSION_NAME and FLAVOR tell Updater which version it is and which APK to fetch.
+    buildFeatures { buildConfig = true }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
