@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>canvasOS</title>
@@ -10,11 +11,13 @@
   :root {
     --bg: #f2f2f7; --card: #fff; --label: #000; --secondary: rgba(60,60,67,.6);
     --sep: rgba(60,60,67,.18); --segment: #fff; --tint: #007aff; --fill: rgba(118,118,128,.12); --danger: #ff3b30;
+    --bar: rgba(249,249,249,.94); --idle: #8e8e93; --warn: #ff9500;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #000; --card: #1c1c1e; --label: #fff; --secondary: rgba(235,235,245,.6);
       --sep: rgba(84,84,88,.6); --segment: #636366; --tint: #0a84ff; --fill: rgba(118,118,128,.24); --danger: #ff453a;
+      --bar: rgba(22,22,23,.94); --idle: #8d8d93; --warn: #ff9f0a;
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -22,7 +25,7 @@
   body {
     margin: 0 auto; background: var(--bg); color: var(--label); max-width: 720px;
     font: 17px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "MiSans", system-ui, sans-serif;
-    padding: env(safe-area-inset-top) 16px calc(32px + env(safe-area-inset-bottom));
+    padding: env(safe-area-inset-top) 16px calc(96px + env(safe-area-inset-bottom));
   }
   header { padding: 28px 4px 4px; }
   h1 { font-size: 32px; font-weight: 700; margin: 0; }
@@ -42,7 +45,8 @@
     display: block; width: 100%; padding: 15px; border: 0; border-radius: 14px;
     background: var(--tint); color: #fff; font: inherit; font-weight: 600; text-align: center;
   }
-  .primary[disabled] { opacity: .6; }
+  .primary[disabled], .primary.busy { opacity: .6; }
+  .primary.busy { pointer-events: none; }
   textarea {
     width: 100%; min-height: 110px; padding: 12px; border: 0; border-radius: 12px; resize: vertical;
     background: var(--card); color: var(--label); font: 15px/1.4 ui-monospace, Menlo, monospace;
@@ -57,19 +61,120 @@
   }
   .empty { color: var(--secondary); font-size: 15px; padding: 4px; }
   .toast {
-    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
+    position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
     background: rgba(30,30,30,.92); color: #fff; padding: 10px 18px; border-radius: 22px; font-size: 15px;
+    width: max-content; max-width: calc(100vw - 32px); text-align: center; z-index: 20;
     opacity: 0; transition: opacity .2s, transform .3s; pointer-events: none;
   }
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  /* Tabs, iOS style: a translucent bar at the bottom. */
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: var(--bar);
+    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+    border-top: .5px solid var(--sep);
+  }
+  .tabbar button {
+    flex: 1; max-width: 160px; appearance: none; border: 0; background: none; color: var(--idle); padding: 2px 0;
+    font: inherit; font-size: 10px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .tabbar button[aria-selected="true"] { color: var(--tint); }
+  .tabbar svg { width: 26px; height: 26px; }
+  svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  svg .f { fill: currentColor; }
+
+  .note {
+    margin: 16px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--card); font-size: 15px;
+    box-shadow: inset 4px 0 0 var(--warn);
+  }
+
+  /* The remote. Sent on click (no delay with a device-width viewport); the press shows at once. */
+  .k {
+    appearance: none; border: 0; font: inherit; color: var(--label); background: var(--card);
+    touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: transform .12s, background-color .12s;
+  }
+  .k.on { transform: scale(.93); background-color: var(--fill); }
+  .k svg { width: 22px; height: 22px; flex: none; }
+  .dpad {
+    position: relative; width: min(270px, 74vw); aspect-ratio: 1; margin: 20px auto 0; border-radius: 50%;
+    background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .dpad .k { position: absolute; width: 34%; height: 32%; border-radius: 24px; background-color: transparent; color: var(--secondary); }
+  .dpad .k.on { background-color: var(--fill); color: var(--label); }
+  .dpad .k svg { width: 30px; height: 30px; }
+  .dpad .up { top: 1%; left: 33%; }
+  .dpad .down { bottom: 1%; left: 33%; }
+  .dpad .left { left: 1%; top: 34%; }
+  .dpad .right { right: 1%; top: 34%; }
+  .dpad .ok {
+    top: 32%; left: 32%; width: 36%; height: 36%; border-radius: 50%;
+    background-color: var(--fill); color: var(--label); font-size: 19px; font-weight: 600;
+  }
+  .dpad .ok.on { background-color: var(--tint); color: #fff; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+  .keys.five { grid-template-columns: repeat(5, 1fr); }
+  .keys .k { border-radius: 14px; padding: 13px 4px; font-size: 15px; font-weight: 500; min-height: 50px; }
+  .type input {
+    width: 100%; padding: 13px 14px; border: 0; border-radius: 12px; background: var(--card); color: var(--label);
+    font: inherit; outline-color: var(--tint);
+  }
+  .pair { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 10px; }
+  .pair .k { border-radius: 14px; font-weight: 600; }
+
+  footer { color: var(--secondary); font-size: 13px; margin: 36px 4px 0; padding-top: 14px; border-top: .5px solid var(--sep); }
 </style>
 </head>
 <body>
 <header>
-  <h1>canvasOS</h1>
+  <h1 id="title">canvasOS</h1>
   <p>{{DEVICE}} · Modifiez ici, le téléviseur suit aussitôt</p>
 </header>
 
+<section class="tab" data-tab="telecommande" id="tab-telecommande" role="tabpanel" aria-label="Télécommande">
+  <p class="note adbNote" hidden>Pour la télécommande, autorisez une fois le débogage local sur le téléviseur : Réglages de l'accueil → Débogage local, puis « Toujours autoriser ».</p>
+
+  <div class="dpad" role="group" aria-label="Pavé directionnel">
+    <button class="k up" data-key="UP" data-repeat aria-label="Haut"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+    <button class="k left" data-key="LEFT" data-repeat aria-label="Gauche"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <button class="k ok" data-key="CENTER" aria-label="OK">OK</button>
+    <button class="k right" data-key="RIGHT" data-repeat aria-label="Droite"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    <button class="k down" data-key="DOWN" data-repeat aria-label="Bas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
+
+  <div class="keys">
+    <button class="k" data-key="BACK" aria-label="Retour"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Retour</button>
+    <button class="k" data-key="HOME" aria-label="Accueil"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9v11h14V9"/></svg>Accueil</button>
+    <button class="k" data-key="MENU" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
+  </div>
+  <div class="keys">
+    <button class="k" data-key="VOLUME_DOWN" data-repeat aria-label="Baisser le volume"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M11 5L6 9H3v6h3l5 4z"/><path d="M15 12h6"/></svg></button>
+    <button class="k" data-key="VOLUME_MUTE" aria-label="Couper le son"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M11 5L6 9H3v6h3l5 4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+    <button class="k" data-key="VOLUME_UP" data-repeat aria-label="Monter le volume"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M11 5L6 9H3v6h3l5 4z"/><path d="M15 12h6M18 9v6"/></svg></button>
+  </div>
+  <div class="keys five">
+    <button class="k" data-key="MEDIA_PREVIOUS" aria-label="Précédent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6v12"/><path class="f" d="M18 6l-9 6 9 6z"/></svg></button>
+    <button class="k" data-key="MEDIA_REWIND" data-repeat aria-label="Retour rapide"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M11 6l-8 6 8 6zM21 6l-8 6 8 6z"/></svg></button>
+    <button class="k" data-key="MEDIA_PLAY_PAUSE" aria-label="Lecture ou pause"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4 5l8 7-8 7z"/><path d="M16 5v14M20 5v14"/></svg></button>
+    <button class="k" data-key="MEDIA_FAST_FORWARD" data-repeat aria-label="Avance rapide"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M13 6l8 6-8 6zM3 6l8 6-8 6z"/></svg></button>
+    <button class="k" data-key="MEDIA_NEXT" aria-label="Suivant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6v12"/><path class="f" d="M6 6l9 6-9 6z"/></svg></button>
+  </div>
+
+  <h2>Clavier</h2>
+  <form class="type" id="typeForm">
+    <input type="text" id="typeText" placeholder="Taper du texte sur le téléviseur" aria-label="Texte à taper sur le téléviseur"
+      autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
+  </form>
+  <div class="pair">
+    <button class="primary" type="submit" form="typeForm">Envoyer</button>
+    <button class="k" data-key="DEL" data-repeat aria-label="Effacer un caractère">Effacer</button>
+  </div>
+  <p class="hint">Sélectionnez d'abord un champ de saisie sur le téléviseur. Le texte passe par la commande « input text », qui ne transmet de façon fiable que les caractères ASCII : les accents sont retirés (é devient e) et les autres caractères spéciaux peuvent être ignorés.</p>
+</section>
+
+<section class="tab" data-tab="fond" id="tab-fond" role="tabpanel" aria-label="Fond d'écran" hidden>
 <h2>Fond d'écran de l'accueil</h2>
 <div class="chips" id="backgrounds"></div>
 
@@ -80,6 +185,19 @@
 </div>
 <p class="hint">Les vues aériennes de l'Apple TV sont lues en ligne depuis les serveurs d'Apple (environ 15–20 Mbit/s) ; si elles ne se chargent pas, les photos reprennent. Les photos suivent la source de fond d'écran choisie ci-dessus.</p>
 
+<h2>Mes photos</h2>
+<label class="primary" id="pick">Choisir des photos à importer<input type="file" id="file" accept="image/*" multiple hidden></label>
+<p class="hint">Après l'importation, le fond d'écran passe sur « Mes photos ». Le téléviseur enregistre les photos en 1920×1080.</p>
+<div class="grid" id="mine"></div>
+
+<h2>Liens d'images personnalisés</h2>
+<textarea id="links" placeholder="Un lien par ligne, par exemple&#10;https://example.com/wallpaper.jpg&#10;https://une-api-d-images-aleatoires/api"></textarea>
+<p class="hint">L'adresse d'une image, une API d'images aléatoires qui renvoie une nouvelle image à chaque fois, ou une page / un JSON qui liste des adresses d'images. Le téléviseur les récupère une fois par jour et garde quelques images par lien.</p>
+<p style="margin-top:12px"><button class="primary" id="save">Enregistrer et récupérer</button></p>
+<div class="grid" id="custom"></div>
+</section>
+
+<section class="tab" data-tab="reglages" id="tab-reglages" role="tabpanel" aria-label="Réglages" hidden>
 <h2>Animation de démarrage</h2>
 <div class="seg three" id="intro">
   <button data-mode="off">Désactivée</button>
@@ -100,35 +218,123 @@
 <h2>Icône des réglages</h2>
 <label class="primary" id="pickIcon">Importer une icône<input type="file" id="iconFile" accept="image/*" hidden></label>
 <p class="hint" id="iconHint"></p>
+</section>
 
-<h2>Mes photos</h2>
-<label class="primary" id="pick">Choisir des photos à importer<input type="file" id="file" accept="image/*" multiple hidden></label>
-<p class="hint">Après l'importation, le fond d'écran passe sur « Mes photos ». Le téléviseur enregistre les photos en 1920×1080.</p>
-<div class="grid" id="mine"></div>
+<section class="tab" data-tab="apps" id="tab-apps" role="tabpanel" aria-label="Apps" hidden>
+<h2>Installer une app (APK)</h2>
+<p class="note adbNote" hidden>Pour installer des apps, autorisez une fois le débogage local sur le téléviseur : Réglages de l'accueil → Débogage local, puis « Toujours autoriser ».</p>
+<label class="primary" id="pickApk" style="margin-top:12px">Choisir un fichier APK<input type="file" id="apkFile" accept=".apk,application/vnd.android.package-archive" hidden></label>
+<p class="hint" id="apkStatus" aria-live="polite"></p>
+<p class="hint">Le fichier est envoyé au téléviseur et installé tel quel (200&nbsp;Mo au maximum) ; l'app apparaît ensuite d'elle-même sur l'écran d'accueil. N'installez que des apps de sources de confiance : les apps installées ainsi sont sous votre responsabilité.</p>
+</section>
 
-<h2>Liens d'images personnalisés</h2>
-<textarea id="links" placeholder="Un lien par ligne, par exemple&#10;https://example.com/wallpaper.jpg&#10;https://une-api-d-images-aleatoires/api"></textarea>
-<p class="hint">L'adresse d'une image, une API d'images aléatoires qui renvoie une nouvelle image à chaque fois, ou une page / un JSON qui liste des adresses d'images. Le téléviseur les récupère une fois par jour et garde quelques images par lien.</p>
-<p style="margin-top:12px"><button class="primary" id="save">Enregistrer et récupérer</button></p>
-<div class="grid" id="custom"></div>
+<footer>Le code dans l'adresse de cette page est sa seule protection : toute personne qui la connaît, sur le même réseau, peut commander le téléviseur. Ne la partagez pas. Si un téléphone qui l'a ouverte est perdu, régénérez le code sur le téléviseur (Réglages de l'accueil → Page téléphone → Régénérer le code).</footer>
 
-<div class="toast" id="toast"></div>
+<nav class="tabbar" role="tablist" aria-label="Sections">
+  <button role="tab" data-tab="telecommande" aria-controls="tab-telecommande"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="5"/><circle cx="12" cy="8" r="2"/><path d="M10.5 14h3M10.5 17.5h3"/></svg>Télécommande</button>
+  <button role="tab" data-tab="fond" aria-controls="tab-fond"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-5 4 4 3-3 4 4"/></svg>Fond d'écran</button>
+  <button role="tab" data-tab="reglages" aria-controls="tab-reglages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h2M12 17h8"/><circle cx="16" cy="7" r="2.5"/><circle cx="9" cy="17" r="2.5"/></svg>Réglages</button>
+  <button role="tab" data-tab="apps" aria-controls="tab-apps"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><path d="M16.5 13.5v6M13.5 16.5h6"/></svg>Apps</button>
+</nav>
+
+<div class="toast" id="toast" role="status"></div>
 
 <script>
 const base = location.pathname.replace(/\/?$/, '/');
 let state = null;
 const $ = id => document.getElementById(id);
+const LOST = 'Téléviseur injoignable, ou code changé : scannez à nouveau le code';
+const NO_ADB = 'Autorisez d\'abord le débogage local sur le téléviseur (Réglages de l\'accueil → Débogage local)';
+const ADB_DOWN = 'Le débogage local ne répond pas : vérifiez que le débogage ADB est toujours activé sur le téléviseur';
 
-function toast(msg) {
+function toast(msg, ms) {
   const t = $('toast'); t.textContent = msg; t.classList.add('on');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200);
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), ms || 2200);
 }
+
+const TABS = { telecommande: 'Télécommande', fond: 'Fond d\'écran', reglages: 'Réglages', apps: 'Apps' };
+function showTab(id, remember) {
+  if (!TABS[id]) id = 'telecommande';
+  document.querySelectorAll('.tab').forEach(s => { s.hidden = s.dataset.tab !== id; });
+  document.querySelectorAll('.tabbar button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === id));
+  $('title').textContent = TABS[id];
+  if (remember) {
+    try { localStorage.setItem('tab', id); } catch (_) {}
+    history.replaceState(null, '', '#' + id);
+    window.scrollTo(0, 0);
+  }
+}
+document.querySelectorAll('.tabbar button').forEach(b => { b.onclick = () => showTab(b.dataset.tab, true); });
+(() => {
+  let first = location.hash.slice(1);
+  if (!TABS[first]) { try { first = localStorage.getItem('tab') || ''; } catch (_) { first = ''; } }
+  showTab(first, false);
+})();
+
+function showAdb(missing) { document.querySelectorAll('.adbNote').forEach(n => { n.hidden = !missing; }); }
 
 async function post(path, data) {
   const r = await fetch(base + path, { method: 'POST', body: new URLSearchParams(data) });
   if (!r.ok) throw new Error(await r.text());
   render(await r.json());
 }
+
+/** The remote: no state to redraw, just whether the TV took it. */
+async function send(path, data) {
+  try {
+    const r = await fetch(base + path, { method: 'POST', body: new URLSearchParams(data), keepalive: true });
+    if (!r.ok) { toast(r.status === 404 ? LOST : 'Refusé par le téléviseur'); return null; }
+    const res = await r.json();
+    if (res.ok) showAdb(false);
+    else if (res.reason === 'adb') { showAdb(true); toast(NO_ADB, 4000); }
+    else if (res.reason === 'unreachable') toast(ADB_DOWN, 4000);
+    else if (res.reason === 'empty') toast('Aucun caractère transmissible dans ce texte');
+    return res;
+  } catch (_) { toast(LOST); return null; }
+}
+
+/** Lights the button for a moment: on the press itself, not when the TV answers. */
+function flash(b) {
+  b.classList.add('on');
+  clearTimeout(b.offTimer); b.offTimer = setTimeout(() => b.classList.remove('on'), 140);
+}
+
+function press(b) {
+  flash(b);
+  if (navigator.vibrate) navigator.vibrate(8);
+  send('api/key', { key: b.dataset.key });
+}
+
+// A tap sends one key; keeping a finger on an arrow, the volume or Effacer repeats it.
+document.querySelectorAll('[data-key]').forEach(b => {
+  let wait = 0, every = 0, down = false, repeated = false;
+  const stop = () => { clearTimeout(wait); clearInterval(every); wait = every = 0; };
+  b.addEventListener('pointerdown', () => {
+    stop(); down = true; repeated = false;
+    clearTimeout(b.offTimer); b.classList.add('on');
+    if (b.hasAttribute('data-repeat')) wait = setTimeout(() => {
+      repeated = true; press(b);
+      every = setInterval(() => press(b), 180);
+    }, 450);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => b.addEventListener(t, () => {
+    if (!down) return;
+    down = false; stop(); flash(b);
+  }));
+  b.addEventListener('click', e => {
+    e.preventDefault();
+    if (repeated) { repeated = false; return; }
+    press(b);
+  });
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+
+$('typeForm').onsubmit = async e => {
+  e.preventDefault();
+  const input = $('typeText'); if (!input.value) return;
+  const res = await send('api/text', { text: input.value });
+  if (res && res.ok) { input.value = ''; toast('Texte envoyé'); }
+};
 
 function photos(el, source, names) {
   el.innerHTML = '';
@@ -144,6 +350,7 @@ function photos(el, source, names) {
 
 function render(s) {
   state = s;
+  showAdb(!s.adb);
   const bg = $('backgrounds'); bg.innerHTML = '';
   for (const o of [...s.sources, ...s.themes]) {
     const b = document.createElement('button'); b.textContent = o.label;
@@ -232,6 +439,36 @@ $('iconFile').onchange = async e => {
   e.target.value = '';
 };
 
+// XMLHttpRequest rather than fetch: it reports upload progress, and an APK can take a minute to send.
+$('apkFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const pick = $('pickApk'), status = $('apkStatus');
+  // Fresh: local debugging may have been authorised on the TV since the page loaded.
+  await refresh();
+  if (state && !state.adb) { status.textContent = NO_ADB + '.'; return; }
+  if (f.size > 200 * 1048576) { status.textContent = 'Fichier trop volumineux : 200 Mo au maximum.'; return; }
+  pick.classList.add('busy'); pick.firstChild.textContent = 'Envoi…';
+  status.textContent = 'Envoi de ' + f.name + '…';
+  const done = r => {
+    pick.classList.remove('busy'); pick.firstChild.textContent = 'Choisir un fichier APK';
+    if (!r) { status.textContent = 'Échec : ' + LOST + '.'; toast('Échec de l\'envoi'); return; }
+    if (r.reason === 'adb') { showAdb(true); status.textContent = NO_ADB + '.'; return; }
+    if (r.reason === 'unreachable') { status.textContent = ADB_DOWN + '.'; return; }
+    status.textContent = (r.ok ? '✓ ' : 'Échec : ') + r.message;
+    toast(r.ok ? r.message : 'Installation refusée : détails sous le bouton', r.ok ? 2600 : 4000);
+  };
+  const fd = new FormData(); fd.append('apk', f, f.name);
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', base + 'api/apk/upload');
+  xhr.upload.onprogress = ev => {
+    if (ev.lengthComputable) status.textContent = 'Envoi de ' + f.name + ' : ' + Math.floor(ev.loaded * 100 / ev.total) + ' %';
+  };
+  xhr.upload.onload = () => { pick.firstChild.textContent = 'Installation…'; status.textContent = 'Installation sur le téléviseur…'; };
+  xhr.onload = () => { let r = null; try { r = JSON.parse(xhr.responseText); } catch (_) {} done(r); };
+  xhr.onerror = () => done(null);
+  xhr.send(fd);
+};
+
 $('save').onclick = async () => {
   await post('api/links', { links: $('links').value });
   toast(state.links ? 'Enregistré : le téléviseur récupère les images' : 'Liens effacés');
@@ -242,7 +479,16 @@ $('save').onclick = async () => {
   }, 4000);
 };
 
-fetch(base + 'api/state').then(r => r.json()).then(render).catch(() => toast('Téléviseur injoignable : scannez à nouveau le code'));
+async function refresh() {
+  try {
+    const r = await fetch(base + 'api/state');
+    if (!r.ok) throw new Error(r.status);
+    render(await r.json());
+  } catch (_) { toast(LOST, 4000); }
+}
+refresh();
+// The page stays open on the phone for days; coming back to it shows the TV as it is now.
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
 </script>
 </body>
 </html>

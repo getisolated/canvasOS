@@ -74,7 +74,10 @@ class SettingsActivity : Activity() {
     /** The main-page row that opened the current sub-page, focused again on the way back. */
     private var opener = 0
 
-    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED }
+    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE }
+
+    /** "Régénérer le code" was pressed while this screen was open. */
+    private var tokenRenewed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -138,6 +141,7 @@ class SettingsActivity : Activity() {
                 prefs.hidden = if (on) prefs.hidden + pkg else prefs.hidden - pkg
             }
             Page.REMOVED -> removedApps()
+            Page.PHONE -> phonePage()
         }
         list.post {
             val target = list.getChildAt(focusIndex.coerceIn(0, maxOf(list.childCount - 1, 0)))
@@ -337,6 +341,21 @@ class SettingsActivity : Activity() {
             show(Page.REMOVED)
         }
 
+        section("Page téléphone")
+        row("Afficher le QR code", "Scannez-le avec un téléphone sur le même Wi-Fi. La page qui s'ouvre sert de télécommande avec clavier, choisit le fond d'écran, " +
+            "l'économiseur et l'animation de démarrage, importe des photos et installe des apps (APK). La télécommande et l'installation d'apps demandent le débogage local.",
+            { "" }, chevron = true) { show(Page.PHONE) }
+        row("Régénérer le code", "Change le code secret de l'adresse : les téléphones qui connaissaient l'ancienne ne peuvent plus s'en servir et doivent scanner à nouveau. " +
+            "Faites-le si un téléphone qui a ouvert la page est perdu.", { if (tokenRenewed) "Nouveau code créé" else "" }) {
+            PhoneServer.regenerate(this)
+            tokenRenewed = true
+        }
+        row("Page téléphone", "Le code dans l'adresse est la seule protection : toute personne qui le connaît, sur le même réseau, peut commander le téléviseur. " +
+            "Désactivée, la page ne répond plus du tout.", { onOff(prefs.phoneServer) }) {
+            prefs.phoneServer = !prefs.phoneServer
+            KeeperService.start(this)
+        }
+
         section("Système")
         row("Débogage local", "Permet à l'accueil d'éteindre le téléviseur, de libérer la mémoire, etc. via le débogage local. Dans la fenêtre qui s'affiche, choisissez « Toujours autoriser ».",
             { if (prefs.adbAuthorized) "Autorisé" else "Non autorisé, appuyez sur OK" }) { v ->
@@ -405,6 +424,46 @@ class SettingsActivity : Activity() {
                     runOnUiThread { v.text = if (ok) "Restaurée" else "Échec" }
                 }.start()
             }
+        }
+    }
+
+    /** The phone page's QR code, large enough to scan from the sofa, with its address. */
+    private fun phonePage() {
+        heading.text = "Page téléphone"
+        about.text = "Sur le même Wi-Fi, scannez le code avec l'appareil photo d'un téléphone ; la page reste accessible à tout moment. " +
+            "Télécommande et clavier, fond d'écran, économiseur, animation de démarrage, installation d'apps (APK).\n" +
+            "Le code dans l'adresse est la seule protection : régénérez-le si un téléphone qui a ouvert la page est perdu ; " +
+            "les téléphones qui connaissaient l'ancien devront scanner à nouveau."
+        val qr = ImageView(this).apply {
+            background = rounded(Color.WHITE, dp(14).toFloat())
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        val address = text(15f, Color.argb(170, 255, 255, 255)).apply { gravity = Gravity.CENTER_HORIZONTAL }
+        list.addView(qr, LinearLayout.LayoutParams(dp(250), dp(250)).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        list.addView(address, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14); bottomMargin = dp(18) })
+        fun load() {
+            address.text = "Démarrage…"
+            Thread {
+                // Usually already running (KeeperService); the address is read again, Wi-Fi may have changed.
+                PhoneServer.start(applicationContext)
+                val url = PhoneServer.url(applicationContext)
+                val bmp = url?.let { PhoneServer.qr(it) }
+                val off = if (url == null) PhoneServer.unavailable(applicationContext) else null
+                runOnUiThread {
+                    qr.setImageBitmap(bmp)
+                    qr.visibility = if (bmp != null) android.view.View.VISIBLE else android.view.View.GONE
+                    address.text = url ?: off
+                }
+            }.start()
+        }
+        load()
+        // No description of its own: the page's explanation stays under the icon.
+        row("Régénérer le code", null, { "" }) { v ->
+            PhoneServer.regenerate(this)
+            tokenRenewed = true
+            v.text = "Nouveau code créé"
+            load()
         }
     }
 

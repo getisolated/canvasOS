@@ -19,8 +19,8 @@ import java.util.concurrent.Executors
 
 /**
  * The 壁纸 app: every background as a picture to pick with one press, and beside it the QR code
- * for the phone page ([PhoneServer]), which runs while this is open and for five minutes after so
- * photos still on their way arrive. Changes made on the phone show up here as they happen.
+ * for the phone page ([PhoneServer], kept running by [KeeperService]). Changes made on the phone
+ * show up here as they happen.
  */
 class WallpaperActivity : Activity() {
     private val prefs by lazy { Prefs(this) }
@@ -106,7 +106,7 @@ class WallpaperActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             addView(text(20f, bold = true).apply { text = "Depuis un téléphone" })
             addView(text(15f, Color.argb(190, 255, 255, 255)).apply {
-                text = "Sur le même Wi-Fi, scannez le code avec l'appareil photo du téléphone : importez des photos ou ajoutez des liens d'images (une image, une API d'images aléatoires, une page ou un JSON qui liste des images). Le téléviseur les récupère chaque jour."
+                text = "Sur le même Wi-Fi, scannez le code avec l'appareil photo du téléphone : importez des photos ou ajoutez des liens d'images (une image, une API d'images aléatoires, une page ou un JSON qui liste des images). Le téléviseur les récupère chaque jour. La même page sert aussi de télécommande."
                 setLineSpacing(0f, 1.25f)
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10); bottomMargin = dp(18) })
             addView(qr, LinearLayout.LayoutParams(dp(220), dp(220)))
@@ -125,13 +125,16 @@ class WallpaperActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
-        stopLater.removeCallbacks(stop)
         address.text = "Démarrage…"
         io.execute {
-            val url = PhoneServer.start(this)
-            val bmp = url?.let { PhoneServer.qr(it) }
+            // Usually already running (KeeperService); the address is read again, Wi-Fi may have changed.
+            PhoneServer.start(this)
+            val url = PhoneServer.url(this)
+            // Opens the page on its wallpaper tab.
+            val bmp = url?.let { PhoneServer.qr("$it#fond") }
+            val off = if (url == null) PhoneServer.unavailable(this) else null
             main.post {
-                address.text = url ?: "Le téléviseur n'est pas connecté au réseau. Connectez-le, puis rouvrez cette page."
+                address.text = url ?: off
                 qr.setImageBitmap(bmp)
             }
         }
@@ -141,7 +144,6 @@ class WallpaperActivity : Activity() {
 
     override fun onStop() {
         main.removeCallbacks(poll)
-        stopLater.postDelayed(stop, 5 * 60_000L)
         super.onStop()
     }
 
@@ -196,10 +198,5 @@ class WallpaperActivity : Activity() {
             Wallpapers(this, key).refresh(force = true)
             counts = ""
         }
-    }
-
-    companion object {
-        private val stopLater = Handler(Looper.getMainLooper())
-        private val stop = Runnable { Thread { PhoneServer.stop() }.start() }
     }
 }
