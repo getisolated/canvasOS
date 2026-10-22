@@ -19,6 +19,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 fun Context.dp(v: Number): Int = (v.toFloat() * resources.displayMetrics.density + 0.5f).toInt()
@@ -164,7 +165,11 @@ fun Context.text(sizeSp: Float, color: Int = Color.WHITE, bold: Boolean = false,
  * dark text and a slight lift when focused.
  */
 class PillButton(ctx: Context, label: String, iconRes: Int? = null, val onClick: () -> Unit) : LinearLayout(ctx) {
-    private val tv = ctx.text(17f, bold = true).apply { text = label }
+    private val tv = ctx.text(17f, bold = true).apply {
+        text = label
+        maxLines = 1
+        ellipsize = android.text.TextUtils.TruncateAt.END
+    }
     private val icon: ImageView? = iconRes?.let { ImageView(ctx).apply { setImageResource(it) } }
     private val idle = rounded(Color.argb(46, 255, 255, 255), dp(14).toFloat())
     private val focus = rounded(Color.WHITE, dp(14).toFloat())
@@ -186,6 +191,8 @@ class PillButton(ctx: Context, label: String, iconRes: Int? = null, val onClick:
             tweenScale(if (f) 1.06f else 1f, 160, z = if (f) dp(10).toFloat() else 0f)
         }
     }
+
+    fun setLabel(label: CharSequence) { tv.text = label }
 }
 
 /**
@@ -206,6 +213,20 @@ class Sheet(private val host: FrameLayout) {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
     }
+    /**
+     * Scrolls the stack when it is taller than the screen (a list of apps to pick); the focused
+     * button is scrolled into view. The padding is room for a focused button's zoom and lift: the
+     * stack may draw into it, and the sheet clips the whole at the padding's edge.
+     */
+    private val scroll = ScrollView(ctx).apply {
+        isVerticalScrollBarEnabled = false
+        overScrollMode = View.OVER_SCROLL_NEVER
+        clipToPadding = false
+        clipChildren = false
+        val pad = ctx.dp(SCROLL_PAD)
+        setPadding(pad, pad, pad, pad)
+        addView(col)
+    }
     private val title = ctx.text(28f, bold = true).apply { gravity = Gravity.CENTER }
     private val message = ctx.text(16f, Color.argb(180, 255, 255, 255)).apply {
         gravity = Gravity.CENTER
@@ -219,7 +240,7 @@ class Sheet(private val host: FrameLayout) {
         col.addView(message, LinearLayout.LayoutParams(ctx.dp(520), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = ctx.dp(12); bottomMargin = ctx.dp(28)
         })
-        root.addView(col, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        root.addView(scroll, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         root.setOnKeyListener { _, code, e ->
             if (code == KeyEvent.KEYCODE_BACK && e.action == KeyEvent.ACTION_UP) { dismiss(); true } else false
         }
@@ -235,6 +256,22 @@ class Sheet(private val host: FrameLayout) {
         val b = PillButton(ctx, label, icon) {
             if (!keepOpen) dismiss()
             action()
+        }
+        col.addView(b, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(52)).apply { topMargin = ctx.dp(12) })
+    }
+
+    /**
+     * A button that ticks itself on and off ("✓  " before [label]) and leaves the sheet open, for
+     * picking several things from a list; [changed] gets the new state.
+     */
+    fun toggle(label: String, on: Boolean, icon: Int? = null, changed: (Boolean) -> Unit) = apply {
+        var state = on
+        fun shown() = if (state) "✓  $label" else label
+        lateinit var b: PillButton
+        b = PillButton(ctx, shown(), icon) {
+            state = !state
+            b.setLabel(shown())
+            changed(state)
         }
         col.addView(b, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(52)).apply { topMargin = ctx.dp(12) })
     }
@@ -286,9 +323,9 @@ class Sheet(private val host: FrameLayout) {
         col.addView(f, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(56)).apply { topMargin = ctx.dp(12); bottomMargin = ctx.dp(8) })
         button("OK") { done(f.text.toString()) }
         button("Annuler") {}
-        (col.layoutParams as FrameLayout.LayoutParams).apply {
+        (scroll.layoutParams as FrameLayout.LayoutParams).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            topMargin = ctx.dp(56)
+            topMargin = ctx.dp(56 - SCROLL_PAD)
         }
     }
 
@@ -318,4 +355,8 @@ class Sheet(private val host: FrameLayout) {
 
     /** Back is delivered to the focused child, so buttons forward it here. */
     fun handlesBack(): Boolean { dismiss(); return true }
+
+    private companion object {
+        const val SCROLL_PAD = 24
+    }
 }

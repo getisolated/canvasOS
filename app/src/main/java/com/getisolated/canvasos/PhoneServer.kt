@@ -207,7 +207,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("tmdbKey", prefs.tmdbKey.isNotEmpty())
 
     /**
-     * The Apps tab: the grid's apps in grid order, then the hidden ones by name. `tile` says whether
+     * The Apps tab: the grid's apps in grid order (a folder's apps in its place), then the hidden ones by name. `tile` says whether
      * the app can take a picture of the user's (not canvasOS's own screens nor TV inputs); `v`
      * changes with the tile, so the phone fetches a new thumbnail rather than its cached one.
      */
@@ -216,7 +216,8 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         known = all.associateBy { it.pkg }
         val hidden = prefs.hidden
         val collator = java.text.Collator.getInstance(java.util.Locale.FRANCE)
-        val list = repo.orderedVisible(all) + all.filter { it.pkg in hidden }.sortedWith { a, b -> collator.compare(a.label, b.label) }
+        val list = repo.orderedVisible(all).flatMap { it.folder ?: listOf(it) } +
+            all.filter { it.pkg in hidden }.sortedWith { a, b -> collator.compare(a.label, b.label) }
         return JSONObject().put("apps", JSONArray().apply {
             for (a in list) put(JSONObject()
                 .put("id", a.pkg)

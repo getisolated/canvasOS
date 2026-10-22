@@ -33,6 +33,10 @@ data class AppEntry(
     val originalLabel: String = label,
     /** Version of the user's own tile picture ([AppRepo.customTileFile]), 0 for none: a new one makes the grid redraw the tile. */
     val tileStamp: Long = 0L,
+    /** Set for a folder ([Folders]): the apps it shows, in its order; then [pkg] is its [Folders.key]. */
+    val folder: List<AppEntry>? = null,
+    /** A folder's version: its mosaic's apps and their tiles. A new one redraws the folder's tile ([AppRepo.tileKey]). */
+    val stamp: Long = 0L,
 )
 
 /** The user's names for grid entries, kept in [Prefs.labels] as a JSON object (grid key → name). */
@@ -127,14 +131,27 @@ class AppRepo(private val ctx: Context) {
         }
     }
 
-    /** Visible apps in user order; new apps go to the end. */
+    /**
+     * The grid: visible apps and folders in user order; new apps go to the end. An app in a folder
+     * shows in the folder only. Hiding still wins: a hidden app stays in its folder's list but shows
+     * nowhere, and an uninstalled one is left out of its folder (it comes back if reinstalled).
+     */
     fun orderedVisible(apps: List<AppEntry> = allApps()): List<AppEntry> {
         val hidden = prefs.hidden
         var order = prefs.order
         if (order.isEmpty()) order = Prefs.DEFAULT_ORDER
         val rank = order.withIndex().associate { it.value to it.index }
         val collator = Collator.getInstance(Locale.FRANCE)
-        return apps.filter { it.pkg !in hidden }
+        val folders = prefs.folderList()
+        val inFolder = Folders.members(folders)
+        val byKey = apps.associateBy { it.pkg }
+        val st = stamps
+        val home = ComponentName(ctx, HomeActivity::class.java)
+        val folderEntries = folders.map { f ->
+            val shown = f.apps.mapNotNull { byKey[it] }.filter { it.pkg !in hidden }
+            AppEntry(Folders.key(f.id), f.name, home, false, folder = shown, stamp = folderStamp(shown, st))
+        }
+        return (apps.filter { it.pkg !in hidden && it.pkg !in inFolder } + folderEntries)
             .sortedWith(compareBy<AppEntry> { rank[it.pkg] ?: Int.MAX_VALUE }
                 .thenBy { if (isSystem(it.pkg)) 1 else 0 }
                 .thenComparator { a, b -> collator.compare(a.label, b.label) })
@@ -146,7 +163,7 @@ class AppRepo(private val ctx: Context) {
     /** A screen of canvasOS itself or a pinned input: it can be moved and hidden, not deleted. */
     fun isOwn(pkg: String) = pkg == ctx.packageName || pkg.startsWith(ctx.packageName + ":") || InputTile.isInput(pkg)
 
-    fun isSystem(pkg: String): Boolean = if (InputTile.isInput(pkg)) false else try {
+    fun isSystem(pkg: String): Boolean = if (InputTile.isInput(pkg) || Folders.isFolder(pkg)) false else try {
         (pm.getApplicationInfo(pkg, 0).flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
     } catch (e: PackageManager.NameNotFoundException) { false }
 
@@ -174,7 +191,7 @@ class AppRepo(private val ctx: Context) {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
     }
 
-    fun cachedTile(pkg: String): Bitmap? = tiles.get(tileKey(pkg))
+    fun cachedTile(app: AppEntry): Bitmap? = tiles.get(tileKey(app))
 
     /**
      * The settings tile is keyed by its custom icon's date too, and an app with a picture of the
@@ -186,15 +203,32 @@ class AppRepo(private val ctx: Context) {
         else -> st[pkg]?.let { "$pkg@$it" } ?: pkg
     }
 
+    /** [tileKey] of a grid entry; a folder's changes with its [AppEntry.stamp]. */
+    fun tileKey(app: AppEntry, st: Map<String, Long> = stamps): String =
+        if (app.folder != null) "${app.pkg}@${app.stamp}" else tileKey(app.pkg, st)
+
+    /** A hash of the apps a folder's mosaic shows and of their tiles' keys (a new picture, the settings icon). */
+    private fun folderStamp(shown: List<AppEntry>, st: Map<String, Long>): Long =
+        shown.take(MOSAIC).fold(17L) { h, m -> h * 1_000_003L + tileKey(m.pkg, st).hashCode() }
+
     /** Builds the tile bitmap; call off the main thread. [keep] false leaves it out of the cache (the phone page's thumbnails). */
     fun tile(app: AppEntry, keep: Boolean = true): Bitmap {
         // One snapshot for the key and the picture: a plain key never holds the user's picture.
         val st = stamps
-        val key = tileKey(app.pkg, st)
+        val key = tileKey(app, st)
         tiles.get(key)?.let { return it }
         val bmp = Bitmap.createBitmap(TILE_W, TILE_H, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         app.input?.let { drawInputTile(c, it); if (keep) tiles.put(key, bmp); return bmp }
+        app.folder?.let { members ->
+            drawFolderTile(c, members)
+            if (keep) {
+                // The folder's earlier versions will not be shown again.
+                tiles.snapshot().keys.filter { it.startsWith("${app.pkg}@") }.forEach { tiles.remove(it) }
+                tiles.put(key, bmp)
+            }
+            return bmp
+        }
         val own = if (app.component.className == SettingsActivity::class.java.name)
             SettingsActivity.customIcon(ctx)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
         else if (app.pkg in st)
@@ -214,10 +248,14 @@ class AppRepo(private val ctx: Context) {
         return bmp
     }
 
-    /** Drops the cached tile of [pkg] (it was updated or removed), whatever picture it was drawn with, or of every app. */
+    /**
+     * Drops the cached tile of [pkg] (it was updated or removed), whatever picture it was drawn with,
+     * and of the folder whose mosaic shows it; or of every app.
+     */
     fun invalidate(pkg: String? = null) {
         if (pkg == null) { tiles.evictAll(); return }
-        tiles.snapshot().keys.filter { it == pkg || it.startsWith("$pkg@") }.forEach { tiles.remove(it) }
+        val keys = listOf(pkg) + prefs.folderList().filter { pkg in it.apps }.map { Folders.key(it.id) }
+        tiles.snapshot().keys.filter { k -> keys.any { k == it || k.startsWith("$it@") } }.forEach { tiles.remove(it) }
     }
 
     private fun drawCenterCrop(c: Canvas, d: Drawable) {
@@ -261,13 +299,18 @@ class AppRepo(private val ctx: Context) {
         crop.recycle(); blurred.recycle(); src.recycle()
     }
 
-    /** An input tile: a dark glass card with the input glyph and its name, like tvOS's own inputs. */
-    private fun drawInputTile(c: Canvas, i: Input) {
-        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    /** The dark glass card under input and folder tiles. */
+    private fun drawGlassCard(c: Canvas, p: Paint) {
         p.shader = android.graphics.LinearGradient(0f, 0f, TILE_W.toFloat(), TILE_H.toFloat(),
             Color.rgb(58, 64, 82), Color.rgb(22, 24, 32), android.graphics.Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, TILE_W.toFloat(), TILE_H.toFloat(), p)
         p.shader = null
+    }
+
+    /** An input tile: a dark glass card with the input glyph and its name, like tvOS's own inputs. */
+    private fun drawInputTile(c: Canvas, i: Input) {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        drawGlassCard(c, p)
         val glyph = ctx.getDrawable(R.drawable.ic_input)!!.mutate()
         glyph.setTint(Color.WHITE)
         val g = 64
@@ -286,6 +329,57 @@ class AppRepo(private val ctx: Context) {
         }
     }
 
+    /**
+     * A folder, as on tvOS: the glass card with its first four apps' own tiles in a 2×2 mosaic. The
+     * places left empty stay as faint wells, so a folder of one still reads as a folder. Builds the
+     * members' tiles it needs (and caches them for when the folder opens); off the main thread.
+     */
+    private fun drawFolderTile(c: Canvas, members: List<AppEntry>) {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        drawGlassCard(c, p)
+        // 16:9 places as tall as the card allows, centred.
+        val gap = 12f
+        val padY = 20f
+        val h = (TILE_H - padY * 2 - gap) / 2
+        val w = h * 16f / 9f
+        val left = (TILE_W - w * 2 - gap) / 2
+        val r = 11f
+        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(110, 0, 0, 0)
+            maskFilter = android.graphics.BlurMaskFilter(7f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        val m = android.graphics.Matrix()
+        for (k in 0 until MOSAIC) {
+            val x = left + (k % 2) * (w + gap)
+            val y = padY + (k / 2) * (h + gap)
+            val dst = RectF(x, y, x + w, y + h)
+            val app = members.getOrNull(k)
+            if (app == null) {
+                p.color = Color.argb(30, 255, 255, 255)
+                c.drawRoundRect(dst, r, r, p)
+                continue
+            }
+            c.drawRoundRect(RectF(dst).apply { offset(0f, 3f) }, r, r, shadow)
+            val src = tile(app)
+            // A shader rather than a clip: Canvas clips are not anti-aliased, the rounded rect is.
+            p.shader = android.graphics.BitmapShader(src, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP).apply {
+                m.setRectToRect(RectF(0f, 0f, src.width.toFloat(), src.height.toFloat()), dst, android.graphics.Matrix.ScaleToFit.FILL)
+                setLocalMatrix(m)
+            }
+            c.drawRoundRect(dst, r, r, p)
+            p.shader = null
+        }
+        // The rim: light catching the card's top-left edge, fading along it. The cell rounds the corners
+        // (dp(11) on a tile about 15 % of the screen wide, some 30 px of this bitmap).
+        p.style = Paint.Style.STROKE
+        p.strokeWidth = 3f
+        p.shader = android.graphics.LinearGradient(0f, 0f, TILE_W * 0.7f, TILE_H.toFloat(),
+            Color.argb(120, 255, 255, 255), Color.argb(16, 255, 255, 255), android.graphics.Shader.TileMode.CLAMP)
+        c.drawRoundRect(RectF(1.5f, 1.5f, TILE_W - 1.5f, TILE_H - 1.5f), 30f, 30f, p)
+        p.shader = null
+        p.style = Paint.Style.FILL
+    }
+
     companion object {
         private const val CATEGORY_APPSTORE_LAUNCHER = "android.intent.category.APPSTORE_LAUNCHER"
         private val UNLISTED_ENTRIES = listOf(
@@ -294,6 +388,8 @@ class AppRepo(private val ctx: Context) {
         )
         const val TILE_W = 400
         const val TILE_H = 225
+        /** Apps a folder's tile shows. */
+        const val MOSAIC = 4
 
         /** Folder of the user's tile pictures, `<package>.jpg`, in app storage and in Android/data/…/files. */
         const val TILES_DIR = "tiles"

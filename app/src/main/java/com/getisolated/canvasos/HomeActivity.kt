@@ -97,6 +97,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private val cols = 5
     private var tileW = 0
     private var tileH = 0
+    /** Space between two tiles of a row. */
+    private var gridGap = 0
     private var rowPitch = 0
     private var firstRowY = 0
     /** Where the focused row sits once the grid is expanded below the dock. */
@@ -166,6 +168,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     /** Position being dragged in "edit home screen" mode, or -1. */
     private var moving = -1
 
+    /** The folder open over the grid ([FolderOverlay]), or null. */
+    private var folderView: FolderOverlay? = null
+
     private val pkgReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             val pkg = i.data?.schemeSpecificPart
@@ -190,7 +195,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private fun checkCustomTiles() {
         io.execute {
             AppRepo.scanCustomTiles(this)
-            main.post { if (adapter.apps.any { it.tileStamp != AppRepo.tileStamp(it.pkg) }) reload() }
+            main.post { if (adapter.apps.any { e -> (e.folder ?: listOf(e)).any { it.tileStamp != AppRepo.tileStamp(it.pkg) } }) reload() }
         }
     }
 
@@ -275,6 +280,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (!preview) prefs.introBoot = Intro.bootStamp(this)
         sheets.toList().forEach { it.dismiss() }
         control.close()
+        closeFolder(animate = false)
         intro = Intro(this, root, scene, prefs.introSound) {
             intro = null
             if (sheets.isEmpty() && !control.isOpen) focusAt(focusedPos)
@@ -311,6 +317,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         // Proportions measured from a 1920×1080 tvOS 26 screenshot.
         val side = (sw * 0.0583f).toInt()          // 112 px
         val gap = (sw * 0.0292f).toInt()           // 56 px
+        gridGap = gap
         tileW = (sw - side * 2 - gap * (cols - 1)) / cols
         tileH = tileW * 9 / 16
         rowPitch = (sh * 0.2463f).toInt()          // 266 px
@@ -711,11 +718,12 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         netButton.alpha = if (caps == null) 0.4f else 1f
     }
 
-    /** Pins a TV input to the grid, or takes it off. */
+    /** Pins a TV input to the grid, or takes it off (out of its folder too, so it does not come back there). */
     fun pinInput(i: Input, on: Boolean) {
         val enc = InputTile.encode(i)
         prefs.pinnedInputs = prefs.pinnedInputs.filter { InputTile.decode(it)?.uri != i.uri }.toSet() + if (on) setOf(enc) else emptySet()
         if (on) prefs.hidden = prefs.hidden - InputTile.key(i)
+        else prefs.editFolders { Folders.remove(it, InputTile.key(i)) }
         reload()
     }
 
@@ -728,10 +736,16 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                 val focusedPkg = adapter.apps.getOrNull(focusedPos)?.pkg
                 adapter.submit(list, changed)
                 val idx = list.indexOfFirst { it.pkg == focusedPkg }.coerceAtLeast(0)
+                // An open folder follows the grid; one that was deleted or emptied closes.
+                folderView?.let { fv ->
+                    val f = list.firstOrNull { it.pkg == fv.key }
+                    if (f == null || f.folder.isNullOrEmpty()) closeFolder()
+                    else fv.update(f, changed, focus = sheets.isEmpty() && !control.isOpen)
+                }
                 grid.post {
                     // On first show the header buttons grab default focus; the grid should have it.
                     val headerOk = header.hasFocus() && !firstFocus
-                    if (!grid.hasFocus() && !headerOk && sheets.isEmpty() && !control.isOpen) focusAt(idx)
+                    if (!grid.hasFocus() && !headerOk && sheets.isEmpty() && !control.isOpen && folderView == null) focusAt(idx)
                     firstFocus = false
                     // A new list can leave the grid between rows; put the focused row back where it belongs.
                     grid.post { grid.focusedChild?.let { grid.layoutManager?.requestChildRectangleOnScreen(grid, it, Rect(), false, true) } }
@@ -765,8 +779,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         val app = adapter.apps.getOrNull(pos)
         val pkg = app?.pkg
         main.removeCallbacks(shelfShow)
-        // Shelf.has is cheap; what there is to show is found off the main thread (showShelf).
-        if (pos < cols && pkg != null && app.input == null && pkg != packageName && moving < 0 && Shelf.has(this, pkg)) {
+        // Shelf.has is cheap; what there is to show is found off the main thread (showShelf). Inputs and folders have none.
+        if (pos < cols && pkg != null && app.input == null && app.folder == null && pkg != packageName && moving < 0 && Shelf.has(this, pkg)) {
             if (pkg != shelfPkg || !shelfShown) {
                 if (shelfShown) hideShelf()
                 pendingShelf = pkg
@@ -779,17 +793,26 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     override fun onTileClicked(pos: Int, cell: TileCell) {
         if (moving >= 0) { endMove(); return }
         val app = adapter.apps.getOrNull(pos) ?: return
+        if (app.folder != null) { openFolder(pos); return }
+        launch(app, cell, app.pkg)
+    }
+
+    /**
+     * Opens [app] from its tile, or switches to it for a TV input. [recent] is what "Récents" brings
+     * to the front once it has opened: the app itself, or the folder it was opened from.
+     */
+    private fun launch(app: AppEntry, cell: TileCell, recent: String) {
         app.input?.let { i -> io.execute { tv.setInput(i) }; return }
         // The stock launcher (Xiaomi's PatchWall) can only be opened through the system Home action.
         if (HomeGuardService.isStockHome(app.pkg) && HomeGuardService.openStockLauncher()) {
-            rememberOpened(app.pkg)
+            rememberOpened(recent)
             return
         }
         val intent = repo.launchIntent(app) ?: return
         val opts = ActivityOptions.makeScaleUpAnimation(cell.card, 0, 0, cell.card.width, cell.card.height)
         try {
             startActivity(intent, opts.toBundle())
-            rememberOpened(app.pkg)
+            rememberOpened(recent)
         } catch (e: Exception) {
             Toast.makeText(this, "Impossible d'ouvrir ${app.label}", Toast.LENGTH_SHORT).show()
         }
@@ -810,17 +833,21 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     override fun onTileLongPressed(pos: Int, cell: TileCell) {
         if (moving >= 0) return
         val app = adapter.apps.getOrNull(pos) ?: return
+        if (app.folder != null) { folderMenu(app, pos); return }
         app.input?.let { i ->
-            showSheet(Sheet(root).title(app.label).message(null)
+            val s = Sheet(root).title(app.label).message(null)
                 .button("Modifier l'accueil") { startMove(pos) }
                 .button("Renommer") { rename(app, pos) }
-                .button("Retirer de l'accueil") { pinInput(i, false) }
+            // An input opens from a folder like from the grid.
+            folderButtons(s, app, pos)
+            showSheet(s.button("Retirer de l'accueil") { pinInput(i, false) }
                 .button("Annuler") {}, restoreFocusTo = pos)
             return
         }
         val s = Sheet(root).title(app.label).message(null)
             .button("Modifier l'accueil") { startMove(pos) }
             .button("Renommer") { rename(app, pos) }
+        folderButtons(s, app, pos)
         // A picture of the user's, from the phone page or pushed over adb (AppRepo.customTileFile).
         if (app.tileStamp != 0L) s.button("Image d'origine") {
             repo.invalidate(app.pkg)
@@ -837,17 +864,140 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             showSheet(s.button("Annuler") {}, restoreFocusTo = pos)
             return
         }
-        s.button("Infos sur l'app") {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.pkg}"))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }
+        s.button("Infos sur l'app") { appInfo(app) }
         if (!repo.isEssential(app.pkg)) s.button("Supprimer l'app") { confirmDelete(app, pos) }
         s.button("Annuler") {}
         showSheet(s, restoreFocusTo = pos)
     }
 
+    private fun appInfo(app: AppEntry) {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.pkg}"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    // ----------------------------------------------------------------- folders
+
+    /** "Nouveau dossier…" and, once there are folders, "Ajouter au dossier…", for the entry at [pos] of the grid. */
+    private fun folderButtons(s: Sheet, app: AppEntry, pos: Int) {
+        s.button("Nouveau dossier…") { newFolder(app, pos) }
+        if (adapter.apps.any { it.folder != null }) s.button("Ajouter au dossier…") { pickFolder(app, pos) }
+    }
+
+    /** A folder named on the TV's keyboard ("Dossier" when left empty), in [app]'s place on the grid, with [app] in it. */
+    private fun newFolder(app: AppEntry, pos: Int) {
+        showSheet(Sheet(root).title("Nouveau dossier").message("Le dossier prend la place de « ${app.label} » sur l'accueil, avec l'app dedans.")
+            .input("", Folders.DEFAULT_NAME) { name ->
+                val id = Folders.newId(prefs.folderList().map { it.id })
+                prefs.editFolders { Folders.create(it, id, name, listOf(app.pkg)) }
+                prefs.order = Folders.orderReplacing(adapter.apps.map { it.pkg }, prefs.order, app.pkg, listOf(Folders.key(id)))
+                reload()
+            }, restoreFocusTo = pos)
+    }
+
+    private fun pickFolder(app: AppEntry, pos: Int) {
+        val s = Sheet(root).title("Ajouter au dossier").message("« ${app.label} » quitte l'accueil pour le dossier choisi.")
+        for (f in adapter.apps.filter { it.folder != null }) s.button(f.label) {
+            Folders.idOf(f.pkg)?.let { id -> prefs.editFolders { Folders.add(it, id, app.pkg) } }
+            reload()
+        }
+        showSheet(s.button("Annuler") {}, restoreFocusTo = pos)
+    }
+
+    private fun folderMenu(f: AppEntry, pos: Int) {
+        showSheet(Sheet(root).title(f.label).message(null)
+            .button("Ouvrir") { openFolder(pos) }
+            .button("Modifier l'accueil") { startMove(pos) }
+            .button("Renommer le dossier") { renameFolder(f, pos) }
+            .button("Ajouter des apps…") { pickApps(f) }
+            .button("Supprimer le dossier") { confirmDeleteFolder(f, pos) }
+            .button("Annuler") {}, restoreFocusTo = pos)
+    }
+
+    private fun renameFolder(f: AppEntry, pos: Int) {
+        showSheet(Sheet(root).title("Renommer le dossier").message(null)
+            .input(f.label, Folders.DEFAULT_NAME) { name ->
+                Folders.idOf(f.pkg)?.let { id -> prefs.editFolders { Folders.rename(it, id, name) } }
+                reload()
+            }, restoreFocusTo = pos)
+    }
+
+    /**
+     * Ticks apps into and out of folder [f]: its own apps first (ticked), then the grid's. Each press
+     * shows at once behind the sheet; an app ticked off goes back to the end of the grid.
+     */
+    private fun pickApps(f: AppEntry) {
+        val id = Folders.idOf(f.pkg) ?: return
+        val s = Sheet(root).title("Ajouter des apps").message("Les apps cochées sont dans « ${f.label} » ; les autres restent sur l'accueil.")
+        for (a in f.folder.orEmpty()) s.toggle(a.label, true) { on -> setInFolder(id, a.pkg, on) }
+        for (a in adapter.apps.filter { it.folder == null }) s.toggle(a.label, false) { on -> setInFolder(id, a.pkg, on) }
+        // Apps that leave the grid can shift the folder: focus finds it by key.
+        showSheet(s.button("OK") {}, restoreKey = f.pkg)
+    }
+
+    private fun setInFolder(id: String, pkg: String, on: Boolean) {
+        if (!on) return removeFromFolder(pkg)
+        prefs.editFolders { Folders.add(it, id, pkg) }
+        reload()
+    }
+
+    /** Takes [pkg] out of its folder, back onto the grid at its end. */
+    private fun removeFromFolder(pkg: String) {
+        prefs.editFolders { Folders.remove(it, pkg) }
+        prefs.order = Folders.orderAtEnd(adapter.apps.map { it.pkg }, prefs.order, pkg)
+        reload()
+    }
+
+    private fun confirmDeleteFolder(f: AppEntry, pos: Int) {
+        showSheet(Sheet(root).title("Supprimer « ${f.label} » ?").message("Le dossier disparaît ; ses apps reviennent sur l'accueil à sa place.")
+            .button("Supprimer") {
+                val id = Folders.idOf(f.pkg) ?: return@button
+                // Every app it held, hidden ones included, so they keep a place in the order.
+                val apps = prefs.folderList().firstOrNull { it.id == id }?.apps.orEmpty()
+                prefs.editFolders { Folders.delete(it, id) }
+                prefs.order = Folders.orderReplacing(adapter.apps.map { it.pkg }, prefs.order, f.pkg, apps)
+                reload()
+            }
+            .button("Annuler") {}, restoreFocusTo = pos)
+    }
+
+    /** Opens the folder at [pos] over the grid; an empty one goes straight to picking its apps. */
+    private fun openFolder(pos: Int) {
+        val f = adapter.apps.getOrNull(pos) ?: return
+        if (f.folder.isNullOrEmpty()) { pickApps(f); return }
+        folderView?.close(animate = false)
+        hideShelf()
+        setGridBlocked(true)
+        folderView = FolderOverlay(root, repo, f, tileW, tileH, gridGap, rowPitch, cols, adapter.tvosFocus, folderActions)
+            .also { it.open() }
+    }
+
+    /** Closes the open folder and focuses its tile again, wherever the grid now has it. */
+    private fun closeFolder(animate: Boolean = true) {
+        val fv = folderView ?: return
+        folderView = null
+        fv.close(animate)
+        adapter.apps.indexOfFirst { it.pkg == fv.key }.takeIf { it >= 0 }?.let { focusedPos = it }
+        // A sheet still closing (one opened from the folder) restores the grid itself when it is gone.
+        if (sheets.isEmpty() && !control.isOpen) restoreGridFocus()
+    }
+
+    private val folderActions = object : FolderOverlay.Actions {
+        override fun onLaunch(app: AppEntry, cell: TileCell) {
+            // "Récents" brings the folder forward, not the app inside it.
+            folderView?.let { launch(app, cell, it.key) }
+        }
+
+        override fun onMenu(app: AppEntry, pos: Int) {
+            val s = Sheet(root).title(app.label).message(null)
+                .button("Retirer du dossier") { removeFromFolder(app.pkg) }
+                .button("Renommer") { rename(app, null) }
+            if (!repo.isOwn(app.pkg)) s.button("Infos sur l'app") { appInfo(app) }
+            showSheet(s.button("Annuler") {})
+        }
+    }
+
     /** Names the tile; an empty name gives the app back its own. The TV's keyboard does the typing. */
-    private fun rename(app: AppEntry, pos: Int) {
+    private fun rename(app: AppEntry, pos: Int?) {
         showSheet(Sheet(root).title("Renommer « ${app.label} »").message("Laissez le champ vide pour reprendre le nom d'origine, « ${app.originalLabel} ».")
             .input(app.label, app.originalLabel) { text ->
                 val name = text.trim()
@@ -957,15 +1107,24 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     // ------------------------------------------------------------ overlays / keys
 
-    fun showSheet(s: Sheet, restoreFocusTo: Int? = null): Sheet {
+    /** Shows [s]; once it closes, focus goes back to the grid entry keyed [restoreKey], else at [restoreFocusTo]. */
+    fun showSheet(s: Sheet, restoreFocusTo: Int? = null, restoreKey: String? = null): Sheet {
         sheets += s
         setGridBlocked(true)
+        folderView?.block()
         s.onDismiss {
             sheets -= s
-            if (sheets.isEmpty() && control.isOpen) control.refocus()
-            else if (sheets.isEmpty()) {
-                setGridBlocked(false)
-                focusAt(restoreFocusTo ?: focusedPos)
+            val fv = folderView
+            when {
+                sheets.isNotEmpty() -> {}
+                control.isOpen -> control.refocus()
+                // A sheet opened from an open folder gives focus back to it; the grid stays blocked.
+                fv != null -> fv.refocus()
+                else -> {
+                    setGridBlocked(false)
+                    val at = restoreKey?.let { k -> adapter.apps.indexOfFirst { it.pkg == k }.takeIf { it >= 0 } }
+                    focusAt(at ?: restoreFocusTo ?: focusedPos)
+                }
             }
         }
         return s.show()
@@ -979,6 +1138,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     }
 
     fun restoreGridFocus() {
+        folderView?.let { it.refocus(); return }
         setGridBlocked(false)
         focusAt(focusedPos)
     }
@@ -991,6 +1151,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (event.action == KeyEvent.ACTION_UP && (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU)) {
             when {
                 sheets.isNotEmpty() -> sheets.last().dismiss()
+                // Before the Control Center: Back from an open folder returns to the grid.
+                folderView != null -> closeFolder()
                 control.isOpen -> control.close()
                 moving >= 0 -> endMove()
                 header.hasFocus() -> focusAt(focusedPos)
@@ -1011,8 +1173,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         sheets.toList().forEach { it.dismiss() }
         control.close()
         if (moving >= 0) endMove()
-        // The guard brought the screen back (an app exited to the stock launcher): stay where we were.
+        // The guard brought the screen back (an app exited to the stock launcher): stay where we were, in a folder too.
         if (intent.getBooleanExtra(EXTRA_GUARD, false)) return
+        closeFolder(animate = false)
         focusedPos = 0
         // Scroll by our own offset: smoothScrollToPosition aligns to the padding and leaves the grid off its resting place.
         grid.smoothScrollBy(0, -scrollY, Motion.ease, 360)
