@@ -18,7 +18,8 @@
     <!-- Granted over adb (AGENTS.md step 4) or through local adb from 主屏幕设置, never asked on screen:
          - WRITE_SECURE_SETTINGS: switch the home guard back on after the firmware switched it off,
            keep ADB debugging on, keep the photo frame as the screensaver, Xiaomi backlight.
-         - SYSTEM_ALERT_WINDOW: Android's exemption for opening the home screen right after boot. -->
+         - SYSTEM_ALERT_WINDOW: Android's exemption for opening the home screen right after boot; also,
+           only when the user turns notification banners on, showing them over the app in front. -->
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
@@ -138,6 +139,12 @@
                 android:resource="@xml/home_guard" />
         </service>
 
+        <!-- Notification listener: Android binds it again after the firmware kills canvasOS, which
+             brings the home guard back (Guard.kt), and it lets canvasOS list media sessions (the
+             package and playback state, for the memory cleanup; with "Lecture en cours" on, also the
+             title, artist and artwork). It reads no notification, unless the user turns banners on
+             (Réglages → Lecture et notifications) for apps they choose: then only those apps' title
+             and text, shown 6 seconds and never stored. Approved over adb (AGENTS.md step 4). -->
         <service
             android:name=".RevivalListener"
             android:exported="true"

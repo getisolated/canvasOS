@@ -159,6 +159,11 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private val brightness: Slider
     private val volume: Slider
     private val inputModule: GlassButton
+    /** "Lecture" ([Prefs.nowPlaying]): what a media session plays; gone while nothing plays or is paused. */
+    private val nowModule: GlassButton
+    private val nowReader = NowPlaying.Reader(ctx, ctx.dp(40))
+    private var now: NowPlaying? = null
+    private var nowReading = false
     private val networkModule: GlassButton
     private val sleepModule: GlassButton
     private var inputs: List<Input> = emptyList()
@@ -171,6 +176,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         override fun run() {
             followVolume()
             updateSleep()
+            updateNowPlaying()
             host.postDelayed(this, 2_000)
         }
     }
@@ -236,6 +242,24 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         panel.addView(volume, LinearLayout.LayoutParams(-1, ctx.dp(38)).apply { topMargin = gap })
         inputModule = GlassButton("Source", R.drawable.ic_input, Shape.CAPSULE) { pickInput() }
         panel.addView(inputModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
+        // OK plays or pauses; left and right skip, handled here so they never move focus.
+        nowModule = GlassButton("Lecture", R.drawable.ic_music, Shape.CAPSULE) {
+            now?.let { n -> io.execute { n.playPause() } }
+            host.postDelayed({ updateNowPlaying() }, 500)
+        }
+        nowModule.visibility = View.GONE
+        nowModule.setOnKeyListener { _, code, e ->
+            if (code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) return@setOnKeyListener false
+            val n = now
+            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0 && n != null) {
+                val dir = if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1
+                Motion.bump(nowModule, dir, 0)
+                io.execute { if (dir > 0) n.next() else n.previous() }
+                host.postDelayed({ updateNowPlaying() }, 700)
+            }
+            true
+        }
+        panel.addView(nowModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
         panel.addView(status, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ctx.dp(10) })
         // The host clips the panel to its bounds; the padding is room for focused controls to grow into.
         val room = ctx.dp(16)
@@ -501,7 +525,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     ) : LinearLayout(ctx) {
         // Capsules and circles clamp this to half their height.
         private val glass = glassFor(this, ctx.dp(if (shape == Shape.TILE) 24 else 100).toFloat())
-        private val glyph = ImageView(ctx)
+        val glyph = ImageView(ctx)
         val title = ctx.text(12.5f, weight = 600).apply {
             text = label
             maxLines = 1
@@ -790,6 +814,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         networkModule.sub.text = if (!Net.isConnected(ctx)) "Déconnecté" else Net.lanAddress(ctx) ?: "Connecté"
         networkModule.sub.visibility = View.VISIBLE
         updateSleep()
+        updateNowPlaying()
         if (refreshing) return
         refreshing = true
         io.execute {
@@ -835,6 +860,59 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
         sheet.button("OK") {}
         home.showSheet(sheet)
+    }
+
+    /**
+     * The Lecture capsule: the sessions are read off the UI thread (on open, on return home, then
+     * every 2 s while open) and the capsule changes only when what it shows changed.
+     */
+    private fun updateNowPlaying() {
+        if (destroyed) return
+        if (!prefs.nowPlaying) { showNow(null); return }
+        if (nowReading) return
+        nowReading = true
+        io.execute {
+            val n = runCatching { nowReader.read() }.getOrNull()
+            host.post {
+                nowReading = false
+                if (!destroyed) showNow(if (prefs.nowPlaying) n else null)
+            }
+        }
+    }
+
+    private fun showNow(n: NowPlaying?) {
+        val old = now
+        now = n
+        if (n == null) {
+            if (nowModule.visibility == View.GONE) return
+            // Focus must not vanish with the capsule.
+            if (nowModule.hasFocus()) inputModule.requestFocus()
+            nowModule.visibility = View.GONE
+            return
+        }
+        if (n.sameAs(old) && nowModule.visibility == View.VISIBLE) return
+        nowModule.title.text = n.title
+        nowModule.contentDescription = n.title
+        nowModule.sub.text = n.sub
+        nowModule.sub.visibility = View.VISIBLE
+        if (old == null || old.art !== n.art || nowModule.visibility != View.VISIBLE) showArt(n.art)
+        nowModule.visibility = View.VISIBLE
+    }
+
+    /** The artwork as a disc set in the capsule's rounded end, or the note glyph without one. */
+    private fun showArt(art: Bitmap?) {
+        val glyph = nowModule.glyph
+        if (art != null) glyph.setImageDrawable(NowPlaying.Disc(art)) else glyph.setImageResource(R.drawable.ic_music)
+        val size = ctx.dp(if (art != null) 35 else 20)
+        val lp = glyph.layoutParams as LinearLayout.LayoutParams
+        if (lp.width != size) {
+            lp.width = size
+            lp.height = size
+            lp.marginEnd = ctx.dp(if (art != null) 8 else 9)
+            glyph.layoutParams = lp
+            // Concentric with the capsule's end: (47 - 35) / 2 = 6 dp all around.
+            nowModule.setPadding(ctx.dp(if (art != null) 6 else 13), 0, ctx.dp(10), 0)
+        }
     }
 
     /** The Veille capsule's subtitle: time left on the sleep timer, nothing when none is running. */

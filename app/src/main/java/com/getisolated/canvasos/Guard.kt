@@ -17,6 +17,7 @@ import android.os.Process
 import android.os.SystemClock
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -39,9 +40,10 @@ import com.getisolated.canvasos.tv.XiaomiAdapter
  * The pieces:
  * 1. [HomeGuardService], an accessibility service that brings canvasOS back the moment the stock
  *    launcher comes to the front. It sees window changes only, never screen content.
- * 2. [RevivalListener], a notification listener that reads no notifications. Android rebinds a
- *    listener about half a second after its process is killed, which restarts canvasOS; canvasOS then
- *    switches the guard back on, which needs WRITE_SECURE_SETTINGS.
+ * 2. [RevivalListener], a notification listener. Android rebinds a listener about half a second
+ *    after its process is killed, which restarts canvasOS; canvasOS then switches the guard back on,
+ *    which needs WRITE_SECURE_SETTINGS. It reads no notification unless the user turns on banners
+ *    ([Banners]) for apps they choose, and then only those apps' title and text.
  * 3. WRITE_SECURE_SETTINGS and the listener approval come from adb (a computer, AGENTS.md) or from
  *    the TV's own adb through [LocalAdb] ([grantViaLocalAdb]).
  *
@@ -362,8 +364,13 @@ class HomeGuardService : AccessibilityService() {
 /**
  * Brings the guard back after the firmware kills canvasOS. Android drops a force-stopped app's
  * accessibility services for good, but keeps a notification listener approved and binds it again
- * shortly after its process dies. No notification is read or touched. Being an approved listener
- * also lets [MediaSessions] see which app is playing (package name and playback state only).
+ * shortly after its process dies. Being an approved listener also lets [MediaSessions] see which
+ * app is playing (package name and playback state; with "Lecture en cours" on, [NowPlaying] also
+ * reads the title, artist and artwork).
+ *
+ * No notification is read or touched, except when the user turns on banners ([Prefs.banners]):
+ * then the notifications of the apps they picked ([Prefs.bannerApps]), and only those, are read
+ * for their title and text, shown 6 seconds and never stored. Every other one is let go unread.
  */
 class RevivalListener : NotificationListenerService() {
     override fun onListenerConnected() {
@@ -371,6 +378,11 @@ class RevivalListener : NotificationListenerService() {
         Guard.ensure(this)
         runCatching { KeeperService.start(this) }
         Handler(Looper.getMainLooper()).postDelayed({ Guard.rebindIfStalled(this) }, 5_000)
+    }
+
+    /** Returns at once unless banners are on and the app is one the user picked. */
+    override fun onNotificationPosted(sbn: StatusBarNotification) {
+        runCatching { Banners.onPosted(this, sbn) }
     }
 }
 
@@ -412,5 +424,13 @@ class ConfigReceiver : BroadcastReceiver() {
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
             "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} own_icon=${prefs.ownIcon} settings_bg=${prefs.settingsBg} low_end=${Device.isLowEnd(c)} " +
             "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents}"
+        // Lecture en cours and banners (Réglages → Lecture et notifications); both need the listener.
+        if (i.hasExtra("now_playing")) prefs.nowPlaying = i.getBooleanExtra("now_playing", false)
+        if (i.hasExtra("banners")) prefs.banners = i.getBooleanExtra("banners", false)
+        i.getStringExtra("banner_apps")?.let { list ->
+            prefs.bannerApps = list.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        }
+        resultData += " now_playing=${prefs.nowPlaying} banners=${prefs.banners} banner_apps=${prefs.bannerApps.sorted().joinToString(",")} " +
+            "listener=${Banners.listenerGranted(c)} overlay=${Settings.canDrawOverlays(c)}"
     }
 }

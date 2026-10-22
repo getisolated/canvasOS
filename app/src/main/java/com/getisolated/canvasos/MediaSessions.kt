@@ -11,8 +11,9 @@ import android.util.Log
  * What is playing on the TV, from Android's media sessions (Spotify, Plex, Kodi, a casting
  * receiver…). Listing them needs an approved notification listener, and [RevivalListener] is one
  * (`cmd notification allow_listener`, AGENTS.md step 4, or Protection de l'accueil). The memory
- * cleanup ([Cleaner.clean]) only reads each session's package name and playback state; no
- * notification is ever read, and the listener still touches none.
+ * cleanup ([Cleaner.clean]) only reads each session's package name and playback state. Only when
+ * the user turns on "Lecture en cours" ([Prefs.nowPlaying]) does [NowPlaying] read more: the
+ * session's title, artist, album and artwork. Neither reads a notification.
  *
  * Everything here is a few binder calls, no network, and fails soft: when the listener is not
  * approved on this TV (SecurityException) or the firmware misbehaves, the answer is "nothing".
@@ -20,8 +21,8 @@ import android.util.Log
 object MediaSessions {
     private const val TAG = "MediaSessions"
 
-    /** Playback states that mean sound or video is going (Android's own PlaybackState.isActive set). */
-    private val ACTIVE = setOf(
+    /** Playback states that mean sound or video is going (Android's own PlaybackState.isActive set, API 31). */
+    val ACTIVE = setOf(
         PlaybackState.STATE_PLAYING,
         PlaybackState.STATE_BUFFERING,
         PlaybackState.STATE_CONNECTING,

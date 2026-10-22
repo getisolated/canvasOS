@@ -922,6 +922,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         ticker.run()
         control.refresh()
         if (shelfShown && !control.isOpen) resumeShelfRotation()
+        // Notification banners (Prefs.banners) show in here while the home screen is in front.
+        Banners.attach(root)
     }
 
     override fun onPause() {
@@ -932,6 +934,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         main.removeCallbacks(idleFrame)
         main.removeCallbacks(ticker)
         main.removeCallbacks(shelfAdvance)
+        Banners.detach(root)
         super.onPause()
     }
 
