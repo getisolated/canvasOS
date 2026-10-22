@@ -1,7 +1,7 @@
 # Third-party notices
 
 - **Inter** typeface (`app/src/main/assets/inter.ttf`) — Copyright (c) 2016 The Inter Project Authors, SIL Open Font License 1.1. Full text: `app/src/main/assets/inter-OFL.txt`.
-- **Material Icons** (vector paths in `app/src/main/res/drawable/ic_*.xml`) — Copyright Google LLC, Apache License 2.0, https://github.com/google/material-design-icons.
+- **Material Icons** (vector paths in `app/src/main/res/drawable/ic_*.xml`), including the Material Symbols weather icons (`ic_wx_*.xml`: sunny, clear_night, partly_cloudy_day, partly_cloudy_night, cloud, rainy, weather_snowy, thunderstorm, foggy) — Copyright Google LLC, Apache License 2.0, https://github.com/google/material-design-icons.
 - **dadb** (build dependency) — Copyright mobile.dev, Apache License 2.0.
 - **AndroidX Media3 ExoPlayer** (build dependency) — Copyright The Android Open Source Project, Apache License 2.0.
 - **NanoHTTPD** (build dependency) — Copyright (c) 2012-2013 by Paul S. Hawke, 2001,2005-2013 by Jarno Elonen, 2010 by Konstantinos Togias, BSD 3-Clause License.
@@ -23,3 +23,8 @@ The photo backgrounds and the photo frame download pictures at run time from the
 - **Lorem Picsum** (https://picsum.photos): photos from Unsplash under the Unsplash License.
 - **Bing** daily images (https://www.bing.com): © their photographers, shown with Bing's credit.
 - **360 wallpapers** (wallpaper.apc.360.cn): last-resort backup feed; pictures © their owners.
+
+The weather (`Weather.kt`) comes from these services, asked by the TV itself:
+
+- **Open-Meteo** forecast and geocoding APIs (https://open-meteo.com): free for non-commercial use without a key; weather data under CC BY 4.0, credited in the Control Center's forecast (« Prévisions : Open-Meteo.com »).
+- **ip-api.com** (http://ip-api.com): free for non-commercial use; asked once for the city of the TV's public address while no city has been chosen.

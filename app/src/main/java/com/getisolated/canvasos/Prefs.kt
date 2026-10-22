@@ -229,6 +229,35 @@ class Prefs(ctx: Context) {
         get() = sp.getString("last_clean_closed", "")!!
         set(v) = sp.edit().putString("last_clean_closed", v).apply()
 
+    /** Weather beside the clock and in the Control Center ([Weather]); off, nothing is fetched. */
+    var weather: Boolean
+        get() = sp.getBoolean("weather", true)
+        set(v) = sp.edit().putBoolean("weather", v).apply()
+
+    /** Where the weather is for; null until chosen (phone page, CONFIG) or guessed from the public address. */
+    var weatherLat: Double?
+        get() = sp.getString("weather_lat", null)?.toDoubleOrNull()
+        set(v) = sp.edit().putString("weather_lat", v?.toString()).apply()
+
+    var weatherLon: Double?
+        get() = sp.getString("weather_lon", null)?.toDoubleOrNull()
+        set(v) = sp.edit().putString("weather_lon", v?.toString()).apply()
+
+    /** The place's name as shown ("Paris"); empty until there is one. */
+    var weatherPlace: String
+        get() = sp.getString("weather_place", "")!!
+        set(v) = sp.edit().putString("weather_place", v).apply()
+
+    /** The place was guessed from the TV's public address (ip-api.com), not chosen: shown as "(détecté)". */
+    var weatherAuto: Boolean
+        get() = sp.getBoolean("weather_auto", false)
+        set(v) = sp.edit().putBoolean("weather_auto", v).apply()
+
+    /** The last forecast fetched, with when and for where ([Weather.encodeCache]); empty before the first. */
+    var weatherCache: String
+        get() = sp.getString("weather_cache", "")!!
+        set(v) = sp.edit().putString("weather_cache", v).apply()
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"
