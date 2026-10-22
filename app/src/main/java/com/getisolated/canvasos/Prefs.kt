@@ -400,6 +400,20 @@ class Prefs(ctx: Context) {
         return true
     }
 
+    /**
+     * The first-launch assistant ([OnboardingActivity]) is over. With nothing saved yet it is worked
+     * out once and saved: a TV updated from 1.0.0 (a grid order, local debugging authorized, or the
+     * home screen shown before) counts as set up, so only a fresh install gets the assistant.
+     */
+    var setupDone: Boolean
+        get() {
+            if (sp.contains("setup_done")) return sp.getBoolean("setup_done", false)
+            val before = !sp.getString("order", null).isNullOrEmpty() || adbAuthorized || sp.contains("home_in_front")
+            sp.edit().putBoolean("setup_done", before).apply()
+            return before
+        }
+        set(v) = sp.edit().putBoolean("setup_done", v).apply()
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"
