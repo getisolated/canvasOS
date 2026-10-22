@@ -132,6 +132,13 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                         Weather.setPlace(ctx, Weather.Place(name, lat, lon), auto = false)
                     json(state())
                 }
+                post && path == "/api/tmdb" -> {
+                    // The Top Shelf's TMDB key; "" removes it. The answer says whether TMDB took it, never the key.
+                    val key = form(session)["key"].orEmpty().trim()
+                    Shelf.setTmdbKey(ctx, key)
+                    val ok = if (key.isEmpty()) null else Shelf.checkTmdbKey(key)
+                    json(state().put("tmdbOk", ok ?: JSONObject.NULL))
+                }
                 else -> text(Response.Status.NOT_FOUND, "Not found")
             }
         }.getOrElse { text(Response.Status.INTERNAL_ERROR, it.message ?: "error") }
@@ -163,6 +170,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("weather", prefs.weather)
         .put("weatherPlace", prefs.weatherPlace)
         .put("weatherAuto", prefs.weatherAuto)
+        .put("tmdbKey", prefs.tmdbKey.isNotEmpty())
 
     /** Cities for the phone page's search, looked up by the TV (Open-Meteo's geocoding); ok=false when it cannot reach it. */
     private fun weatherSearch(q: String): Response {

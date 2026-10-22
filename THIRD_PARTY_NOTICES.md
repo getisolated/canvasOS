@@ -28,3 +28,6 @@ The weather (`Weather.kt`) comes from these services, asked by the TV itself:
 
 - **Open-Meteo** forecast and geocoding APIs (https://open-meteo.com): free for non-commercial use without a key; weather data under CC BY 4.0, credited in the Control Center's forecast (« Prévisions : Open-Meteo.com »).
 - **ip-api.com** (http://ip-api.com): free for non-commercial use; asked once for the city of the TV's public address while no city has been chosen.
+The Top Shelf (`Shelf.kt`) shows, for some streaming apps, popular titles fetched at run time with the user's own key:
+
+- **The Movie Database (TMDB) API** (https://developer.themoviedb.org/): titles, ratings, watch-provider availability (from JustWatch) and backdrop images (image.tmdb.org), under TMDB's API Terms of Use. "This product uses the TMDB API but is not endorsed or certified by TMDB." Which titles are on which service comes from **JustWatch** (https://www.justwatch.com), as TMDB requires it to be credited. The shelf credits both as « Tendances (TMDB, JustWatch) ».

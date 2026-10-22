@@ -139,13 +139,22 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         override fun run() {
             if (!shelfShown || shelfItems.size < 2) return
             val pkg = shelfPkg ?: return
-            val next = (shelfIndex + 1) % shelfItems.size
-            val item = shelfItems[next]
+            val items = shelfItems
+            val from = shelfIndex
             net.execute {
-                val b = Shelf.image(this@HomeActivity, item.image)
+                // The next item whose picture loads: a broken or tiny one is skipped, not shown forever.
+                var next = -1
+                var b: Bitmap? = null
+                for (k in 1..minOf(3, items.size - 1)) {
+                    val j = (from + k) % items.size
+                    b = Shelf.image(this@HomeActivity, items[j].image)
+                    if (b != null) { next = j; break }
+                }
+                val pic = b
+                val at = next
                 main.post {
-                    if (shelfPkg == pkg && shelfShown && !control.isOpen) {
-                        if (b != null) showShelfItem(next, b)
+                    if (shelfPkg == pkg && shelfShown && !control.isOpen && shelfItems === items) {
+                        if (pic != null) showShelfItem(at, pic)
                         main.postDelayed(this, SHELF_SECONDS * 1000L)
                     }
                 }
@@ -481,7 +490,11 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             ellipsize = android.text.TextUtils.TruncateAt.END
             setLineSpacing(0f, 1.08f)
         }.also(shadow)
-        shelfMeta = text(17f, Color.argb(210, 255, 255, 255), weight = 500).apply { maxLines = 1 }.also(shadow)
+        shelfMeta = text(17f, Color.argb(210, 255, 255, 255), weight = 500).apply {
+            maxLines = 1
+            // Apps' own descriptions (Watch Next, preview channels) run long.
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }.also(shadow)
         shelfInfo = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(shelfSource)
@@ -502,18 +515,28 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private fun showShelf(pkg: String) {
         shelfPkg = pkg
         net.execute {
-            val items = Shelf.items(pkg)
-            val first = items.firstOrNull()?.let { Shelf.image(this, it.image) }
+            // Watch Next, the app's channel, TMDB or the web, whichever has something (Shelf.load).
+            val content = Shelf.load(this, pkg)
+            val items = content?.items.orEmpty()
+            // Start on the first item whose picture loads; art that is missing or too small is skipped.
+            var start = -1
+            var first: Bitmap? = null
+            for (k in 0 until minOf(3, items.size)) {
+                first = Shelf.image(this, items[k].image)
+                if (first != null) { start = k; break }
+            }
+            val pic = first
+            val at = start
             main.post {
-                if (shelfPkg != pkg || first == null || control.isOpen) return@post
+                if (shelfPkg != pkg || content == null || pic == null || control.isOpen) return@post
                 shelfItems = items
-                shelfSource.text = Shelf.sourceName(pkg)
+                shelfSource.text = content.source
                 shelfDots.removeAllViews()
                 repeat(items.size) {
                     shelfDots.addView(View(this).apply { background = rounded(Color.WHITE, dp(4).toFloat()) },
                         LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginStart = dp(7) })
                 }
-                showShelfItem(0, first)
+                showShelfItem(at, pic)
                 setShelfVisible(true)
                 main.removeCallbacks(shelfAdvance)
                 main.postDelayed(shelfAdvance, SHELF_SECONDS * 1000L)
@@ -714,9 +737,11 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     override fun onTileFocused(pos: Int, cell: TileCell) {
         focusedPos = pos
-        val pkg = adapter.apps.getOrNull(pos)?.pkg
+        val app = adapter.apps.getOrNull(pos)
+        val pkg = app?.pkg
         main.removeCallbacks(shelfShow)
-        if (pos < cols && pkg != null && Shelf.has(pkg) && moving < 0) {
+        // Shelf.has is cheap; what there is to show is found off the main thread (showShelf).
+        if (pos < cols && pkg != null && app.input == null && pkg != packageName && moving < 0 && Shelf.has(this, pkg)) {
             if (pkg != shelfPkg || !shelfShown) {
                 if (shelfShown) hideShelf()
                 pendingShelf = pkg
@@ -961,6 +986,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         applyClockStyle()
         control.applyStyle()
         if (wakeIntro) { wakeIntro = false; playIntro(wake = true) }
+        // What was just watched changes the apps' Watch Next rows.
+        Shelf.onHomeResumed()
         resumed = true
         prefs.homeInFront = true
         HomeGuardService.onHomeResumed()

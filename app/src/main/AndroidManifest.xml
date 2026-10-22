@@ -27,6 +27,11 @@
     <!-- The sleep timer's alarm (SleepTimer). Granted at install for an app of this target version;
          where Android refuses it, the timer falls back to an inexact alarm. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- The Top Shelf (Shelf.kt): the Watch Next programs and preview channels other apps publish to
+         TvProvider, which answers them to the system's home and to holders of this permission only.
+         TvProvider defines it as a runtime ("dangerous") permission: granted over adb (AGENTS.md
+         step 4) or through local adb (Guard.grantViaLocalAdb), never asked on screen. -->
+    <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
 
     <application
         android:name=".App"

@@ -274,6 +274,13 @@ class Prefs(ctx: Context) {
     var bannerApps: Set<String>
         get() = sp.getStringSet("banner_apps", emptySet())!!.toSet()
         set(v) = sp.edit().putStringSet("banner_apps", v).apply()
+    /**
+     * The user's own TMDB key (v3 API key or v4 read token) for the Top Shelf's popular titles on
+     * Netflix, Prime Video… ([ShelfFeeds.SERVICES]); "" = none. Kept on the TV only, never shown back.
+     */
+    var tmdbKey: String
+        get() = sp.getString("tmdb_key", "")!!
+        set(v) = sp.edit().putString("tmdb_key", v.trim()).apply()
 
     companion object {
         const val SAVER_PHOTOS = "photos"

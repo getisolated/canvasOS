@@ -96,7 +96,7 @@ adb -s <TV_IP>:5555 shell cmd package set-home-activity com.getisolated.canvasos
 adb -s <TV_IP>:5555 shell input keyevent KEYCODE_HOME
 ```
 
-Accordez ensuite ce que seul adb peut accorder. C'est nécessaire sur tout téléviseur dont le système réserve la touche Accueil à son propre lanceur (Xiaomi, TCL, la plupart des firmwares chinois). Ailleurs, l'écouteur de notifications sert encore (grâce à lui, le nettoyage de la mémoire épargne ce qui est en cours de lecture) et le reste est sans effet :
+Accordez ensuite ce que seul adb peut accorder. C'est nécessaire sur tout téléviseur dont le système réserve la touche Accueil à son propre lanceur (Xiaomi, TCL, la plupart des firmwares chinois). Ailleurs, l'écouteur de notifications sert encore (grâce à lui, le nettoyage de la mémoire épargne ce qui est en cours de lecture), `READ_TV_LISTINGS` sert au Top Shelf sur tous les téléviseurs, et le reste est sans effet :
 
 ```sh
 P=com.getisolated.canvasos
@@ -105,6 +105,7 @@ adb -s <TV_IP>:5555 shell cmd notification allow_listener $P/$P.RevivalListener
 adb -s <TV_IP>:5555 shell appops set $P SYSTEM_ALERT_WINDOW allow
 adb -s <TV_IP>:5555 shell appops set $P APP_AUTO_START allow      # TCL uniquement ; les autres firmwares affichent une erreur, ignorez-la
 adb -s <TV_IP>:5555 shell appops set $P APP_ASSOC_START allow     # TCL uniquement
+adb -s <TV_IP>:5555 shell pm grant $P android.permission.READ_TV_LISTINGS   # refusée sans conséquence là où le téléviseur n'a pas de TvProvider
 ```
 
 | Autorisation | À quoi elle sert |
@@ -113,6 +114,7 @@ adb -s <TV_IP>:5555 shell appops set $P APP_ASSOC_START allow     # TCL uniqueme
 | Écouteur de notifications | Relance canvasOS environ une demi-seconde après que le système l'a tué, et au démarrage. Permet aussi au nettoyage de la mémoire d'épargner les apps qui lisent quelque chose (sessions média : seuls le nom du paquet et l'état de lecture sont lus ; avec « Lecture en cours » activée, aussi le titre, l'artiste et la pochette, section 8). Aucune notification n'est lue, sauf si l'utilisateur active les bannières (section 8) pour des apps qu'il choisit. |
 | `SYSTEM_ALERT_WINDOW` | Ouvrir l'écran d'accueil depuis l'arrière-plan après le démarrage ; si l'utilisateur active les bannières de notifications, les afficher par-dessus l'app regardée |
 | TCL `APP_AUTO_START` / `APP_ASSOC_START` | Sinon, TCL empêche les apps tierces de se lancer au démarrage |
+| `READ_TV_LISTINGS` | Top Shelf : lignes « Continuer à regarder » et recommandations publiées par Netflix, YouTube, Prime… pour l'écran d'accueil d'Android TV, lues sur le téléviseur et affichées au-dessus du Dock, rien d'autre ; sans elle, rien n'est lu |
 
 Si l'étape 5 montre que le lanceur d'origine revient, activez la protection de l'accueil (section 10). Sur Xiaomi, demandez aussi s'il faut garder ADB activé : Xiaomi désactive ADB à chaque sortie de veille, ce qui rend impossibles les mises à jour ultérieures par adb tant que l'utilisateur ne le réactive pas dans les réglages.
 
@@ -183,6 +185,7 @@ Signalez à l'utilisateur qu'ils existent ; ne les modifiez que s'il le demande.
 - Le cadre photo comme économiseur système (Cadre photo en économiseur), le délai d'inactivité (Délai avant le cadre photo) et son contenu (Contenu de l'économiseur) : photos ou Vues aériennes (Apple TV) (lues en streaming depuis Apple, environ 15–20 Mbit/s ; retour aux photos sans connexion). Sur Xiaomi, qui affiche son propre économiseur au lieu de celui d'Android, l'écran d'accueil lance le cadre photo 15 s avant celui de Xiaomi.
 - Entrées HDMI sur l'écran d'accueil : Centre de contrôle → Source → Afficher sur l'accueil….
 - Minuteur de veille, depuis le bouton Veille du Centre de contrôle : Maintenant, ou dans 15 min, 30 min, 1 h, 1 h 30, avec un avertissement une minute avant si l'écran d'accueil est affiché. Il demande le débogage local (étape 6), ne survit pas à un redémarrage, et la touche de veille n'est envoyée que parce que l'utilisateur a choisi ce délai.
+- Top Shelf : quand une app du Dock est sélectionnée, ses contenus remplissent l'écran au-dessus du Dock, une image toutes les 8 s (OK ouvre l'app). Ils viennent de la première source qui a quelque chose : la ligne « Continuer à regarder » (Watch Next) que l'app publie pour Android TV, puis sa chaîne de recommandations (par exemple « Recommandé » de YouTube) — ces deux-là demandent l'autorisation `READ_TV_LISTINGS` de l'étape 4 —, puis, pour Netflix, Prime Video, Disney+, Apple TV, Max, Paramount+, Canal+ et Crunchyroll, les titres populaires de la semaine sur ce service en France d'après TMDB (The Movie Database), enfin les sources web de Bilibili et Douyu. TMDB demande une clé d'API gratuite à l'utilisateur (https://www.themoviedb.org/settings/api) : il la colle dans l'onglet Réglages de la page téléphone (section « Top Shelf (TMDB) »), ou vous la passez avec `--es tmdb_key` (ci-dessous). Elle reste sur le téléviseur ; ne la recopiez nulle part ailleurs. Pour voir ce que fait le Top Shelf : `adb -s <TV_IP>:5555 logcat -d -s Shelf`.
 - Apps conservées lors du nettoyage de la mémoire (Apps à conserver). Les apps en cours d'utilisation sont épargnées automatiquement, sans figurer dans cette liste : celles qui lisent du son ou de la vidéo (reconnues grâce à l'écouteur de notifications de l'étape 4), celles qui font tourner un service au premier plan, comme la diffusion d'écran, un serveur Plex ou Jellyfin, un VPN (reconnues grâce au débogage local de l'étape 6), ainsi que les services d'accessibilité et le clavier actifs. Réglages de l'accueil → Dernier nettoyage liste les apps fermées la dernière fois ; `adb logcat -d -s canvasOSClean` montre aussi celles qui ont été épargnées.
 - Météo (activée par défaut) : la température et une icône à gauche de la petite horloge, ou une ligne « 14° · Nuageux » sous la date de la grande horloge, et un bouton Météo dans le Centre de contrôle qui ouvre les prévisions sur cinq jours. Les prévisions viennent d'Open-Meteo (sans clé), mises à jour au plus toutes les 30 minutes pendant que l'accueil est affiché, et disparaissent hors connexion. Tant qu'aucune ville n'est choisie, le téléviseur devine le lieu une fois d'après son adresse IP publique (ip-api.com) ; Réglages de l'accueil → Lieu de la météo l'affiche alors suivi de « (détecté) ». La ville se choisit depuis la page téléphone (onglet Réglages, section Météo) ou par adb (`weather_city`, ci-dessous). Signalez-la à l'utilisateur : elle est active d'emblée et contacte ces deux services.
 - Lecture en cours (Réglages de l'accueil → Lecture et notifications), désactivée par défaut : le Centre de contrôle affiche sous « Source » ce que lit une app (titre, artiste, pochette) ; OK met en lecture ou en pause, Gauche et Droite passent à la piste précédente ou suivante. Elle lit les métadonnées des sessions média grâce à l'écouteur de notifications de l'étape 4 ; aucune notification n'est lue pour cela.
@@ -207,6 +210,7 @@ adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com
 # now_playing true|false (Lecture en cours) · banners true|false (bannières de notifications) : false par défaut, seulement si l'utilisateur le demande
 # --es banner_apps "pkg1,pkg2" (les seules apps dont les notifications deviennent des bannières ; "" vide la liste)
 # la réponse indique aussi listener=true|false (écouteur de notifications approuvé, nécessaire aux deux) et overlay=true|false (bannières par-dessus les apps)
+# --es tmdb_key <clé> (clé d'API TMDB v3 ou jeton d'accès en lecture v4, pour le Top Shelf ; --es tmdb_key "''" l'efface ; le résultat n'affiche que tmdb_key=set|unset)
 ```
 
 ## 9. Adapter canvasOS à un téléviseur mal pris en charge
