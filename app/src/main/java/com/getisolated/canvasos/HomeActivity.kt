@@ -173,6 +173,26 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         }
     }
 
+    /** A name, tile picture or the hidden list changed on the phone page ([AppRepo.notifyChanged]). */
+    private val tileReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            val pkg = i.getStringExtra(AppRepo.EXTRA_PKG)
+            repo.invalidate(pkg)
+            reload(pkg)
+        }
+    }
+
+    /**
+     * Tile pictures pushed over adb show up on the next return home. Compared with what the grid
+     * shows, not with the last scan: the phone page or settings may have scanned since.
+     */
+    private fun checkCustomTiles() {
+        io.execute {
+            AppRepo.scanCustomTiles(this)
+            main.post { if (adapter.apps.any { it.tileStamp != AppRepo.tileStamp(it.pkg) }) reload() }
+        }
+    }
+
     /**
      * Xiaomi shows its own screensaver (with ads) after system/screen_saver_timeout instead of
      * Android's, so the photo frame starts 15 s ahead of it when the home screen sits idle, and
@@ -223,6 +243,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             addDataScheme("package")
         })
         registerReceiver(screenOn, IntentFilter(Intent.ACTION_SCREEN_ON))
+        // Only this app sends it (setPackage); not exported where Android lets a receiver say so.
+        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(tileReceiver, IntentFilter(AppRepo.ACTION_TILE_CHANGED), RECEIVER_NOT_EXPORTED)
+        else registerReceiver(tileReceiver, IntentFilter(AppRepo.ACTION_TILE_CHANGED))
         KeeperService.start(this)
         if (!prefs.adbAuthorized) main.postDelayed({ askAdbAuthorization() }, if (intro != null) 8000L else 1500L)
     }
@@ -263,6 +286,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         control.destroy()
         intro?.finish()
         runCatching { unregisterReceiver(screenOn) }
+        runCatching { unregisterReceiver(tileReceiver) }
         io.shutdown()
         net.shutdown()
         super.onDestroy()
@@ -788,16 +812,26 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         app.input?.let { i ->
             showSheet(Sheet(root).title(app.label).message(null)
                 .button("Modifier l'accueil") { startMove(pos) }
+                .button("Renommer") { rename(app, pos) }
                 .button("Retirer de l'accueil") { pinInput(i, false) }
                 .button("Annuler") {}, restoreFocusTo = pos)
             return
         }
         val s = Sheet(root).title(app.label).message(null)
             .button("Modifier l'accueil") { startMove(pos) }
-            .button("Masquer") {
-                prefs.hidden = prefs.hidden + app.pkg
-                reload()
+            .button("Renommer") { rename(app, pos) }
+        // A picture of the user's, from the phone page or pushed over adb (AppRepo.customTileFile).
+        if (app.tileStamp != 0L) s.button("Image d'origine") {
+            repo.invalidate(app.pkg)
+            io.execute {
+                AppRepo.clearCustomTile(this, app.pkg)
+                main.post { reload(app.pkg) }
             }
+        }
+        s.button("Masquer") {
+            prefs.hidden = prefs.hidden + app.pkg
+            reload()
+        }
         if (repo.isOwn(app.pkg)) {
             showSheet(s.button("Annuler") {}, restoreFocusTo = pos)
             return
@@ -809,6 +843,16 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (!repo.isEssential(app.pkg)) s.button("Supprimer l'app") { confirmDelete(app, pos) }
         s.button("Annuler") {}
         showSheet(s, restoreFocusTo = pos)
+    }
+
+    /** Names the tile; an empty name gives the app back its own. The TV's keyboard does the typing. */
+    private fun rename(app: AppEntry, pos: Int) {
+        showSheet(Sheet(root).title("Renommer « ${app.label} »").message("Laissez le champ vide pour reprendre le nom d'origine, « ${app.originalLabel} ».")
+            .input(app.label, app.originalLabel) { text ->
+                val name = text.trim()
+                prefs.setLabel(app.pkg, name.takeIf { it.isNotEmpty() && it != app.originalLabel })
+                reload(app.pkg)
+            }, restoreFocusTo = pos)
     }
 
     /**
@@ -961,6 +1005,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(Intro.EXTRA_PREVIEW, false)) { playIntro(preview = true); return }
         if (intent.getBooleanExtra(EXTRA_WAKE, false)) return  // onResume plays the intro
+        checkCustomTiles()
         // Home pressed while already home: close everything and go back to the top.
         sheets.toList().forEach { it.dismiss() }
         control.close()
@@ -994,6 +1039,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         restartIdle()
         applyBackground()
         updateNetworkIcon()
+        checkCustomTiles()
         main.removeCallbacks(ticker)
         ticker.run()
         control.refresh()

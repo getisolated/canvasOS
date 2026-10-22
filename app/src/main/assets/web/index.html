@@ -135,6 +135,29 @@
   .results .empty { padding: 11px 14px; }
   #weatherQuery { -webkit-appearance: none; appearance: none; }
 
+  /* Apps tab: one card per app, the tile on the left, the name editable in place. */
+  .apps { border-radius: 12px; overflow: hidden; background: var(--card); }
+  .apps:empty { display: none; }
+  .app {
+    display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px 12px; align-items: center;
+    padding: 12px; border-bottom: .5px solid var(--sep);
+  }
+  .app:last-child { border-bottom: 0; }
+  .app img { display: block; width: 112px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--fill); }
+  .app input {
+    width: 100%; min-width: 0; padding: 8px 10px; margin: 0; border: 0; border-radius: 8px; background: var(--fill);
+    color: var(--label); font: inherit; font-weight: 600; outline-color: var(--tint); -webkit-appearance: none; appearance: none;
+  }
+  .app small { display: block; color: var(--secondary); font-size: 13px; margin: 4px 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app small:empty { display: none; }
+  .app .acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+  .app .acts button, .app .acts label {
+    appearance: none; border: 0; font: inherit; font-size: 14px; font-weight: 500; line-height: 1.2;
+    color: var(--tint); background: var(--fill); padding: 7px 12px; border-radius: 16px; cursor: pointer;
+  }
+  .app .acts .busy { opacity: .5; pointer-events: none; }
+  .app.off img, .app.off input { opacity: .45; }
+
   footer { color: var(--secondary); font-size: 13px; margin: 36px 4px 0; padding-top: 14px; border-top: .5px solid var(--sep); }
 </style>
 </head>
@@ -252,6 +275,12 @@
 </section>
 
 <section class="tab" data-tab="apps" id="tab-apps" role="tabpanel" aria-label="Apps" hidden>
+<h2>Apps de l'accueil</h2>
+<div class="apps" id="apps"><div class="empty" style="padding:12px">Chargement…</div></div>
+<p class="hint">Touchez un nom pour le modifier ; videz-le pour reprendre le nom d'origine. Une image en paysage 16:9 convient le mieux : le téléviseur la recadre au centre (20&nbsp;Mo au maximum). Sur le téléviseur, un appui long sur une app propose aussi « Renommer » et « Image d'origine ».</p>
+<h2 id="hiddenTitle" hidden>Masquées sur l'accueil</h2>
+<div class="apps" id="hiddenApps"></div>
+
 <h2>Installer une app (APK)</h2>
 <p class="note adbNote" hidden>Pour installer des apps, autorisez une fois le débogage local sur le téléviseur : Réglages de l'accueil → Débogage local, puis « Toujours autoriser ».</p>
 <label class="primary" id="pickApk" style="margin-top:12px">Choisir un fichier APK<input type="file" id="apkFile" accept=".apk,application/vnd.android.package-archive" hidden></label>
@@ -536,6 +565,101 @@ $('save').onclick = async () => {
   }, 4000);
 };
 
+// ------------------------------------------------------------------ Apps tab
+
+/** Posts to an apps endpoint and redraws the list from the answer. */
+async function postApps(path, data) {
+  const r = await fetch(base + path, { method: 'POST', body: data instanceof FormData ? data : new URLSearchParams(data) });
+  if (!r.ok) throw new Error(r.status);
+  const res = await r.json();
+  renderApps(res.apps);
+  return res;
+}
+
+/** A name saved: only that row changes, so typing in another one is not interrupted. */
+async function saveLabel(a, input) {
+  const label = input.value.trim();
+  if (label === a.label) return;
+  try {
+    const r = await fetch(base + 'api/app/label', { method: 'POST', body: new URLSearchParams({ pkg: a.id, label }) });
+    if (!r.ok) throw new Error(r.status);
+    const res = await r.json();
+    const now = (res.apps || []).find(x => x.id === a.id);
+    if (!res.ok || !now) { toast('Cette app n\'est plus sur le téléviseur'); return; }
+    a.label = now.label;
+    const row = document.querySelector('.app[data-id="' + CSS.escape(a.id) + '"]');
+    if (row) {
+      const field = row.querySelector('input:not([type])');
+      if (document.activeElement !== field) field.value = now.label;
+      row.querySelector('small').textContent = now.label !== now.originalLabel ? 'Nom d\'origine : ' + now.originalLabel : '';
+    }
+    toast(now.label !== now.originalLabel ? 'Renommée : ' + now.label : 'Nom d\'origine : ' + now.label);
+  } catch (_) { toast(LOST); }
+}
+
+function appRow(a) {
+  const row = document.createElement('div');
+  row.className = 'app' + (a.hidden ? ' off' : ''); row.dataset.id = a.id;
+  const img = document.createElement('img'); img.loading = 'lazy'; img.alt = '';
+  img.src = base + 'thumb/app/' + encodeURIComponent(a.id) + '?v=' + a.v;
+  const body = document.createElement('div');
+  const name = document.createElement('input');
+  name.value = a.label; name.placeholder = a.originalLabel; name.maxLength = 60; name.enterKeyHint = 'done';
+  name.autocomplete = 'off'; name.spellcheck = false; name.setAttribute('aria-label', 'Nom de ' + a.originalLabel);
+  name.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); name.blur(); } };
+  name.onchange = () => saveLabel(a, name);
+  const sub = document.createElement('small');
+  sub.textContent = a.label !== a.originalLabel ? 'Nom d\'origine : ' + a.originalLabel : '';
+  body.append(name, sub);
+  const acts = document.createElement('div'); acts.className = 'acts';
+  if (a.tile) {
+    const pick = document.createElement('label'); pick.textContent = 'Changer l\'image';
+    const file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
+    file.onchange = async () => {
+      const f = file.files[0]; file.value = ''; if (!f) return;
+      if (f.size > 20 * 1048576) { toast('Image trop volumineuse : 20 Mo au maximum'); return; }
+      pick.classList.add('busy'); pick.firstChild.textContent = 'Envoi…';
+      try {
+        const fd = new FormData(); fd.append('pkg', a.id); fd.append('image', f, f.name);
+        const res = await postApps('api/app/tile', fd);
+        toast(res.ok ? 'Image changée : visible sur l\'accueil' : (res.message || 'Image inutilisable'));
+      } catch (_) { toast(LOST); pick.classList.remove('busy'); pick.firstChild.textContent = 'Changer l\'image'; }
+    };
+    pick.append(file); acts.append(pick);
+  }
+  if (a.custom) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Image d\'origine';
+    b.onclick = () => postApps('api/app/tile/delete', { pkg: a.id }).then(() => toast('Image d\'origine rétablie')).catch(() => toast(LOST));
+    acts.append(b);
+  }
+  const vis = document.createElement('button'); vis.type = 'button'; vis.textContent = a.hidden ? 'Afficher' : 'Masquer';
+  vis.onclick = () => postApps('api/app/hidden', { pkg: a.id, on: !a.hidden })
+    .then(() => toast((a.hidden ? 'Affichée : ' : 'Masquée : ') + a.label)).catch(() => toast(LOST));
+  acts.append(vis);
+  row.append(img, body, acts);
+  return row;
+}
+
+function renderApps(list) {
+  if (!Array.isArray(list)) return;
+  const shown = $('apps'), hidden = $('hiddenApps');
+  shown.innerHTML = ''; hidden.innerHTML = '';
+  for (const a of list) (a.hidden ? hidden : shown).append(appRow(a));
+  if (!shown.childElementCount) shown.innerHTML = '<div class="empty" style="padding:12px">Aucune app visible sur l\'accueil</div>';
+  $('hiddenTitle').hidden = !hidden.childElementCount;
+}
+
+async function refreshApps() {
+  // Not while a name is being typed: redrawing would take the field away.
+  const a = document.activeElement;
+  if (a && a.closest && a.closest('.apps')) return;
+  try {
+    const r = await fetch(base + 'api/apps');
+    if (!r.ok) throw new Error(r.status);
+    renderApps((await r.json()).apps);
+  } catch (_) { /* refresh() already says the TV is unreachable */ }
+}
+
 function renderWeather(s) {
   document.querySelectorAll('#weather button').forEach(b => {
     b.setAttribute('aria-pressed', String(s.weather) === b.dataset.on);
@@ -583,8 +707,9 @@ async function refresh() {
   } catch (_) { toast(LOST, 4000); }
 }
 refresh();
+refreshApps();
 // The page stays open on the phone for days; coming back to it shows the TV as it is now.
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { refresh(); refreshApps(); } });
 </script>
 </body>
 </html>

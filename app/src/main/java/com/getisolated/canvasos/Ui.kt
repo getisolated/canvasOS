@@ -13,6 +13,9 @@ import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -209,6 +212,7 @@ class Sheet(private val host: FrameLayout) {
         setLineSpacing(0f, 1.25f)
     }
     private var onDismiss: (() -> Unit)? = null
+    private var field: EditText? = null
 
     init {
         col.addView(title)
@@ -244,12 +248,60 @@ class Sheet(private val host: FrameLayout) {
         col.addView(t, LinearLayout.LayoutParams(ctx.dp(420), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dp(10) })
     }
 
+    /**
+     * A text field prefilled with [initial], then OK and Annuler: [done] gets the text on OK or on the
+     * keyboard's Done key. The TV's on-screen keyboard does the typing; it opens with the sheet, which
+     * then sits high on the screen so the field stays above the keyboard (the home screen does not resize).
+     */
+    fun input(initial: String, hint: String? = null, done: (String) -> Unit) = apply {
+        val r = ctx.dp(14).toFloat()
+        val idle = rounded(Color.argb(46, 255, 255, 255), r)
+        val focused = rounded(Color.argb(72, 255, 255, 255), r).apply { setStroke(ctx.dp(3), Color.WHITE) }
+        val f = EditText(ctx).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            isSingleLine = true
+            // Landscape keyboards go full screen by default and hide the sheet; this one keeps it in view.
+            imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
+            filters = arrayOf(android.text.InputFilter.LengthFilter(Labels.MAX))
+            textSize = 20f
+            typeface = Fonts.inter(ctx, 500)
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.argb(110, 255, 255, 255))
+            highlightColor = Color.argb(90, 255, 255, 255)
+            if (android.os.Build.VERSION.SDK_INT >= 29) textCursorDrawable = rounded(Color.WHITE, 0f).apply { setSize(ctx.dp(2), 0) }
+            this.hint = hint
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(ctx.dp(20), 0, ctx.dp(20), 0)
+            background = idle
+            setText(initial)
+            setSelection(text.length)
+            setOnFocusChangeListener { _, has -> background = if (has) focused else idle }
+            // Only the keyboard's action: a remote whose OK sends Enter would otherwise confirm the name unchanged.
+            setOnEditorActionListener { _, id, _ ->
+                if (id == EditorInfo.IME_ACTION_DONE) { dismiss(); done(text.toString()); true } else false
+            }
+        }
+        field = f
+        col.addView(f, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(56)).apply { topMargin = ctx.dp(12); bottomMargin = ctx.dp(8) })
+        button("OK") { done(f.text.toString()) }
+        button("Annuler") {}
+        (col.layoutParams as FrameLayout.LayoutParams).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            topMargin = ctx.dp(56)
+        }
+    }
+
     fun onDismiss(f: () -> Unit) = apply { onDismiss = f }
 
     fun show(): Sheet {
         host.addView(root, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         root.animate().alpha(1f).setDuration(180).start()
-        (0 until col.childCount).map { col.getChildAt(it) }.firstOrNull { it is PillButton }?.requestFocus()
+        val f = field
+        if (f != null) {
+            f.requestFocus()
+            f.postDelayed({ if (f.hasFocus()) ctx.getSystemService(InputMethodManager::class.java)?.showSoftInput(f, 0) }, 200)
+        } else (0 until col.childCount).map { col.getChildAt(it) }.firstOrNull { it is PillButton }?.requestFocus()
         return this
     }
 
@@ -257,6 +309,7 @@ class Sheet(private val host: FrameLayout) {
 
     fun dismiss() {
         if (!isShowing) return
+        field?.let { ctx.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(it.windowToken, 0) }
         root.animate().alpha(0f).setDuration(140).withEndAction {
             host.removeView(root)
             onDismiss?.invoke()

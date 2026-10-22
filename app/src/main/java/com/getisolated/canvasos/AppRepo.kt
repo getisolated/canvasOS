@@ -17,6 +17,8 @@ import android.graphics.drawable.Drawable
 import android.util.LruCache
 import androidx.palette.graphics.Palette
 import com.getisolated.canvasos.tv.Input
+import org.json.JSONObject
+import java.io.File
 import java.text.Collator
 import java.util.Locale
 
@@ -27,7 +29,31 @@ data class AppEntry(
     val leanback: Boolean,
     /** Set for a TV input pinned to the grid; then [pkg] is its [InputTile.key]. */
     val input: Input? = null,
+    /** The name the app gives itself; [label] is the user's when they renamed it ([Prefs.labels]). */
+    val originalLabel: String = label,
+    /** Version of the user's own tile picture ([AppRepo.customTileFile]), 0 for none: a new one makes the grid redraw the tile. */
+    val tileStamp: Long = 0L,
 )
+
+/** The user's names for grid entries, kept in [Prefs.labels] as a JSON object (grid key → name). */
+object Labels {
+    const val MAX = 60
+
+    fun decode(json: String): Map<String, String> {
+        val o = runCatching { JSONObject(json) }.getOrNull() ?: return emptyMap()
+        val out = LinkedHashMap<String, String>()
+        for (k in o.keys()) o.optString(k).trim().takeIf { it.isNotEmpty() }?.let { out[k] = it }
+        return out
+    }
+
+    /** [json] with [pkg] renamed to [label]; null or blank drops the entry, so the app's own name comes back. */
+    fun with(json: String, pkg: String, label: String?): String {
+        val map = decode(json).toMutableMap()
+        val name = label?.trim()?.take(MAX)
+        if (name.isNullOrEmpty()) map.remove(pkg) else map[pkg] = name
+        return JSONObject(map).toString()
+    }
+}
 
 /** A TV input (HDMI) pinned to the home grid from the Control Center's input list. */
 object InputTile {
@@ -90,12 +116,19 @@ class AppRepo(private val ctx: Context) {
             val i = InputTile.decode(s) ?: continue
             byPkg[InputTile.key(i)] = AppEntry(InputTile.key(i), i.name, ComponentName(ctx, HomeActivity::class.java), false, i)
         }
-        return byPkg.values.toList()
+        // The user's names and pictures; listing the tile folders is cheap, and finds pictures pushed over adb.
+        val names = Labels.decode(prefs.labels)
+        scanCustomTiles(ctx)
+        val st = stamps
+        return byPkg.values.map { e ->
+            val name = names[e.pkg]
+            val stamp = st[e.pkg] ?: 0L
+            if (name == null && stamp == 0L) e else e.copy(label = name ?: e.label, originalLabel = e.label, tileStamp = stamp)
+        }
     }
 
     /** Visible apps in user order; new apps go to the end. */
-    fun orderedVisible(): List<AppEntry> {
-        val apps = allApps()
+    fun orderedVisible(apps: List<AppEntry> = allApps()): List<AppEntry> {
         val hidden = prefs.hidden
         var order = prefs.order
         if (order.isEmpty()) order = Prefs.DEFAULT_ORDER
@@ -143,19 +176,29 @@ class AppRepo(private val ctx: Context) {
 
     fun cachedTile(pkg: String): Bitmap? = tiles.get(tileKey(pkg))
 
-    /** The settings tile is keyed by its custom icon's date too, so a newly uploaded one shows up. */
-    private fun tileKey(pkg: String): String =
-        if (pkg == ctx.packageName) pkg + "@" + (SettingsActivity.customIcon(ctx)?.lastModified() ?: 0L) else pkg
+    /**
+     * The settings tile is keyed by its custom icon's date too, and an app with a picture of the
+     * user's by that picture's version, so a newly uploaded one shows up. Cheap: the main thread
+     * calls it for every tile it binds.
+     */
+    fun tileKey(pkg: String, st: Map<String, Long> = stamps): String = when {
+        pkg == ctx.packageName -> pkg + "@" + (SettingsActivity.customIcon(ctx)?.lastModified() ?: 0L)
+        else -> st[pkg]?.let { "$pkg@$it" } ?: pkg
+    }
 
-    /** Builds the tile bitmap; call off the main thread. */
-    fun tile(app: AppEntry): Bitmap {
-        val key = tileKey(app.pkg)
+    /** Builds the tile bitmap; call off the main thread. [keep] false leaves it out of the cache (the phone page's thumbnails). */
+    fun tile(app: AppEntry, keep: Boolean = true): Bitmap {
+        // One snapshot for the key and the picture: a plain key never holds the user's picture.
+        val st = stamps
+        val key = tileKey(app.pkg, st)
         tiles.get(key)?.let { return it }
         val bmp = Bitmap.createBitmap(TILE_W, TILE_H, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        app.input?.let { drawInputTile(c, it); tiles.put(key, bmp); return bmp }
+        app.input?.let { drawInputTile(c, it); if (keep) tiles.put(key, bmp); return bmp }
         val own = if (app.component.className == SettingsActivity::class.java.name)
             SettingsActivity.customIcon(ctx)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
+        else if (app.pkg in st)
+            customTileFile(ctx, app.pkg)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
         else null
         val banner = own ?: try {
             pm.getActivityInfo(app.component, 0).loadBanner(pm)
@@ -167,12 +210,15 @@ class AppRepo(private val ctx: Context) {
             val icon = try { pm.getActivityIcon(app.component) } catch (e: Exception) { pm.defaultActivityIcon }
             drawIconTile(c, icon)
         }
-        tiles.put(key, bmp)
+        if (keep) tiles.put(key, bmp)
         return bmp
     }
 
-    /** Drops the cached tile of [pkg] (it was updated or removed), or of every app. */
-    fun invalidate(pkg: String? = null) { if (pkg == null) tiles.evictAll() else tiles.remove(tileKey(pkg)) }
+    /** Drops the cached tile of [pkg] (it was updated or removed), whatever picture it was drawn with, or of every app. */
+    fun invalidate(pkg: String? = null) {
+        if (pkg == null) { tiles.evictAll(); return }
+        tiles.snapshot().keys.filter { it == pkg || it.startsWith("$pkg@") }.forEach { tiles.remove(it) }
+    }
 
     private fun drawCenterCrop(c: Canvas, d: Drawable) {
         val iw = d.intrinsicWidth.takeIf { it > 0 } ?: TILE_W
@@ -248,6 +294,110 @@ class AppRepo(private val ctx: Context) {
         )
         const val TILE_W = 400
         const val TILE_H = 225
+
+        /** Folder of the user's tile pictures, `<package>.jpg`, in app storage and in Android/data/…/files. */
+        const val TILES_DIR = "tiles"
+        /** A tile picture is kept at twice the tile's size, so it stays sharp if tiles grow. */
+        private const val CUSTOM_W = 800
+        private const val CUSTOM_H = 450
+
+        /** Sent to this app alone when a name, a picture or the hidden list changed elsewhere (the phone page). */
+        const val ACTION_TILE_CHANGED = "com.getisolated.canvasos.TILE_CHANGED"
+        const val EXTRA_PKG = "pkg"
+
+        private val PACKAGE = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")
+
+        /**
+         * The user's tile pictures by package, as [tileStamp] versions, from the last [scanCustomTiles].
+         * Shared by every [AppRepo] in the process: the phone page's and the home screen's.
+         */
+        @Volatile private var stamps: Map<String, Long> = emptyMap()
+
+        /**
+         * Where a picture of the user's for [pkg] can be, in the order it is looked for: app storage
+         * (uploaded from the phone page) first, then [externalDir] (Android/data/…/files, pushed over
+         * adb), like the boot video. None for keys that are not a package name (canvasOS's own screens,
+         * TV inputs): nothing outside the folder can be named.
+         */
+        fun customTilePaths(filesDir: File, externalDir: File?, pkg: String): List<File> =
+            if (!PACKAGE.matches(pkg)) emptyList()
+            else listOfNotNull(filesDir, externalDir).map { File(File(it, TILES_DIR), "$pkg.jpg") }
+
+        /** Whether [pkg] can have a picture of the user's; the settings tile has its own icon (Prefs.ownIcon). */
+        fun canHaveCustomTile(ctx: Context, pkg: String) = pkg != ctx.packageName && PACKAGE.matches(pkg)
+
+        fun customTileFile(ctx: Context, pkg: String): File? =
+            if (pkg == ctx.packageName) null
+            else customTilePaths(ctx.filesDir, ctx.getExternalFilesDir(null), pkg).firstOrNull { it.isFile && it.length() > 0 }
+
+        /** The version of [pkg]'s picture as last scanned, 0 for none; compare with [AppEntry.tileStamp]. */
+        fun tileStamp(pkg: String): Long = stamps[pkg] ?: 0L
+
+        /**
+         * Re-reads which apps have a picture of the user's. Blocking (lists two folders). The version
+         * takes the size too: `adb push` keeps the date of the computer's file, so a new picture can
+         * carry an older date.
+         */
+        fun scanCustomTiles(ctx: Context) {
+            val found = HashMap<String, Long>()
+            // Android/data first, so a picture in app storage wins, as in customTileFile.
+            for (dir in listOfNotNull(ctx.getExternalFilesDir(null), ctx.filesDir)) {
+                File(dir, TILES_DIR).listFiles()?.forEach { f ->
+                    val pkg = f.name.removeSuffix(".jpg")
+                    if (f.name.endsWith(".jpg") && canHaveCustomTile(ctx, pkg) && f.isFile && f.length() > 0)
+                        found[pkg] = f.lastModified() * 31 + f.length()
+                }
+            }
+            stamps = found
+        }
+
+        /**
+         * Makes [bytes] (any picture Android decodes) the tile of [pkg]: centre-cropped to 16:9 and
+         * kept as an 800×450 JPEG in app storage. False when it is not a picture. Blocking.
+         */
+        fun setCustomTile(ctx: Context, pkg: String, bytes: ByteArray): Boolean {
+            if (!canHaveCustomTile(ctx, pkg)) return false
+            val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+            if (o.outWidth <= 0 || o.outHeight <= 0) return false
+            // The smallest power-of-two reduction that still covers the tile: a 48 MP photo decoded whole would not fit the heap.
+            var sample = 1
+            while (o.outWidth / (sample * 2) >= CUSTOM_W && o.outHeight / (sample * 2) >= CUSTOM_H) sample *= 2
+            val src = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+                ?: return false
+            val out = Bitmap.createBitmap(CUSTOM_W, CUSTOM_H, Bitmap.Config.ARGB_8888)
+            val scale = maxOf(CUSTOM_W.toFloat() / src.width, CUSTOM_H.toFloat() / src.height)
+            val w = src.width * scale
+            val h = src.height * scale
+            Canvas(out).apply {
+                drawColor(Color.BLACK)
+                drawBitmap(src, null, RectF((CUSTOM_W - w) / 2, (CUSTOM_H - h) / 2, (CUSTOM_W + w) / 2, (CUSTOM_H + h) / 2),
+                    Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+            }
+            src.recycle()
+            val dir = File(ctx.filesDir, TILES_DIR).apply { mkdirs() }
+            val tmp = File(dir, "$pkg.jpg.part")
+            tmp.outputStream().use { out.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+            out.recycle()
+            // One pushed over adb would otherwise come back once this one is removed.
+            customTilePaths(ctx.filesDir, ctx.getExternalFilesDir(null), pkg).forEach { it.delete() }
+            val ok = tmp.renameTo(File(dir, "$pkg.jpg"))
+            scanCustomTiles(ctx)
+            return ok
+        }
+
+        /** Gives [pkg] back the tile drawn from its banner or icon; false when it had no picture of the user's. Blocking. */
+        fun clearCustomTile(ctx: Context, pkg: String): Boolean {
+            var any = false
+            customTilePaths(ctx.filesDir, ctx.getExternalFilesDir(null), pkg).forEach { if (it.delete()) any = true }
+            scanCustomTiles(ctx)
+            return any
+        }
+
+        /** Tells the home screen to redraw [pkg] (or the whole grid): its name, picture or visibility changed. */
+        fun notifyChanged(ctx: Context, pkg: String?) {
+            ctx.sendBroadcast(Intent(ACTION_TILE_CHANGED).setPackage(ctx.packageName).apply { pkg?.let { putExtra(EXTRA_PKG, it) } })
+        }
         val HIDE_ALWAYS = setOf(
             "com.oversea.aslauncher",
             "com.dangbei.TVHomeLauncher",
