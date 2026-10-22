@@ -118,6 +118,20 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                     json(remote(args))
                 }
                 post && path == "/api/apk/upload" -> installApk(session)
+                path == "/api/weather/search" -> weatherSearch(session.parameters["q"]?.firstOrNull().orEmpty())
+                post && path == "/api/weather" -> {
+                    form(session)["on"]?.let { prefs.weather = it == "true" }
+                    json(state())
+                }
+                post && path == "/api/weather/place" -> {
+                    val f = form(session)
+                    val lat = f["lat"]?.toDoubleOrNull()
+                    val lon = f["lon"]?.toDoubleOrNull()
+                    val name = f["name"].orEmpty().trim().take(80)
+                    if (lat != null && lon != null && lat in -90.0..90.0 && lon in -180.0..180.0 && name.isNotEmpty())
+                        Weather.setPlace(ctx, Weather.Place(name, lat, lon), auto = false)
+                    json(state())
+                }
                 else -> text(Response.Status.NOT_FOUND, "Not found")
             }
         }.getOrElse { text(Response.Status.INTERNAL_ERROR, it.message ?: "error") }
@@ -146,6 +160,19 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("mine", names(Wallpapers.MINE))
         .put("custom", names(Wallpapers.CUSTOM))
         .put("adb", prefs.adbAuthorized)
+        .put("weather", prefs.weather)
+        .put("weatherPlace", prefs.weatherPlace)
+        .put("weatherAuto", prefs.weatherAuto)
+
+    /** Cities for the phone page's search, looked up by the TV (Open-Meteo's geocoding); ok=false when it cannot reach it. */
+    private fun weatherSearch(q: String): Response {
+        val query = q.trim().take(80)
+        if (query.length < 2) return json(JSONObject().put("ok", true).put("results", JSONArray()))
+        val found = Weather.geocode(query) ?: return json(JSONObject().put("ok", false))
+        return json(JSONObject().put("ok", true).put("results", JSONArray().apply {
+            found.forEach { put(JSONObject().put("name", it.name).put("detail", it.detail).put("lat", it.lat).put("lon", it.lon)) }
+        }))
+    }
 
     private fun thumb(rest: String): Response {
         val (source, name) = rest.split('/', limit = 2).takeIf { it.size == 2 } ?: return text(Response.Status.NOT_FOUND, "")

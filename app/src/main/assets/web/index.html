@@ -123,6 +123,17 @@
   }
   .pair { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 10px; }
   .pair .k { border-radius: 14px; font-weight: 600; }
+  /* Weather: the cities found, as an inset list. */
+  .results { margin-top: 10px; border-radius: 12px; overflow: hidden; background: var(--card); }
+  .results:empty { display: none; }
+  .results button {
+    display: block; width: 100%; appearance: none; border: 0; border-bottom: .5px solid var(--sep); background: none;
+    color: var(--label); font: inherit; text-align: left; padding: 11px 14px;
+  }
+  .results button:last-child { border-bottom: 0; }
+  .results small { display: block; color: var(--secondary); font-size: 13px; }
+  .results .empty { padding: 11px 14px; }
+  #weatherQuery { -webkit-appearance: none; appearance: none; }
 
   footer { color: var(--secondary); font-size: 13px; margin: 36px 4px 0; padding-top: 14px; border-top: .5px solid var(--sep); }
 </style>
@@ -218,6 +229,19 @@
 <h2>Icône des réglages</h2>
 <label class="primary" id="pickIcon">Importer une icône<input type="file" id="iconFile" accept="image/*" hidden></label>
 <p class="hint" id="iconHint"></p>
+
+<h2>Météo</h2>
+<div class="seg" id="weather">
+  <button data-on="true">Activée</button>
+  <button data-on="false">Désactivée</button>
+</div>
+<p class="hint" id="weatherPlace"></p>
+<form class="type" id="weatherForm" style="margin-top:12px">
+  <input type="search" id="weatherQuery" placeholder="Ville" aria-label="Ville de la météo"
+    autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+</form>
+<div class="results" id="weatherResults" aria-live="polite"></div>
+<p class="hint">La température s'affiche à côté de l'horloge de l'accueil, et les prévisions sur cinq jours dans le Centre de contrôle (bouton Météo). Prévisions d'Open-Meteo ; tant qu'aucune ville n'est choisie, le téléviseur devine le lieu une fois d'après son adresse IP publique (ip-api.com).</p>
 </section>
 
 <section class="tab" data-tab="apps" id="tab-apps" role="tabpanel" aria-label="Apps" hidden>
@@ -390,6 +414,7 @@ function render(s) {
     hint.textContent = 'Idéalement une courte vidéo qui se termine sur un logo sur fond noir : le logo s\'agrandit et ouvre l\'accueil. Sans vidéo, le logo canvasOS s\'affiche.';
   }
   if (document.activeElement !== $('links')) $('links').value = s.links;
+  renderWeather(s);
   photos($('mine'), 'mine', s.mine);
   photos($('custom'), 'custom', s.custom);
 }
@@ -478,6 +503,45 @@ $('save').onclick = async () => {
     render(await (await fetch(base + 'api/state')).json());
   }, 4000);
 };
+
+function renderWeather(s) {
+  document.querySelectorAll('#weather button').forEach(b => {
+    b.setAttribute('aria-pressed', String(s.weather) === b.dataset.on);
+    b.onclick = () => post('api/weather', { on: b.dataset.on }).then(() => toast('Météo : ' + b.textContent));
+  });
+  $('weatherPlace').textContent = s.weatherPlace
+    ? 'Lieu : ' + s.weatherPlace + (s.weatherAuto ? ' (détecté d\'après l\'adresse IP du téléviseur)' : '') + '. Cherchez une ville pour en changer.'
+    : 'Pas encore de lieu : le téléviseur le devinera d\'après son adresse IP publique, ou cherchez une ville.';
+}
+
+// The TV looks the city up (Open-Meteo's geocoding): the page talks to the TV only.
+let wxTimer = 0, wxSeq = 0;
+async function searchWeather() {
+  const q = $('weatherQuery').value.trim(), list = $('weatherResults'), seq = ++wxSeq;
+  if (q.length < 2) { list.innerHTML = ''; return; }
+  try {
+    const r = await fetch(base + 'api/weather/search?q=' + encodeURIComponent(q));
+    if (!r.ok) throw new Error(r.status);
+    const res = await r.json();
+    if (seq !== wxSeq) return;  // a newer search is on its way
+    list.innerHTML = '';
+    if (!res.ok) { list.innerHTML = '<div class="empty">Recherche impossible : le téléviseur n\'arrive pas à joindre Open-Meteo</div>'; return; }
+    if (!res.results.length) { list.innerHTML = '<div class="empty">Aucune ville trouvée</div>'; return; }
+    for (const p of res.results) {
+      const b = document.createElement('button'); b.type = 'button';
+      const n = document.createElement('span'); n.textContent = p.name;
+      const d = document.createElement('small'); d.textContent = p.detail;
+      b.append(n, d);
+      b.onclick = () => post('api/weather/place', { lat: p.lat, lon: p.lon, name: p.name }).then(() => {
+        list.innerHTML = ''; $('weatherQuery').value = '';
+        toast('Météo : ' + p.name + ', à l\'accueil dans une minute environ');
+      }).catch(() => toast(LOST));
+      list.append(b);
+    }
+  } catch (_) { if (seq === wxSeq) toast(LOST); }
+}
+$('weatherQuery').oninput = () => { clearTimeout(wxTimer); wxTimer = setTimeout(searchWeather, 450); };
+$('weatherForm').onsubmit = e => { e.preventDefault(); clearTimeout(wxTimer); searchWeather(); };
 
 async function refresh() {
   try {

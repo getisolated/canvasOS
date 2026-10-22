@@ -73,6 +73,11 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private lateinit var bigClock: LinearLayout
     private lateinit var bigDate: TextView
     private lateinit var bigTime: TextView
+    /** The weather ([Weather]): "14°" and its icon left of the corner clock, a line under the large clock's date. */
+    private lateinit var wxCorner: LinearLayout
+    private lateinit var wxIcon: ImageView
+    private lateinit var wxTemp: TextView
+    private lateinit var wxLine: TextView
     private var intro: Intro? = null
     private lateinit var avatar: IconButton
     private lateinit var netButton: IconButton
@@ -187,6 +192,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         override fun run() {
             updateClock()
             applyBackground()
+            updateWeather()
             main.postDelayed(this, 60_000 - System.currentTimeMillis() % 60_000 + 50)
         }
     }
@@ -326,6 +332,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         netButton.contentDescription = "Réglages réseau"
         ccButton.contentDescription = "Centre de contrôle"
         icons.addView(clockText, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(10) })
+        buildWeather(icons)
         icons.addView(netButton, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(6) })
         icons.addView(ccButton, LinearLayout.LayoutParams(dp(28), dp(28)))
         avatar = IconButton(this, R.drawable.profile_avatar, portrait = true) {
@@ -601,6 +608,48 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         clockText.visibility = if (style == Prefs.CLOCK_CORNER) View.VISIBLE else View.GONE
         bigClock.visibility = if (style == Prefs.CLOCK_LARGE) View.VISIBLE else View.GONE
         updateClock()
+    }
+
+    /** The weather views, next to the clocks they go with; hidden until there is a forecast to show. */
+    private fun buildWeather(icons: LinearLayout) {
+        wxIcon = ImageView(this)
+        wxTemp = text(14f, weight = 600).apply {
+            setShadowLayer(dp(5).toFloat(), 0f, dp(1).toFloat(), Color.argb(140, 0, 0, 0))
+        }
+        wxCorner = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            addView(wxIcon, LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginEnd = dp(4) })
+            addView(wxTemp)
+        }
+        icons.addView(wxCorner, icons.indexOfChild(clockText), LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(12) })
+        wxLine = text(18f, Color.argb(230, 255, 255, 255), weight = 500).apply {
+            setShadowLayer(dp(8).toFloat(), 0f, 0f, Color.argb(60, 0, 0, 0))
+            visibility = View.GONE
+        }
+        bigClock.addView(wxLine, bigClock.indexOfChild(bigDate) + 1, LinearLayout.LayoutParams(-2, -2).apply {
+            marginStart = dp(4); topMargin = dp(6)
+        })
+    }
+
+    /**
+     * Shows the kept forecast with the clock style in use, and has a new one fetched when it is due
+     * ([Weather.refreshIfDue]). From [ticker]: once a minute while the home screen is in front.
+     */
+    private fun updateWeather() {
+        // Offline, the weather goes rather than showing a forecast that can no longer be refreshed.
+        val f = if (prefs.weather && Net.isConnected(this)) Weather.cached(this) else null
+        val style = prefs.clockStyle
+        wxCorner.visibility = if (f != null && style == Prefs.CLOCK_CORNER) View.VISIBLE else View.GONE
+        wxLine.visibility = if (f != null && style == Prefs.CLOCK_LARGE) View.VISIBLE else View.GONE
+        if (f != null) {
+            val icon = Weather.icon(f)
+            if (wxIcon.tag != icon) { wxIcon.setImageResource(icon); wxIcon.tag = icon }
+            Weather.degrees(f.temp).let { if (wxTemp.text.toString() != it) wxTemp.text = it }
+            Weather.now(f).let { if (wxLine.text.toString() != it) wxLine.text = it }
+        }
+        Weather.refreshIfDue(this) { main.post { if (resumed && !isDestroyed) updateWeather() } }
     }
 
     /** The home scene alone, without the control center or any dialog; the glass controls sample it. */

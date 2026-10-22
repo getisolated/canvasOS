@@ -411,5 +411,8 @@ class ConfigReceiver : BroadcastReceiver() {
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
             "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} own_icon=${prefs.ownIcon} settings_bg=${prefs.settingsBg} low_end=${Device.isLowEnd(c)} " +
             "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents}"
+        // Must stay last: a weather_city is looked up over the network, so this may call goAsync(),
+        // after which resultData can only be set through the pending result (Weather.config does).
+        Weather.config(this, c, i)
     }
 }

@@ -235,6 +235,15 @@ class Sheet(private val host: FrameLayout) {
         col.addView(b, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(52)).apply { topMargin = ctx.dp(12) })
     }
 
+    /** A plain, non-focusable line of text in the stack, such as one day of a forecast; added in call order with the buttons. */
+    fun line(text: String) = apply {
+        val t = ctx.text(18f, Color.argb(225, 255, 255, 255)).apply {
+            this.text = text
+            gravity = Gravity.CENTER
+        }
+        col.addView(t, LinearLayout.LayoutParams(ctx.dp(420), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dp(10) })
+    }
+
     fun onDismiss(f: () -> Unit) = apply { onDismiss = f }
 
     fun show(): Sheet {

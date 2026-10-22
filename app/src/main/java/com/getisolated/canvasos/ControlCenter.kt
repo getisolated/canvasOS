@@ -161,6 +161,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private val inputModule: GlassButton
     private val networkModule: GlassButton
     private val sleepModule: GlassButton
+    private val weatherModule: GlassButton
     private var inputs: List<Input> = emptyList()
     private var volumeTarget = "speaker"
     private val status = ctx.text(11f, Color.argb(190, 255, 255, 255))
@@ -236,6 +237,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         panel.addView(volume, LinearLayout.LayoutParams(-1, ctx.dp(38)).apply { topMargin = gap })
         inputModule = GlassButton("Source", R.drawable.ic_input, Shape.CAPSULE) { pickInput() }
         panel.addView(inputModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
+        weatherModule = GlassButton("Météo", R.drawable.ic_wx_partly_cloudy, Shape.CAPSULE) { weatherSheet() }
+        panel.addView(weatherModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
         panel.addView(status, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ctx.dp(10) })
         // The host clips the panel to its bounds; the padding is room for focused controls to grow into.
         val room = ctx.dp(16)
@@ -512,6 +515,9 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
+        /** A new glyph, such as the weather's; it keeps its colour. */
+        fun setIcon(res: Int) = glyph.setImageResource(res)
+
         init {
             id = View.generateViewId()
             contentDescription = label
@@ -790,6 +796,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         networkModule.sub.text = if (!Net.isConnected(ctx)) "Déconnecté" else Net.lanAddress(ctx) ?: "Connecté"
         networkModule.sub.visibility = View.VISIBLE
         updateSleep()
+        updateWeather()
         if (refreshing) return
         refreshing = true
         io.execute {
@@ -832,6 +839,48 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         for (i in inputs) {
             val on = home.isPinned(i)
             sheet.button(if (on) "✓  ${i.name}" else i.name, R.drawable.ic_input) { home.pinInput(i, !on) }
+        }
+        sheet.button("OK") {}
+        home.showSheet(sheet)
+    }
+
+    /**
+     * The Météo capsule, from the forecast the home screen keeps ([Weather.cached]); a quick
+     * preference read, safe on the UI thread. Gone while the weather is off.
+     */
+    private fun updateWeather() {
+        val on = prefs.weather
+        weatherModule.visibility = if (on) View.VISIBLE else View.GONE
+        if (!on) return
+        val f = Weather.cached(ctx)
+        val place = prefs.weatherPlace
+        // Unchanged text and glyph are left alone, so reopening does not relayout and redraw the glass.
+        fun TextView.show(t: String) { if (text.toString() != t) text = t }
+        weatherModule.title.show(if (place.isEmpty()) "Météo" else "Météo · $place")
+        weatherModule.sub.show(when {
+            f != null -> Weather.summary(f)
+            !Net.isConnected(ctx) -> "Hors connexion"
+            else -> "Pas encore de prévisions"
+        })
+        weatherModule.sub.visibility = View.VISIBLE
+        val icon = if (f != null) Weather.icon(f) else R.drawable.ic_wx_partly_cloudy
+        if (weatherModule.tag != icon) { weatherModule.setIcon(icon); weatherModule.tag = icon }
+    }
+
+    /** Five days of forecast, read from the kept answer: nothing is fetched here. */
+    private fun weatherSheet() {
+        val f = Weather.cached(ctx)
+        close()
+        val place = prefs.weatherPlace
+        val sheet = Sheet(host).title(if (place.isEmpty()) "Météo" else "Météo à $place")
+        // Open-Meteo's data is CC BY 4.0: credited wherever the forecast is shown in full.
+        val credit = "Prévisions : Open-Meteo.com"
+        val where = if (prefs.weatherAuto) "\nLieu détecté d'après l'adresse IP du téléviseur ; choisissez une autre ville depuis la page téléphone (onglet Réglages)." else ""
+        if (f == null) {
+            sheet.message("Les prévisions s'afficheront ici dès que le téléviseur les aura reçues ; il lui faut pour cela une connexion à Internet.\n$credit")
+        } else {
+            sheet.message(credit + where)
+            Weather.upcoming(f).take(5).forEach { sheet.line(Weather.dayLine(it)) }
         }
         sheet.button("OK") {}
         home.showSheet(sheet)
