@@ -23,6 +23,9 @@
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- The sleep timer's alarm (SleepTimer). Granted at install for an app of this target version;
+         where Android refuses it, the timer falls back to an inexact alarm. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name=".App"
@@ -81,6 +84,11 @@
 
         <service
             android:name=".KeeperService"
+            android:exported="false" />
+
+        <!-- The sleep timer's alarm; only the app's own PendingIntent reaches it. -->
+        <receiver
+            android:name=".SleepReceiver"
             android:exported="false" />
 
         <receiver

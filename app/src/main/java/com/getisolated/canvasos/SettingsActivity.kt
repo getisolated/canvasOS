@@ -389,6 +389,11 @@ class SettingsActivity : Activity() {
                 runOnUiThread { v.text = if (ok) onOff(prefs.keepAdb) else "Débogage local requis" }
             }.start()
         }
+        row("Adresse IP", "L'adresse du téléviseur sur le réseau local. Un ordinateur sur le même réseau s'en sert pour s'y connecter (adb connect, port 5555), " +
+            "par exemple pour installer ou mettre à jour canvasOS.", { Net.lanAddress(this) ?: "Non connecté" }) {}
+        row("Débogage ADB", "Doit être activé pour qu'un ordinateur puisse se connecter au téléviseur : sans lui, pas d'installation ni de mise à jour par le réseau. " +
+            "Il se règle dans les options pour les développeurs du téléviseur.",
+            { onOff(Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1) }) {}
         row("Réglages du téléviseur", "Ouvre les réglages d'origine du téléviseur.", { "" }, chevron = true) { runCatching { startActivity(TvControls(this).settingsIntent()) } }
         row("À propos", "canvasOS, un écran d'accueil Android TV inspiré de tvOS.",
             { "Version " + packageManager.getPackageInfo(packageName, 0).versionName }) {}

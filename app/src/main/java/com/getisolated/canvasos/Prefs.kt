@@ -219,6 +219,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("dock_recents", true)
         set(v) = sp.edit().putBoolean("dock_recents", v).apply()
 
+    /** When the sleep timer ([SleepTimer]) puts the TV in standby, in epoch milliseconds; 0 = no timer. */
+    var sleepAt: Long
+        get() = sp.getLong("sleep_at", 0L)
+        set(v) = sp.edit().putLong("sleep_at", v).apply()
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"

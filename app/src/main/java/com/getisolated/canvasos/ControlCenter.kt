@@ -23,6 +23,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import com.getisolated.canvasos.tv.Input
 import com.getisolated.canvasos.tv.Level
 import com.getisolated.canvasos.tv.TvControls
@@ -159,6 +160,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private val volume: Slider
     private val inputModule: GlassButton
     private val networkModule: GlassButton
+    private val sleepModule: GlassButton
     private var inputs: List<Input> = emptyList()
     private var volumeTarget = "speaker"
     private val status = ctx.text(11f, Color.argb(190, 255, 255, 255))
@@ -168,9 +170,13 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private val ticker = object : Runnable {
         override fun run() {
             followVolume()
+            updateSleep()
             host.postDelayed(this, 2_000)
         }
     }
+
+    // Declared before init, which arms it.
+    private val sleepWarning = Runnable { warnSleep() }
 
     private fun followVolume() {
         if (!isOpen) return
@@ -189,16 +195,18 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         val power = GlassButton("Éteindre", R.drawable.ic_power, Shape.TILE) {
             confirm("Éteindre", "Le téléviseur s'éteint complètement. Rallumez-le avec le bouton marche/arrêt de la télécommande.") { Cleaner.shutdown(ctx) }
         }
-        top.addView(power, LinearLayout.LayoutParams(0, cell * 2 + gap, 1f).apply { marginEnd = gap })
+        // The tile is narrower than it is tall so the capsules have room for an IP address (about
+        // 55 to 75 dp at their subtitle size) and "Dans 27 min": at half the panel each had 54 dp.
+        top.addView(power, LinearLayout.LayoutParams(0, cell * 2 + gap, 0.8f).apply { marginEnd = gap })
         val right = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; clipChildren = false }
         networkModule = GlassButton("Réseau", R.drawable.ic_wifi, Shape.CAPSULE, accent = Color.rgb(48, 222, 239)) {
             close()
             runCatching { ctx.startActivity(tv.wifiIntent()) }
         }
         right.addView(networkModule, LinearLayout.LayoutParams(-1, cell))
-        right.addView(GlassButton("Veille", R.drawable.ic_moon, Shape.CAPSULE) { needAdb { close(); Cleaner.sleep(ctx) } },
-            LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
-        top.addView(right, LinearLayout.LayoutParams(0, -2, 1f))
+        sleepModule = GlassButton("Veille", R.drawable.ic_moon, Shape.CAPSULE) { needAdb { close(); sleepSheet() } }
+        right.addView(sleepModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
+        top.addView(right, LinearLayout.LayoutParams(0, -2, 1.2f))
         panel.addView(top)
 
         val utilities = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
@@ -239,6 +247,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             if (l != oldL || t != oldT || r != oldR || b != oldB) refreshGlass()
         }
         panel.post { refresh() }
+        // A timer started before this screen was recreated still owes its one-minute warning.
+        armSleepWarning()
         host.viewTreeObserver.addOnGlobalFocusChangeListener { _, now ->
             if (isOpen && now != null && focusables.contains(now)) glowAt(now)
         }
@@ -492,7 +502,11 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         // Capsules and circles clamp this to half their height.
         private val glass = glassFor(this, ctx.dp(if (shape == Shape.TILE) 24 else 100).toFloat())
         private val glyph = ImageView(ctx)
-        val title = ctx.text(12.5f, weight = 600).apply { text = label; maxLines = 1 }
+        val title = ctx.text(12.5f, weight = 600).apply {
+            text = label
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
         val sub = ctx.text(10.5f, Color.argb(205, 255, 255, 255), weight = 500).apply {
             visibility = GONE
             maxLines = 1
@@ -753,6 +767,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         isOpen = false
         host.removeCallbacks(ticker)
         host.removeCallbacks(resample)
+        host.removeCallbacks(sleepWarning)
         panel.animate().cancel()
         scrim.animate().cancel()
         glowTween.cancel()
@@ -769,12 +784,12 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         if (destroyed) return
         status.text = if (prefs.adbAuthorized) "" else "Débogage local non autorisé : extinction, veille et nettoyage complet indisponibles"
         status.visibility = if (status.text.isEmpty()) View.GONE else View.VISIBLE
-        val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
-        val caps = runCatching { cm.getNetworkCapabilities(cm.activeNetwork) }.getOrNull()
-        val wired = caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true
-        networkModule.title.text = if (wired) "Ethernet" else "Wi-Fi"
-        networkModule.sub.text = if (caps == null) "Déconnecté" else "Connecté"
+        // The address is the subtitle by itself: "Connecté · 192.168.1.20" does not fit the capsule,
+        // and what a computer needs to reach the TV (AGENTS.md steps 0 and 1) is the address.
+        networkModule.title.text = (if (Net.isWired(ctx)) "Ethernet" else "Wi-Fi") + (Net.ssid(ctx)?.let { " · $it" } ?: "")
+        networkModule.sub.text = if (!Net.isConnected(ctx)) "Déconnecté" else Net.lanAddress(ctx) ?: "Connecté"
         networkModule.sub.visibility = View.VISIBLE
+        updateSleep()
         if (refreshing) return
         refreshing = true
         io.execute {
@@ -820,6 +835,68 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
         sheet.button("OK") {}
         home.showSheet(sheet)
+    }
+
+    /** The Veille capsule's subtitle: time left on the sleep timer, nothing when none is running. */
+    private fun updateSleep() {
+        val left = SleepTimer.remainingMs(ctx)
+        val sub = sleepModule.sub
+        val text = if (left > 0) "Dans " + SleepTimer.span(left) else ""
+        // Polled every 2 s: an unchanged subtitle must not relayout and redraw the glass.
+        if (sub.text.toString() != text) sub.text = text
+        sub.visibility = if (left > 0) View.VISIBLE else View.GONE
+    }
+
+    /** The Veille capsule: sleep now, or after a delay. Behind [needAdb], as the sleep key is sent through local adb. */
+    private fun sleepSheet() {
+        val left = SleepTimer.remainingMs(ctx)
+        val sheet = Sheet(host).title("Veille").message(null)
+        sheet.button("Maintenant") {
+            // Going to sleep by hand ends the timer: it would otherwise put the TV back to sleep after the next wake.
+            stopSleepTimer(announce = false)
+            Cleaner.sleep(ctx)
+        }
+        for (minutes in listOf(15, 30, 60, 90)) {
+            sheet.button("Dans " + SleepTimer.span(minutes * 60_000L)) { startSleepTimer(minutes) }
+        }
+        if (left > 0) sheet.button("Annuler le minuteur (reste ${SleepTimer.span(left)})") { stopSleepTimer() }
+        sheet.button("Annuler") {}
+        home.showSheet(sheet)
+    }
+
+    private fun startSleepTimer(minutes: Int) {
+        SleepTimer.schedule(ctx, minutes)
+        armSleepWarning()
+        updateSleep()
+        Toast.makeText(ctx, "Veille dans " + SleepTimer.span(minutes * 60_000L), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun stopSleepTimer(announce: Boolean = true) {
+        SleepTimer.cancel(ctx)
+        host.removeCallbacks(sleepWarning)
+        updateSleep()
+        if (announce) Toast.makeText(ctx, "Minuteur de veille annulé", Toast.LENGTH_SHORT).show()
+    }
+
+    /** Schedules the one-minute warning for the timer in force; nothing when there is none. */
+    private fun armSleepWarning() {
+        host.removeCallbacks(sleepWarning)
+        val left = SleepTimer.remainingMs(ctx)
+        if (left > 0) host.postDelayed(sleepWarning, (left - SleepTimer.WARN_MS).coerceAtLeast(0L))
+    }
+
+    /** Only when this home screen is what the user is looking at: an app in front is left alone. */
+    private fun warnSleep() {
+        val left = SleepTimer.remainingMs(ctx)
+        if (destroyed || left <= 0 || !home.hasWindowFocus()) return
+        // Cancelling comes first: a press by mistake then keeps the TV on instead of switching it off.
+        val sheet = Sheet(host).title("Veille dans une minute")
+            .message("Le téléviseur va se mettre en veille. Annulez le minuteur pour continuer.")
+            .button("Annuler le minuteur") { stopSleepTimer() }
+            .button("OK") {}
+        home.showSheet(sheet)
+        // The sheet must not wait around for the next wake-up once the TV has gone to sleep.
+        host.postDelayed({ sheet.dismiss() }, left)
     }
 
     private fun cleanNow() {
