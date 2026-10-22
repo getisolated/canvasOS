@@ -155,7 +155,7 @@ object Updater {
         val url = asset.optString("browser_download_url")
         // The link comes from the API, but nothing but TLS is worth installing from.
         if (!url.startsWith("https://")) return Check.Unavailable("Le lien de $name dans la Release $tag est invalide.")
-        return Check.Available(Update(latest.text, url, asset.optLong("size", 0L), o.optString("body").trim().take(MAX_NOTES)))
+        return Check.Available(Update(latest.text, url, asset.optLong("size", 0L), (if (o.isNull("body")) "" else o.optString("body")).trim().take(MAX_NOTES)))
     }
 
     /**
