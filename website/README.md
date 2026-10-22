@@ -67,6 +67,12 @@ public/404.html         static 404 served by Cloudflare Pages
 - **Screenshots** come from `TVHome/docs/screenshots/{home,grid,shelf,cc,frame}.jpg`
   and are converted by `scripts/build-assets.py`. Never substitute a generated
   image for a capture.
+- **Text-only feature cards** (`features.groups` in `zh.ts` / `en.ts`, rendered by
+  `Features.astro` under the captured features) cover the 1.1 additions that have no capture
+  yet. Every capture and recording still comes from the Sony BRAVIA; the compatibility and
+  gallery copy say so. Redo on a real TV when possible: Top Shelf with a Watch Next / TMDB
+  row, the Control Center (Météo, Bluetooth, Lecture en cours, sleep timer), the Dock with a
+  folder and a profile avatar, the phone page, Réglages → Système → Mise à jour, Profils.
 - **Recordings** in `public/video/` (home, intro, settings, cc) are `adb shell screenrecord`
   clips from the same TV, re-encoded to 1280x720 H.264 without sound; each poster in
   `public/img/*-poster.webp` is a frame of its clip. They play only while on screen and

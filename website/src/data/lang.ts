@@ -67,7 +67,14 @@ export interface Copy {
     bulletsTitle: string;
     attribution: string;
   };
-  features: { eyebrow: string; title: string; lede: string };
+  features: {
+    eyebrow: string;
+    title: string;
+    lede: string;
+    /* Text-only cards under the captured features, grouped by theme. */
+    moreTitle: string;
+    groups: { title: string; cards: { title: string; body: string }[] }[];
+  };
   film: { eyebrow: string; title: string; lede: string; label: string };
   gallery: { eyebrow: string; title: string; lede: string };
   install: {

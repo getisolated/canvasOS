@@ -1065,6 +1065,37 @@ h3 {
 
 /* ---------- features ---------- */
 
+/* Text-only cards that follow the captured features (grouped by theme). */
+.feature-more {
+  padding-top: clamp(40px, 5vw, 72px);
+  border-top: 1px solid var(--line);
+}
+
+.feature-more > h3 {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  letter-spacing: -0.02em;
+}
+
+.feature-group {
+  margin-top: clamp(28px, 4vw, 48px);
+}
+
+.feature-group h4 {
+  margin: 0 auto;
+  max-width: 1000px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ice);
+}
+
+.feature-group .notes {
+  margin-top: 14px;
+}
+
 .feature {
   display: grid;
   gap: clamp(28px, 4vw, 56px);
