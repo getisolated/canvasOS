@@ -362,7 +362,8 @@ class HomeGuardService : AccessibilityService() {
 /**
  * Brings the guard back after the firmware kills canvasOS. Android drops a force-stopped app's
  * accessibility services for good, but keeps a notification listener approved and binds it again
- * shortly after its process dies. No notification is read or touched.
+ * shortly after its process dies. No notification is read or touched. Being an approved listener
+ * also lets [MediaSessions] see which app is playing (package name and playback state only).
  */
 class RevivalListener : NotificationListenerService() {
     override fun onListenerConnected() {

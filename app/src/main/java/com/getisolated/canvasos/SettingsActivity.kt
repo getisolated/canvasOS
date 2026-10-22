@@ -74,10 +74,13 @@ class SettingsActivity : Activity() {
     /** The main-page row that opened the current sub-page, focused again on the way back. */
     private var opener = 0
 
-    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE }
+    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN }
 
     /** "Régénérer le code" was pressed while this screen was open. */
     private var tokenRenewed = false
+
+    /** What "Libérer la mémoire" did while this screen was open, shown on its row. */
+    private var cleanResult: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -142,6 +145,7 @@ class SettingsActivity : Activity() {
             }
             Page.REMOVED -> removedApps()
             Page.PHONE -> phonePage()
+            Page.LAST_CLEAN -> lastCleanPage()
         }
         list.post {
             val target = list.getChildAt(focusIndex.coerceIn(0, maxOf(list.childCount - 1, 0)))
@@ -309,24 +313,34 @@ class SettingsActivity : Activity() {
         }
 
         section("Mémoire et alimentation")
-        row("Libérer la mémoire en veille", "Ferme les apps en arrière-plan quand le téléviseur passe en veille, pour un redémarrage plus fluide.", { onOff(prefs.cleanOnStandby) }) {
+        row("Libérer la mémoire en veille", "Ferme les apps en arrière-plan quand le téléviseur passe en veille, pour un redémarrage plus fluide. " +
+            "Les apps qui lisent du son ou de la vidéo, ou qui font tourner un service (diffusion, serveur), sont épargnées.", { onOff(prefs.cleanOnStandby) }) {
             prefs.cleanOnStandby = !prefs.cleanOnStandby
         }
-        row("Libération programmée", "Ferme régulièrement les apps en arrière-plan.", {
+        row("Libération programmée", "Ferme régulièrement les apps en arrière-plan, sauf l'app à l'écran et celles qui lisent du son ou de la vidéo ou font tourner un service.", {
             if (prefs.cleanIntervalHours == 0) "Désactivée" else "Toutes les ${prefs.cleanIntervalHours} h"
         }) {
             val opts = listOf(0, 2, 4, 8)
             prefs.cleanIntervalHours = opts[(opts.indexOf(prefs.cleanIntervalHours) + 1) % opts.size]
             KeeperService.start(this, KeeperService.ACTION_RESCHEDULE)
         }
-        row("Libérer la mémoire", "Ferme maintenant les apps en arrière-plan.", { "${Cleaner.availMb(this)} Mo libres" }) { v ->
+        row("Libérer la mémoire", "Ferme maintenant les apps en arrière-plan. Celles qui lisent du son ou de la vidéo, ou qui font tourner un service " +
+            "(diffusion, serveur), sont épargnées.", { cleanResult ?: "${Cleaner.availMb(this)} Mo libres" }) { v ->
             v.text = "Libération…"
             Thread {
                 val r = Cleaner.clean(applicationContext)
-                runOnUiThread { v.text = "${r.freedMb} Mo libérés" }
+                runOnUiThread {
+                    // Short: the label must keep its room. The whole summary is on "Dernier nettoyage".
+                    cleanResult = if (r.viaAdb) "${r.freedMb} Mo · ${r.closedText}" else r.freedText
+                    // "Dernier nettoyage" below changed too, so the page is rebuilt (where the focus is) rather than one value set.
+                    if (page == Page.MAIN && !isDestroyed) show(Page.MAIN, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
+                }
             }.start()
         }
-        row("Apps à conserver", "Apps que la libération de la mémoire ne ferme pas, comme la diffusion d'écran ou la musique.", { "${prefs.keep.size}" }, chevron = true) {
+        row("Dernier nettoyage", if (prefs.lastClean.isEmpty()) "La mémoire n'a pas encore été libérée." else "${lastCleanWhat()}.\nAppuyez pour voir les apps fermées.",
+            { lastCleanWhen() }, chevron = true) { show(Page.LAST_CLEAN) }
+        row("Apps à conserver", "Apps que la libération de la mémoire ne ferme jamais, comme la diffusion d'écran. " +
+            "Celles qui lisent du son ou de la vidéo, ou qui font tourner un service, sont de toute façon épargnées tant qu'elles le font.", { "${prefs.keep.size}" }, chevron = true) {
             show(Page.KEEP)
         }
         row("Bouton marche/arrêt", "Veille : comme d'habitude. Arrêt complet : économise l'énergie, mais le démarrage est plus long.", {
@@ -472,6 +486,29 @@ class SettingsActivity : Activity() {
             v.text = "Nouveau code créé"
             load()
         }
+    }
+
+    /** When the last memory cleanup ran ("22 oct. 21:40"), from [Prefs.lastClean] ("22 oct. 21:40, 312 Mo libérés, 4 apps fermées"). */
+    private fun lastCleanWhen() = prefs.lastClean.substringBefore(", ").ifEmpty { "Jamais" }
+
+    /** What it did: "312 Mo libérés, 4 apps fermées". */
+    private fun lastCleanWhat() = prefs.lastClean.substringAfter(", ", "")
+
+    /** The apps the last memory cleanup closed, by name. Nothing here does anything; Back returns. */
+    private fun lastCleanPage() {
+        heading.text = "Dernier nettoyage"
+        val cacheOnly = lastCleanWhat().endsWith("(cache uniquement)")
+        about.text = when {
+            prefs.lastClean.isEmpty() -> "La mémoire n'a pas encore été libérée."
+            cacheOnly -> "${lastCleanWhen()} : ${lastCleanWhat()}.\nSans le débogage local, seules les apps en cache ont été arrêtées, et Android ne dit pas lesquelles."
+            else -> "${lastCleanWhen()} : ${lastCleanWhat()}.\nLes apps à conserver, et celles qui lisaient du son ou de la vidéo ou faisaient tourner " +
+                "un service (diffusion, serveur), n'ont pas été fermées."
+        }
+        val labels = prefs.lastCleanClosed.split(',').filter { it.isNotBlank() }.map { pkg ->
+            runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
+        }.sortedBy { it.lowercase() }
+        if (labels.isEmpty()) row(if (cacheOnly) "Détail indisponible" else "Aucune app fermée", null, { "" }) {}
+        for (label in labels) row(label, null, { "" }) {}
     }
 
     /** A small grey group title above a run of rows. */

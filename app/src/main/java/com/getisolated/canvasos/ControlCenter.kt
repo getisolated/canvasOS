@@ -905,7 +905,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         Thread {
             val r = Cleaner.clean(ctx.applicationContext)
             host.post {
-                status.text = "${r.freedMb} Mo libérés" + if (r.viaAdb) "" else " (cache uniquement)"
+                // "312 Mo libérés · 4 apps fermées · 2 en cours d'utilisation épargnées", or "(cache uniquement)" without adb.
+                status.text = r.summary()
             }
         }.start()
     }
