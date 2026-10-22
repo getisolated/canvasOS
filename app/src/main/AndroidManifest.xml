@@ -78,6 +78,16 @@
             </intent-filter>
         </activity>
 
+        <!-- The first-launch assistant: HomeActivity opens it on a fresh install until it is finished. -->
+        <activity
+            android:name=".OnboardingActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.TVHome"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustPan" />
+
         <activity
             android:name=".FrameActivity"
             android:excludeFromRecents="true"

@@ -4,13 +4,9 @@ import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.Gravity
-import android.view.View
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -26,54 +22,10 @@ class WallpaperActivity : Activity() {
     private val prefs by lazy { Prefs(this) }
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
-    private val cards = LinkedHashMap<String, Card>()
+    private val cards = LinkedHashMap<String, PickCard>()
     private lateinit var qr: ImageView
     private lateinit var address: TextView
     private var counts = ""
-
-    private inner class Card(val key: String) : LinearLayout(this@WallpaperActivity) {
-        val image = ImageView(context).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            background = rounded(Color.argb(40, 255, 255, 255), dp(12).toFloat())
-            clipRounded(dp(12).toFloat())
-        }
-        private val frame = FrameLayout(context)
-        private val ring = View(context)
-        private val check = text(14f, Color.WHITE, bold = true).apply {
-            text = "✓"
-            gravity = Gravity.CENTER
-            background = rounded(Color.rgb(10, 132, 255), dp(11).toFloat())
-        }
-        private val empty = text(13f, Color.argb(170, 255, 255, 255)).apply { gravity = Gravity.CENTER }
-        val label = text(14f, Color.argb(200, 255, 255, 255), weight = 500).apply { gravity = Gravity.CENTER }
-
-        init {
-            orientation = VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            isFocusable = true
-            isClickable = true
-            clipChildren = false
-            frame.clipChildren = false
-            frame.addView(image, FrameLayout.LayoutParams(-1, -1))
-            frame.addView(empty, FrameLayout.LayoutParams(-1, -1).apply { setMargins(dp(8), 0, dp(8), 0) })
-            frame.addView(ring, FrameLayout.LayoutParams(-1, -1))
-            frame.addView(check, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.TOP or Gravity.END).apply { setMargins(0, dp(6), dp(6), 0) })
-            addView(frame, LayoutParams(dp(128), dp(72)))
-            addView(label, LayoutParams(-1, -2).apply { topMargin = dp(7) })
-            setOnFocusChangeListener { _, f ->
-                ring.background = if (f) GradientDrawable().apply {
-                    cornerRadius = dp(12).toFloat(); setStroke(dp(3), Color.WHITE)
-                } else null
-                label.setTextColor(if (f) Color.WHITE else Color.argb(200, 255, 255, 255))
-                animate().scaleX(if (f) 1.08f else 1f).scaleY(if (f) 1.08f else 1f)
-                    .translationZ(if (f) dp(10).toFloat() else 0f).setDuration(160).setInterpolator(Motion.ease).start()
-            }
-            setOnClickListener { pick(key) }
-        }
-
-        fun selected(on: Boolean) { check.visibility = if (on) VISIBLE else GONE }
-        fun emptyText(s: String?) { empty.text = s.orEmpty(); empty.visibility = if (s == null) GONE else VISIBLE }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,7 +34,7 @@ class WallpaperActivity : Activity() {
         for (row in keys.chunked(4)) {
             val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
             for (k in row) {
-                val c = Card(k)
+                val c = PickCard(this).apply { setOnClickListener { pick(k) } }
                 cards[k] = c
                 r.addView(c, LinearLayout.LayoutParams(dp(128), -2).apply { marginEnd = dp(16) })
             }
