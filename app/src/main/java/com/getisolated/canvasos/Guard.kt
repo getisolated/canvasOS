@@ -81,7 +81,8 @@ object Guard {
     /**
      * What a computer would grant over adb, done through the TV's own adb instead. Blocking.
      * The two TCL app ops let canvasOS start at boot there (TclAppBootManager refuses third-party
-     * apps otherwise); other firmwares don't know them and refuse, which is fine.
+     * apps otherwise); other firmwares don't know them and refuse, which is fine. READ_TV_LISTINGS
+     * (the Top Shelf's Watch Next and channels, [Shelf]) is refused where TvProvider is missing.
      */
     fun grantViaLocalAdb(ctx: Context): Boolean {
         val p = ctx.packageName
@@ -91,6 +92,7 @@ object Guard {
             "appops set $p SYSTEM_ALERT_WINDOW allow",
             "appops set $p APP_AUTO_START allow",
             "appops set $p APP_ASSOC_START allow",
+            "pm grant $p ${Shelf.READ_TV_LISTINGS}",
         ).joinToString("; ") + "; echo done"
         LocalAdb.shell(ctx, script, 10_000) ?: return false
         return hasSecureSettings(ctx)
@@ -401,6 +403,8 @@ class ConfigReceiver : BroadcastReceiver() {
         if (i.hasExtra("own_icon")) prefs.ownIcon = i.getBooleanExtra("own_icon", true)
         if (i.hasExtra("intro_sound")) prefs.introSound = i.getBooleanExtra("intro_sound", true)
         if (i.hasExtra("wake_delay")) prefs.wakeDelay = i.getIntExtra("wake_delay", 5000)
+        // The Top Shelf's TMDB key; an empty string removes it. Never echoed back, only whether there is one.
+        i.getStringExtra("tmdb_key")?.let { Shelf.setTmdbKey(c, it) }
         if (i.hasExtra("phone_server")) {
             prefs.phoneServer = i.getBooleanExtra("phone_server", true)
             // KeeperService applies it; Android 12 may refuse to start a foreground service from here.
@@ -410,6 +414,7 @@ class ConfigReceiver : BroadcastReceiver() {
         resultData = "guard=${prefs.guard} keep_adb=${prefs.keepAdb} secure_settings=${Guard.hasSecureSettings(c)} " +
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
             "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} own_icon=${prefs.ownIcon} settings_bg=${prefs.settingsBg} low_end=${Device.isLowEnd(c)} " +
-            "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents}"
+            "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents} " +
+            "tmdb_key=${if (prefs.tmdbKey.isNotEmpty()) "set" else "unset"}"
     }
 }

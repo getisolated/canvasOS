@@ -96,7 +96,7 @@ adb -s <TV_IP>:5555 shell cmd package set-home-activity com.getisolated.canvasos
 adb -s <TV_IP>:5555 shell input keyevent KEYCODE_HOME
 ```
 
-Accordez ensuite ce que seul adb peut accorder. C'est nécessaire sur tout téléviseur dont le système réserve la touche Accueil à son propre lanceur (Xiaomi, TCL, la plupart des firmwares chinois), et sans effet ailleurs :
+Accordez ensuite ce que seul adb peut accorder. C'est nécessaire sur tout téléviseur dont le système réserve la touche Accueil à son propre lanceur (Xiaomi, TCL, la plupart des firmwares chinois), et sans effet ailleurs, sauf `READ_TV_LISTINGS` (Top Shelf), utile sur tous les téléviseurs :
 
 ```sh
 P=com.getisolated.canvasos
@@ -105,6 +105,7 @@ adb -s <TV_IP>:5555 shell cmd notification allow_listener $P/$P.RevivalListener
 adb -s <TV_IP>:5555 shell appops set $P SYSTEM_ALERT_WINDOW allow
 adb -s <TV_IP>:5555 shell appops set $P APP_AUTO_START allow      # TCL uniquement ; les autres firmwares affichent une erreur, ignorez-la
 adb -s <TV_IP>:5555 shell appops set $P APP_ASSOC_START allow     # TCL uniquement
+adb -s <TV_IP>:5555 shell pm grant $P android.permission.READ_TV_LISTINGS   # refusée sans conséquence là où le téléviseur n'a pas de TvProvider
 ```
 
 | Autorisation | À quoi elle sert |
@@ -113,6 +114,7 @@ adb -s <TV_IP>:5555 shell appops set $P APP_ASSOC_START allow     # TCL uniqueme
 | Écouteur de notifications | Relance canvasOS environ une demi-seconde après que le système l'a tué, et au démarrage. Aucune notification n'est lue |
 | `SYSTEM_ALERT_WINDOW` | Ouvrir l'écran d'accueil depuis l'arrière-plan après le démarrage |
 | TCL `APP_AUTO_START` / `APP_ASSOC_START` | Sinon, TCL empêche les apps tierces de se lancer au démarrage |
+| `READ_TV_LISTINGS` | Top Shelf : lignes « Continuer à regarder » et recommandations publiées par Netflix, YouTube, Prime… pour l'écran d'accueil d'Android TV, lues sur le téléviseur et affichées au-dessus du Dock, rien d'autre ; sans elle, rien n'est lu |
 
 Si l'étape 5 montre que le lanceur d'origine revient, activez la protection de l'accueil (section 10). Sur Xiaomi, demandez aussi s'il faut garder ADB activé : Xiaomi désactive ADB à chaque sortie de veille, ce qui rend impossibles les mises à jour ultérieures par adb tant que l'utilisateur ne le réactive pas dans les réglages.
 
@@ -183,6 +185,7 @@ Signalez à l'utilisateur qu'ils existent ; ne les modifiez que s'il le demande.
 - Le cadre photo comme économiseur système (Cadre photo en économiseur), le délai d'inactivité (Délai avant le cadre photo) et son contenu (Contenu de l'économiseur) : photos ou Vues aériennes (Apple TV) (lues en streaming depuis Apple, environ 15–20 Mbit/s ; retour aux photos sans connexion). Sur Xiaomi, qui affiche son propre économiseur au lieu de celui d'Android, l'écran d'accueil lance le cadre photo 15 s avant celui de Xiaomi.
 - Entrées HDMI sur l'écran d'accueil : Centre de contrôle → Source → Afficher sur l'accueil….
 - Minuteur de veille, depuis le bouton Veille du Centre de contrôle : Maintenant, ou dans 15 min, 30 min, 1 h, 1 h 30, avec un avertissement une minute avant si l'écran d'accueil est affiché. Il demande le débogage local (étape 6), ne survit pas à un redémarrage, et la touche de veille n'est envoyée que parce que l'utilisateur a choisi ce délai.
+- Top Shelf : quand une app du Dock est sélectionnée, ses contenus remplissent l'écran au-dessus du Dock, une image toutes les 8 s (OK ouvre l'app). Ils viennent de la première source qui a quelque chose : la ligne « Continuer à regarder » (Watch Next) que l'app publie pour Android TV, puis sa chaîne de recommandations (par exemple « Recommandé » de YouTube) — ces deux-là demandent l'autorisation `READ_TV_LISTINGS` de l'étape 4 —, puis, pour Netflix, Prime Video, Disney+, Apple TV, Max, Paramount+, Canal+ et Crunchyroll, les titres populaires de la semaine sur ce service en France d'après TMDB (The Movie Database), enfin les sources web de Bilibili et Douyu. TMDB demande une clé d'API gratuite à l'utilisateur (https://www.themoviedb.org/settings/api) : il la colle dans l'onglet Réglages de la page téléphone (section « Top Shelf (TMDB) »), ou vous la passez avec `--es tmdb_key` (ci-dessous). Elle reste sur le téléviseur ; ne la recopiez nulle part ailleurs. Pour voir ce que fait le Top Shelf : `adb -s <TV_IP>:5555 logcat -d -s Shelf`.
 - Apps conservées lors du nettoyage de la mémoire (Apps à conserver).
 - Horloge (Format de l'heure, qui suit le format du téléviseur tant que l'utilisateur n'a rien choisi ; Horloge), Dock (Récents ou Fixe : si l'app ouverte passe en tête de l'accueil), animation de sélection (Effet de sélection), style du Centre de contrôle (Style du Centre de contrôle). Les deux derniers sont sur Auto par défaut, ce qui choisit l'aspect le plus léger sur les téléviseurs peu puissants.
 - Animation de démarrage, désactivée par défaut. L'app ne contient aucune vidéo : l'utilisateur en importe une depuis la page ouverte par le QR code, ou vous la poussez avec `adb push <vidéo> /sdcard/Android/data/com.getisolated.canvasos/files/intro.mp4`. Ne téléchargez pas pour l'utilisateur un clip protégé par une marque. Il en va de même pour une icône de réglages personnalisée (`files/settings_icon.png`) et un fond pour la page des réglages (`files/settings_bg.jpg`, une image 16:9 avec son sujet à gauche), qui peuvent aussi être importés depuis la page du téléphone.
@@ -198,6 +201,7 @@ adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com
 # background daily|scenery|fresh|anime|art|mine|custom|green|blue|purple|orange|graphite (source du fond d'écran de l'accueil, ou un dégradé intégré)
 # phone_server true|false (la page téléphone, activée par défaut ; désactivée, son adresse ne répond plus du tout)
 # dock_recents true|false (true par défaut : l'app ouverte passe en tête de l'accueil ; false : l'ordre choisi avec « Modifier l'accueil » est conservé)
+# --es tmdb_key <clé> (clé d'API TMDB v3 ou jeton d'accès en lecture v4, pour le Top Shelf ; --es tmdb_key "''" l'efface ; le résultat n'affiche que tmdb_key=set|unset)
 ```
 
 ## 9. Adapter canvasOS à un téléviseur mal pris en charge

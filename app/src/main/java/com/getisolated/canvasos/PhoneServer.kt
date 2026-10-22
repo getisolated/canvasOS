@@ -118,6 +118,13 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                     json(remote(args))
                 }
                 post && path == "/api/apk/upload" -> installApk(session)
+                post && path == "/api/tmdb" -> {
+                    // The Top Shelf's TMDB key; "" removes it. The answer says whether TMDB took it, never the key.
+                    val key = form(session)["key"].orEmpty().trim()
+                    Shelf.setTmdbKey(ctx, key)
+                    val ok = if (key.isEmpty()) null else Shelf.checkTmdbKey(key)
+                    json(state().put("tmdbOk", ok ?: JSONObject.NULL))
+                }
                 else -> text(Response.Status.NOT_FOUND, "Not found")
             }
         }.getOrElse { text(Response.Status.INTERNAL_ERROR, it.message ?: "error") }
@@ -146,6 +153,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("mine", names(Wallpapers.MINE))
         .put("custom", names(Wallpapers.CUSTOM))
         .put("adb", prefs.adbAuthorized)
+        .put("tmdbKey", prefs.tmdbKey.isNotEmpty())
 
     private fun thumb(rest: String): Response {
         val (source, name) = rest.split('/', limit = 2).takeIf { it.size == 2 } ?: return text(Response.Status.NOT_FOUND, "")

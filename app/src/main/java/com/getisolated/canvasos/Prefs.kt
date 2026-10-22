@@ -224,6 +224,14 @@ class Prefs(ctx: Context) {
         get() = sp.getLong("sleep_at", 0L)
         set(v) = sp.edit().putLong("sleep_at", v).apply()
 
+    /**
+     * The user's own TMDB key (v3 API key or v4 read token) for the Top Shelf's popular titles on
+     * Netflix, Prime Video… ([ShelfFeeds.SERVICES]); "" = none. Kept on the TV only, never shown back.
+     */
+    var tmdbKey: String
+        get() = sp.getString("tmdb_key", "")!!
+        set(v) = sp.edit().putString("tmdb_key", v.trim()).apply()
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"

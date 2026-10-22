@@ -23,3 +23,7 @@ The photo backgrounds and the photo frame download pictures at run time from the
 - **Lorem Picsum** (https://picsum.photos): photos from Unsplash under the Unsplash License.
 - **Bing** daily images (https://www.bing.com): © their photographers, shown with Bing's credit.
 - **360 wallpapers** (wallpaper.apc.360.cn): last-resort backup feed; pictures © their owners.
+
+The Top Shelf (`Shelf.kt`) shows, for some streaming apps, popular titles fetched at run time with the user's own key:
+
+- **The Movie Database (TMDB) API** (https://developer.themoviedb.org/): titles, ratings, watch-provider availability (from JustWatch) and backdrop images (image.tmdb.org), under TMDB's API Terms of Use. "This product uses the TMDB API but is not endorsed or certified by TMDB." Which titles are on which service comes from **JustWatch** (https://www.justwatch.com), as TMDB requires it to be credited. The shelf credits both as « Tendances (TMDB, JustWatch) ».
