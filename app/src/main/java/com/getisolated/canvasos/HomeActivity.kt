@@ -183,6 +183,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private val tileReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             val pkg = i.getStringExtra(AppRepo.EXTRA_PKG)
+            // The profile was switched over adb (ConfigReceiver): that profile's home, as from the avatar.
+            if (pkg == null && prefs.currentProfile != shownProfile) { showProfile(); return }
             repo.invalidate(pkg)
             reload(pkg)
         }
@@ -237,6 +239,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         Tween.readScale(this)
         prefs = Prefs(this)
         repo = AppRepo(this)
+        shownProfile = prefs.currentProfile
         buildViews()
         control = ControlCenter(this, root)
         // Covers the screen before its first frame, so the home screen is never seen ahead of it.
@@ -376,13 +379,11 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         buildWeather(icons)
         icons.addView(netButton, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(6) })
         icons.addView(ccButton, LinearLayout.LayoutParams(dp(28), dp(28)))
-        avatar = IconButton(this, R.drawable.profile_avatar, portrait = true) {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }.apply {
+        avatar = IconButton(this, R.drawable.profile_avatar, portrait = true) { profileSheet() }.apply {
             id = View.generateViewId()
-            contentDescription = "Réglages de l'accueil"
-            visibility = if (prefs.showAvatar) View.VISIBLE else View.GONE
+            contentDescription = "Profils"
         }
+        showAvatar()
         icons.addView(avatar, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginStart = dp(6) })
         header.addView(icons, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.TOP).apply {
             rightMargin = dp(32); topMargin = dp(26)
@@ -729,13 +730,14 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     fun isPinned(i: Input) = prefs.pinnedInputs.any { InputTile.decode(it)?.uri == i.uri }
 
-    private fun reload(changed: String? = null) {
+    /** Shows the grid again from the saved state; [first] puts focus on its first entry (another profile's grid). */
+    private fun reload(changed: String? = null, first: Boolean = false) {
         io.execute {
             val list = repo.orderedVisible()
             main.post {
                 val focusedPkg = adapter.apps.getOrNull(focusedPos)?.pkg
                 adapter.submit(list, changed)
-                val idx = list.indexOfFirst { it.pkg == focusedPkg }.coerceAtLeast(0)
+                val idx = if (first) 0 else list.indexOfFirst { it.pkg == focusedPkg }.coerceAtLeast(0)
                 // An open folder follows the grid; one that was deleted or emptied closes.
                 folderView?.let { fv ->
                     val f = list.firstOrNull { it.pkg == fv.key }
@@ -744,8 +746,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                 }
                 grid.post {
                     // On first show the header buttons grab default focus; the grid should have it.
-                    val headerOk = header.hasFocus() && !firstFocus
-                    if (!grid.hasFocus() && !headerOk && sheets.isEmpty() && !control.isOpen && folderView == null) focusAt(idx)
+                    val headerOk = header.hasFocus() && !firstFocus && !first
+                    // A new profile's grid: focus goes to its first entry even if the old grid had it (stable ids would keep it on the same app).
+                    if ((first || !grid.hasFocus()) && !headerOk && sheets.isEmpty() && !control.isOpen && folderView == null) focusAt(idx)
                     firstFocus = false
                     // A new list can leave the grid between rows; put the focused row back where it belongs.
                     grid.post { grid.focusedChild?.let { grid.layoutManager?.requestChildRectangleOnScreen(grid, it, Rect(), false, true) } }
@@ -848,15 +851,17 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             .button("Modifier l'accueil") { startMove(pos) }
             .button("Renommer") { rename(app, pos) }
         folderButtons(s, app, pos)
+        // A restricted profile neither hides apps nor reaches what is shared with every profile (pictures, system screens).
+        val kid = prefs.restricted
         // A picture of the user's, from the phone page or pushed over adb (AppRepo.customTileFile).
-        if (app.tileStamp != 0L) s.button("Image d'origine") {
+        if (app.tileStamp != 0L && !kid) s.button("Image d'origine") {
             repo.invalidate(app.pkg)
             io.execute {
                 AppRepo.clearCustomTile(this, app.pkg)
                 main.post { reload(app.pkg) }
             }
         }
-        s.button("Masquer") {
+        if (!kid) s.button("Masquer") {
             prefs.hidden = prefs.hidden + app.pkg
             reload()
         }
@@ -864,8 +869,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             showSheet(s.button("Annuler") {}, restoreFocusTo = pos)
             return
         }
-        s.button("Infos sur l'app") { appInfo(app) }
-        if (!repo.isEssential(app.pkg)) s.button("Supprimer l'app") { confirmDelete(app, pos) }
+        if (!kid) s.button("Infos sur l'app") { appInfo(app) }
+        if (!repo.isEssential(app.pkg)) s.button("Supprimer l'app") { unlocked("Supprimer l'app") { confirmDelete(app, pos) } }
         s.button("Annuler") {}
         showSheet(s, restoreFocusTo = pos)
     }
@@ -991,7 +996,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             val s = Sheet(root).title(app.label).message(null)
                 .button("Retirer du dossier") { removeFromFolder(app.pkg) }
                 .button("Renommer") { rename(app, null) }
-            if (!repo.isOwn(app.pkg)) s.button("Infos sur l'app") { appInfo(app) }
+            if (!repo.isOwn(app.pkg) && !prefs.restricted) s.button("Infos sur l'app") { appInfo(app) }
             showSheet(s.button("Annuler") {})
         }
     }
@@ -1105,6 +1110,94 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         grid.post { focusAt(pos) }
     }
 
+    // ---------------------------------------------------------------- profiles
+
+    private val pins by lazy { PinSheets(root, prefs) { showSheet(it) } }
+
+    /** [action] at once, or after the PIN when the profile on screen is a restricted one. */
+    private fun unlocked(title: String, action: () -> Unit) {
+        if (prefs.restricted) pins.ask(title, ok = action) else action()
+    }
+
+    /**
+     * The avatar shows the profile on screen: its initial on its colour, or the silhouette for the
+     * main profile without a name. It stays up whenever there is more than one profile, being the
+     * only way to switch from here, even with "Photo de profil" off.
+     */
+    private fun showAvatar() {
+        val p = prefs.current()
+        val pic = ProfileAvatar.bitmap(this, p)
+        if (pic != null) avatar.setIcon(BitmapDrawable(resources, pic)) else avatar.setIcon(R.drawable.profile_avatar)
+        avatar.contentDescription = "Profil : ${Profiles.displayName(p)}"
+        avatar.visibility = if (prefs.showAvatar || prefs.profileList().size > 1) View.VISIBLE else View.GONE
+    }
+
+    /** The avatar's sheet: one button per profile (the current one ticked), then managing them in the settings. */
+    private fun profileSheet() {
+        val list = prefs.profileList()
+        val current = prefs.currentProfile
+        val unprotected = !prefs.hasPin && list.any { it.restricted }
+        val msg = when {
+            unprotected -> "Un profil enfant demande un code PIN pour changer de profil, ouvrir les réglages ou supprimer une app. Aucun code n'est encore défini."
+            list.size == 1 -> "Chaque profil a son propre accueil : ordre des apps, apps masquées, dossiers et fond d'écran. Créez-en dans « Gérer les profils… »."
+            else -> null
+        }
+        val s = Sheet(root).title("Profils").message(msg)
+        for (p in list) {
+            val name = Profiles.displayName(p)
+            s.button(if (p.id == current) "✓  $name" else name) { if (p.id != current) switchTo(p) }
+        }
+        if (unprotected) s.button("Définir un code PIN…") { pins.choose("Code PIN") }
+        // The settings ask for the PIN themselves in a restricted profile, however they are opened.
+        s.button("Gérer les profils…") { openSettings(SettingsActivity.PAGE_PROFILES) }
+        showSheet(s.button("Annuler") {})
+    }
+
+    /**
+     * Switches to [p]: leaving a restricted profile takes the PIN, and a restricted profile cannot be
+     * entered before there is one (it could be left freely, and the parent may not know).
+     */
+    private fun switchTo(p: Profile) {
+        when {
+            p.restricted && !prefs.hasPin -> pins.choose("Code PIN",
+                "« ${Profiles.displayName(p)} » est un profil enfant : choisissez d'abord le code PIN qui permettra d'en sortir (de ${Profiles.PIN_MIN} à ${Profiles.PIN_MAX} chiffres).") {
+                applyProfile(p.id)
+            }
+            prefs.restricted -> pins.ask("Changer de profil") { applyProfile(p.id) }
+            else -> applyProfile(p.id)
+        }
+    }
+
+    /** Switches to profile [id], PIN already taken care of. */
+    private fun applyProfile(id: String) {
+        // A move in progress belongs to the grid being left.
+        if (moving >= 0) endMove()
+        if (prefs.switchProfile(id)) showProfile()
+    }
+
+    /** The profile whose home is on screen, to notice a switch made elsewhere (over adb). */
+    private var shownProfile = Profiles.MAIN
+
+    /** Shows the current profile's home: its grid from the first entry, its background and its avatar. */
+    private fun showProfile() {
+        shownProfile = prefs.currentProfile
+        // A move left half done (a switch over adb) is dropped, not saved into the new profile's order.
+        if (moving >= 0) { moving = -1; adapter.movingPkg = null }
+        control.close()
+        closeFolder(animate = false)
+        hideShelf()
+        repo.invalidate()
+        focusedPos = 0
+        showAvatar()
+        applyBackground()
+        reload(first = true)
+    }
+
+    /** Opens the settings, on one of its pages ([SettingsActivity.EXTRA_PAGE]) or the main one. */
+    fun openSettings(page: String? = null) {
+        startActivity(Intent(this, SettingsActivity::class.java).apply { page?.let { putExtra(SettingsActivity.EXTRA_PAGE, it) } })
+    }
+
     // ------------------------------------------------------------ overlays / keys
 
     /** Shows [s]; once it closes, focus goes back to the grid entry keyed [restoreKey], else at [restoreFocusTo]. */
@@ -1190,7 +1283,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     override fun onResume() {
         super.onResume()
-        avatar.visibility = if (prefs.showAvatar) View.VISIBLE else View.GONE
+        // Renamed or recoloured in the settings meanwhile, or switched over adb.
+        if (prefs.currentProfile != shownProfile) showProfile() else showAvatar()
         adapter.tvosFocus = prefs.focusTvos(this)
         applyClockStyle()
         control.applyStyle()
@@ -1307,4 +1401,5 @@ class IconButton(ctx: Context, icon: Int, private val portrait: Boolean = false,
     }
 
     fun setIcon(res: Int) = img.setImageResource(res)
+    fun setIcon(d: Drawable) = img.setImageDrawable(d)
 }

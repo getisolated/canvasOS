@@ -276,6 +276,21 @@ class Sheet(private val host: FrameLayout) {
         col.addView(b, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(52)).apply { topMargin = ctx.dp(12) })
     }
 
+    /**
+     * A button that steps through [values] in place ("Couleur : Bleu", then "Couleur : Vert"…) and
+     * leaves the sheet open; [changed] gets the new index.
+     */
+    fun cycle(label: String, values: List<String>, index: Int, changed: (Int) -> Unit) = apply {
+        var at = index.coerceIn(0, values.size - 1)
+        lateinit var b: PillButton
+        b = PillButton(ctx, "$label : ${values[at]}") {
+            at = (at + 1) % values.size
+            b.setLabel("$label : ${values[at]}")
+            changed(at)
+        }
+        col.addView(b, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(52)).apply { topMargin = ctx.dp(12) })
+    }
+
     /** A plain, non-focusable line of text in the stack, such as one day of a forecast; added in call order with the buttons. */
     fun line(text: String) = apply {
         val t = ctx.text(18f, Color.argb(225, 255, 255, 255)).apply {
@@ -289,17 +304,26 @@ class Sheet(private val host: FrameLayout) {
      * A text field prefilled with [initial], then OK and Annuler: [done] gets the text on OK or on the
      * keyboard's Done key. The TV's on-screen keyboard does the typing; it opens with the sheet, which
      * then sits high on the screen so the field stays above the keyboard (the home screen does not resize).
+     * [inputType] picks the keyboard (a number pad for a PIN); a password variation hides what is typed.
      */
-    fun input(initial: String, hint: String? = null, done: (String) -> Unit) = apply {
+    fun input(
+        initial: String,
+        hint: String? = null,
+        inputType: Int = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES,
+        maxLength: Int = Labels.MAX,
+        done: (String) -> Unit,
+    ) = apply {
         val r = ctx.dp(14).toFloat()
         val idle = rounded(Color.argb(46, 255, 255, 255), r)
         val focused = rounded(Color.argb(72, 255, 255, 255), r).apply { setStroke(ctx.dp(3), Color.WHITE) }
         val f = EditText(ctx).apply {
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            this.inputType = inputType
             isSingleLine = true
+            // setSingleLine swaps the password mask setInputType put on for a single-line one.
+            if (isPassword(inputType)) transformationMethod = android.text.method.PasswordTransformationMethod.getInstance()
             // Landscape keyboards go full screen by default and hide the sheet; this one keeps it in view.
             imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
-            filters = arrayOf(android.text.InputFilter.LengthFilter(Labels.MAX))
+            filters = arrayOf(android.text.InputFilter.LengthFilter(maxLength))
             textSize = 20f
             typeface = Fonts.inter(ctx, 500)
             includeFontPadding = false
@@ -358,5 +382,12 @@ class Sheet(private val host: FrameLayout) {
 
     private companion object {
         const val SCROLL_PAD = 24
+
+        fun isPassword(type: Int): Boolean {
+            val cls = type and android.text.InputType.TYPE_MASK_CLASS
+            val variation = type and android.text.InputType.TYPE_MASK_VARIATION
+            return (cls == android.text.InputType.TYPE_CLASS_NUMBER && variation == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD) ||
+                (cls == android.text.InputType.TYPE_CLASS_TEXT && variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        }
     }
 }

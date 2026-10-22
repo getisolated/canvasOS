@@ -22,7 +22,19 @@ object Device {
 class Prefs(ctx: Context) {
     // Kept for defaults that follow the TV (the clock format); never an Activity, so no leak.
     private val appCtx: Context = ctx.applicationContext ?: ctx
-    private val sp: SharedPreferences = ctx.getSharedPreferences("tvhome", Context.MODE_PRIVATE)
+    private val sp: SharedPreferences = ctx.getSharedPreferences(Profiles.STORE, Context.MODE_PRIVATE)
+
+    /**
+     * The current profile's home grid ([Profiles]): its order, hidden apps, folders, names, pinned
+     * inputs and background. The main profile's is the main store itself, so a TV without profiles
+     * reads exactly what it always did; another profile's is a store of its own. Only those keys come
+     * through here: every other setting belongs to the TV, whoever is watching.
+     */
+    private val grid: SharedPreferences
+        get() = store(currentProfile)
+
+    private fun store(profile: String): SharedPreferences =
+        if (profile == Profiles.MAIN) sp else appCtx.getSharedPreferences(Profiles.storeName(profile), Context.MODE_PRIVATE)
 
     /** Show the default profile portrait beside the home-screen clock and controls. */
     var showAvatar: Boolean
@@ -30,12 +42,12 @@ class Prefs(ctx: Context) {
         set(v) = sp.edit().putBoolean("show_avatar", v).apply()
 
     var order: List<String>
-        get() = sp.getString("order", "")!!.split(',').filter { it.isNotEmpty() }
-        set(v) = sp.edit().putString("order", v.joinToString(",")).apply()
+        get() = grid.getString("order", "")!!.split(',').filter { it.isNotEmpty() }
+        set(v) = grid.edit().putString("order", v.joinToString(",")).apply()
 
     var hidden: Set<String>
-        get() = sp.getStringSet("hidden", emptySet())!!.toSet()
-        set(v) = sp.edit().putStringSet("hidden", v).apply()
+        get() = grid.getStringSet("hidden", emptySet())!!.toSet()
+        set(v) = grid.edit().putStringSet("hidden", v).apply()
 
     /** Packages that memory cleanup never stops (casting receivers etc.). */
     var keep: Set<String>
@@ -66,13 +78,13 @@ class Prefs(ctx: Context) {
 
     /** One of [Backgrounds.THEMES] keys, or a rotating photo source: "daily" (Bing) or "anime" (Wallhaven). */
     var background: String
-        get() = sp.getString("background", "daily")!!
-        set(v) = sp.edit().putString("background", v).apply()
+        get() = grid.getString("background", "daily")!!
+        set(v) = grid.edit().putString("background", v).apply()
 
     /** Minutes between background photo changes. */
     var wallMinutes: Int
-        get() = sp.getInt("wall_minutes", 30)
-        set(v) = sp.edit().putInt("wall_minutes", v).apply()
+        get() = grid.getInt("wall_minutes", 30)
+        set(v) = grid.edit().putInt("wall_minutes", v).apply()
 
     /** Seconds each photo stays up in the photo frame. */
     var frameSeconds: Int
@@ -129,8 +141,8 @@ class Prefs(ctx: Context) {
 
     /** TV inputs pinned to the home grid, as [InputTile.key] strings. */
     var pinnedInputs: Set<String>
-        get() = sp.getStringSet("pinned_inputs", emptySet())!!.toSet()
-        set(v) = sp.edit().putStringSet("pinned_inputs", v).apply()
+        get() = grid.getStringSet("pinned_inputs", emptySet())!!.toSet()
+        set(v) = grid.edit().putStringSet("pinned_inputs", v).apply()
 
     /** 24-hour clock ("14:05") instead of "2:05 PM"; follows the TV's own setting until the user picks one. */
     var clock24: Boolean
@@ -294,8 +306,8 @@ class Prefs(ctx: Context) {
 
     /** The user's names for grid apps, a JSON object package → name ([Labels]); [AppRepo.allApps] applies them. */
     var labels: String
-        get() = sp.getString("labels", "")!!
-        set(v) = sp.edit().putString("labels", v).apply()
+        get() = grid.getString("labels", "")!!
+        set(v) = grid.edit().putString("labels", v).apply()
 
     /** The name the user gave [pkg], or null when it keeps its own. */
     fun label(pkg: String): String? = Labels.decode(labels)[pkg]
@@ -308,13 +320,85 @@ class Prefs(ctx: Context) {
      * ([Folders.key]) placed by [order]; its apps leave the grid ([AppRepo.orderedVisible]).
      */
     var folders: String
-        get() = sp.getString("folders", "")!!
-        set(v) = sp.edit().putString("folders", v).apply()
+        get() = grid.getString("folders", "")!!
+        set(v) = grid.edit().putString("folders", v).apply()
 
     fun folderList(): List<Folder> = Folders.decode(folders)
 
     /** Applies one [Folders] edit to the saved folders. */
     fun editFolders(edit: (List<Folder>) -> List<Folder>) { folders = Folders.encode(edit(folderList())) }
+
+    /** The profiles, a JSON array of {id, name, color, restricted} ([Profiles]); the main profile is there even when not listed. */
+    var profiles: String
+        get() = sp.getString("profiles", "")!!
+        set(v) = sp.edit().putString("profiles", v).apply()
+
+    /** Every profile, the main one first. */
+    fun profileList(): List<Profile> = Profiles.decode(profiles)
+
+    /** Applies one [Profiles] edit (rename, colour, restricted) to the saved profiles. */
+    fun editProfiles(edit: (List<Profile>) -> List<Profile>) { profiles = Profiles.encode(edit(profileList())) }
+
+    /** The id of the profile whose grid the home screen shows; one that no longer exists reads as [Profiles.MAIN]. */
+    var currentProfile: String
+        get() {
+            val id = sp.getString("current_profile", Profiles.MAIN)!!
+            return if (id == Profiles.MAIN) id else Profiles.resolve(profileList(), id)
+        }
+        set(v) = sp.edit().putString("current_profile", v).apply()
+
+    fun current(): Profile = profileList().let { Profiles.byId(it, currentProfile) ?: it.first() }
+
+    /** The profile on screen is a restricted ("Profil enfant") one: some things then ask for the PIN. */
+    val restricted: Boolean get() = current().restricted
+
+    /** SHA-256 of a per-TV salt and the PIN ([Profiles.hashPin]); "" = no PIN. The PIN itself is never kept. */
+    var profilePin: String
+        get() = sp.getString("profile_pin", "")!!
+        set(v) = sp.edit().putString("profile_pin", v).apply()
+
+    val hasPin: Boolean get() = profilePin.isNotEmpty()
+
+    /** Sets the PIN; null or "" removes it. The caller checks [Profiles.validPin]. */
+    fun setPin(pin: String?) {
+        if (pin.isNullOrEmpty()) { profilePin = ""; return }
+        val salt = sp.getString("profile_pin_salt", null) ?: Profiles.newSalt().also { sp.edit().putString("profile_pin_salt", it).apply() }
+        profilePin = Profiles.hashPin(salt, pin)
+    }
+
+    fun checkPin(pin: String): Boolean = Profiles.pinMatches(profilePin, sp.getString("profile_pin_salt", "")!!, pin)
+
+    /**
+     * A new profile at the end of the list. Its grid starts empty, so the default order applies,
+     * with the main profile's background; a store left over under the same id is wiped first.
+     */
+    fun addProfile(name: String?, restricted: Boolean = false): Profile {
+        val list = profileList()
+        val id = Profiles.newId(list.map { it.id })
+        val e = store(id).edit().clear()
+        sp.getString("background", null)?.let { e.putString("background", it) }
+        if (sp.contains("wall_minutes")) e.putInt("wall_minutes", sp.getInt("wall_minutes", 30))
+        e.apply()
+        val next = Profiles.add(list, id, name, restricted)
+        profiles = Profiles.encode(next)
+        return Profiles.byId(next, id)!!
+    }
+
+    /** Deletes profile [id] and its grid; false when it cannot go ([Profiles.canDelete]). */
+    fun deleteProfile(id: String): Boolean {
+        val list = profileList()
+        if (!Profiles.canDelete(list, id, currentProfile)) return false
+        store(id).edit().clear().apply()
+        profiles = Profiles.encode(Profiles.delete(list, id, currentProfile))
+        return true
+    }
+
+    /** Makes [id] the profile on screen; false when there is no such profile. The PIN is the caller's business. */
+    fun switchProfile(id: String): Boolean {
+        if (Profiles.byId(profileList(), id) == null) return false
+        currentProfile = id
+        return true
+    }
 
     companion object {
         const val SAVER_PHOTOS = "photos"

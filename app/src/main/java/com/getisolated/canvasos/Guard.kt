@@ -441,6 +441,25 @@ class ConfigReceiver : BroadcastReceiver() {
             "listener=${Banners.listenerGranted(c)} overlay=${Settings.canDrawOverlays(c)}"
         // Asks GitHub for the latest Release now (a few seconds at most) and says what it found.
         if (i.getBooleanExtra("check_update", false)) resultData += " update=${Updater.checkForConfig(c)}"
+        // Profiles (Réglages → Profils). No PIN over adb: the computer is trusted, and it is how a forgotten PIN goes.
+        i.getStringExtra("profile_add")?.trim()?.takeIf { it.isNotEmpty() }?.let { name ->
+            val kid = i.getBooleanExtra("profile_restricted", false)
+            val found = Profiles.byName(prefs.profileList(), name)
+            // Run twice, the same command makes one profile; profile_restricted then sets it on the one there is.
+            if (found == null) prefs.addProfile(name, kid)
+            else if (i.hasExtra("profile_restricted")) prefs.editProfiles { Profiles.setRestricted(it, found.id, kid) }
+        }
+        i.getStringExtra("profile")?.let { name ->
+            val p = Profiles.byName(prefs.profileList(), name)
+            if (p == null) resultData += " profile_unknown=\"$name\""
+            // The home screen shows it at once (HomeActivity.tileReceiver).
+            else if (p.id != prefs.currentProfile && prefs.switchProfile(p.id)) AppRepo.notifyChanged(c, null)
+        }
+        i.getStringExtra("profile_pin")?.let { pin ->
+            val v = pin.trim().removeSurrounding("'")
+            if (v.isEmpty()) prefs.setPin(null) else if (Profiles.validPin(v)) prefs.setPin(v) else resultData += " profile_pin=invalid"
+        }
+        resultData += " profile=\"${Profiles.displayName(prefs.current())}\" profiles=${prefs.profileList().size} pin=${if (prefs.hasPin) "set" else "unset"}"
         // Must stay last: a weather_city is looked up over the network, so this may call goAsync(),
         // after which resultData can only be set through the pending result (Weather.config does).
         Weather.config(this, c, i)

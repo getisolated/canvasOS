@@ -26,6 +26,9 @@ class SettingsActivity : Activity() {
     companion object {
         const val SONY_DREAM = "com.sony.dtv.braviashow/com.sony.dtv.braviashow.BraviaDayDreamService"
         const val ICON_FILE = "settings_icon.png"
+        /** Opens the settings on a sub-page rather than the main one: [PAGE_PROFILES]. */
+        const val EXTRA_PAGE = "com.getisolated.canvasos.PAGE"
+        const val PAGE_PROFILES = "profiles"
         const val BACKDROP_FILE = "settings_bg.jpg"
 
         /**
@@ -61,10 +64,15 @@ class SettingsActivity : Activity() {
         private val IDLE_VALUE = Color.argb(130, 255, 255, 255)
         private val FOCUS_VALUE = Color.argb(140, 0, 0, 0)
         private const val LISTENER_NEEDED = "Écouteur requis (étape 4)"
+        private const val PROFILES_ABOUT = "Chaque profil a son propre accueil : l'ordre des apps, les apps masquées, les dossiers, les noms des apps, " +
+            "les entrées épinglées et le fond d'écran. Les autres réglages valent pour tous. Un profil enfant demande le code PIN pour changer de profil, " +
+            "ouvrir les réglages ou supprimer une app."
     }
 
     private lateinit var prefs: Prefs
     private lateinit var repo: AppRepo
+    private lateinit var root: FrameLayout
+    private lateinit var body: LinearLayout
     private lateinit var list: LinearLayout
     private lateinit var heading: TextView
     private lateinit var about: TextView
@@ -75,7 +83,18 @@ class SettingsActivity : Activity() {
     /** The main-page row that opened the current sub-page, focused again on the way back. */
     private var opener = 0
 
-    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS }
+    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS, PROFILES }
+
+    /** The page this screen was opened on ([EXTRA_PAGE]); Back from it leaves, as it came from the home screen. */
+    private var entry = Page.MAIN
+
+    /** Sheets up over the list (profiles, the PIN), newest last. */
+    private val sheets = ArrayList<Sheet>()
+    /** The row focused when the first sheet went up, focused again once they are all gone. */
+    private var sheetRow = 0
+    /** In a restricted profile, until the PIN is given; the list stays hidden meanwhile. */
+    private var locked = false
+    private val pins by lazy { PinSheets(root, prefs) { showSheet(it) } }
 
     /** "Régénérer le code" was pressed while this screen was open. */
     private var tokenRenewed = false
@@ -88,7 +107,7 @@ class SettingsActivity : Activity() {
         prefs = Prefs(this)
         repo = AppRepo(this)
 
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(28, 28, 30)) }
+        root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(28, 28, 30)) }
         backdrop = ImageView(this).apply {
             scaleType = ImageView.ScaleType.MATRIX
             addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> placeBackdrop(v as ImageView) }
@@ -97,7 +116,7 @@ class SettingsActivity : Activity() {
         heading = text(28f, weight = 600).apply { gravity = Gravity.CENTER }
         root.addView(heading, FrameLayout.LayoutParams(-1, -2, Gravity.TOP).apply { topMargin = dp(40) })
 
-        val body = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        body = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val left = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -130,7 +149,38 @@ class SettingsActivity : Activity() {
         body.addView(scroll, LinearLayout.LayoutParams(0, -1, 1.05f).apply { marginEnd = dp(52) })
         root.addView(body, FrameLayout.LayoutParams(-1, -1).apply { topMargin = dp(84) })
         setContentView(root)
-        show(Page.MAIN)
+        entry = if (intent.getStringExtra(EXTRA_PAGE) == PAGE_PROFILES) Page.PROFILES else Page.MAIN
+        // A restricted profile reaches the settings only with the PIN, whichever way they were opened
+        // (the avatar, the Control Center's gear, the grid's tile, another launcher).
+        if (prefs.restricted && prefs.hasPin) {
+            locked = true
+            body.visibility = android.view.View.INVISIBLE
+            heading.text = "Réglages de l'accueil"
+            pins.ask("Réglages de l'accueil") {
+                locked = false
+                body.visibility = android.view.View.VISIBLE
+                show(entry)
+            }
+        } else show(entry)
+    }
+
+    /**
+     * Shows [s] over the page and keeps focus off the rows behind it. Once the last sheet closes,
+     * the page is drawn again (what the sheets changed shows) with focus back on its row; a PIN
+     * never given leaves the screen.
+     */
+    private fun showSheet(s: Sheet) {
+        if (sheets.isEmpty()) sheetRow = list.indexOfChild(list.focusedChild).coerceAtLeast(0)
+        sheets += s
+        scroll.descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        s.onDismiss {
+            sheets -= s
+            if (sheets.isNotEmpty() || isDestroyed) return@onDismiss
+            if (locked) { finish(); return@onDismiss }
+            scroll.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
+            show(page, sheetRow)
+        }
+        s.show()
     }
 
     private fun show(p: Page, focusIndex: Int = 0) {
@@ -149,6 +199,7 @@ class SettingsActivity : Activity() {
             Page.LAST_CLEAN -> lastCleanPage()
             Page.BANNER_APPS -> bannerAppsPage()
             Page.FOLDERS -> foldersPage()
+            Page.PROFILES -> profilesPage()
         }
         list.post {
             val target = list.getChildAt(focusIndex.coerceIn(0, maxOf(list.childCount - 1, 0)))
@@ -224,7 +275,8 @@ class SettingsActivity : Activity() {
             prefs.ownIcon = !prefs.ownIcon
             showIcon(icon)
         }
-        row("Photo de profil", "La photo de profil en haut à droite ; appuyez dessus pour ouvrir le Centre de contrôle.", { onOff(prefs.showAvatar) }) { prefs.showAvatar = !prefs.showAvatar }
+        row("Photo de profil", "La photo du profil en haut à droite de l'accueil ; appuyez dessus pour changer de profil. " +
+            "Elle reste affichée tant qu'il existe plusieurs profils.", { onOff(prefs.showAvatar) }) { prefs.showAvatar = !prefs.showAvatar }
         row("Effet de sélection", "tvOS : l'app sélectionnée s'agrandit, s'incline selon la direction et un reflet passe dessus. Simple : elle s'agrandit seulement." +
             "\nAuto choisit Simple sur les téléviseurs peu puissants.", {
             auto(prefs.focusStyle, prefs.focusTvos(this), "tvOS", "Simple")
@@ -367,6 +419,11 @@ class SettingsActivity : Activity() {
         }
         row("Dossiers", "Les dossiers de l'accueil et leurs apps. Ils se créent et se gèrent depuis l'accueil, par un appui long sur une app ou un dossier.",
             { "${prefs.folderList().size}" }, chevron = true) { show(Page.FOLDERS) }
+
+        section("Profils")
+        row("Profil actuel", "Le profil dont l'accueil est affiché. Changez-en avec la photo de profil, en haut à droite de l'accueil.",
+            { Profiles.displayName(prefs.current()) }) {}
+        row("Gérer les profils", PROFILES_ABOUT, { "${prefs.profileList().size}" }, chevron = true) { show(Page.PROFILES) }
 
         section("Page téléphone")
         row("Afficher le QR code", "Scannez-le avec un téléphone sur le même Wi-Fi. La page qui s'ouvre sert de télécommande avec clavier, choisit le fond d'écran, " +
@@ -585,6 +642,65 @@ class SettingsActivity : Activity() {
             "le renommer, y ajouter des apps, le déplacer ou le supprimer ; ses apps reviennent alors sur l'accueil.", { "" }) {}
     }
 
+    /**
+     * The profiles: one row each (pressing it renames, recolours, makes it a child's or deletes it),
+     * then a new one and the PIN. Every change is saved at once; the page is drawn again after.
+     */
+    private fun profilesPage() {
+        heading.text = "Profils"
+        about.text = PROFILES_ABOUT
+        val current = prefs.currentProfile
+        for (p in prefs.profileList()) {
+            val desc = listOfNotNull(
+                if (p.id == current) "Le profil affiché en ce moment." else null,
+                if (p.restricted) "Profil enfant : le code PIN est demandé pour en sortir, ouvrir les réglages ou supprimer une app ; « Masquer » et « Infos sur l'app » n'y sont pas proposés." else null,
+                if (p.isMain) "Le profil principal : celui de l'accueil d'avant les profils. Il ne peut pas être supprimé." else null,
+            ).joinToString("\n").ifEmpty { "Appuyez pour le renommer, changer sa couleur, en faire un profil enfant ou le supprimer." }
+            row(Profiles.displayName(p), desc, { if (p.restricted) "Enfant" else "" }) { profileMenu(p) }
+        }
+        row("Nouveau profil…", "Un profil de plus, avec son propre accueil. Il commence avec l'ordre des apps par défaut, sans apps masquées ni dossiers, " +
+            "et avec le fond d'écran du profil principal.", { "" }) {
+            showSheet(Sheet(root).title("Nouveau profil").message("Le nom du profil, par exemple « Enfants ».")
+                .input("", Profiles.DEFAULT_NAME) { name -> prefs.addProfile(name) })
+        }
+        row("Code PIN", "Demandé dans un profil enfant pour en sortir, ouvrir les réglages ou supprimer une app. De ${Profiles.PIN_MIN} à ${Profiles.PIN_MAX} chiffres ; " +
+            "le modifier ou le supprimer demande le code actuel. Oublié, il se supprime depuis un ordinateur (adb).",
+            { if (prefs.hasPin) "Défini" else "Aucun" }) { pinMenu() }
+    }
+
+    private fun profileMenu(p: Profile) {
+        val name = Profiles.displayName(p)
+        val s = Sheet(root).title(name)
+            .message(if (prefs.hasPin) null else "Un profil enfant n'est protégé qu'une fois un code PIN défini (ligne « Code PIN » de cette page).")
+            .button("Renommer") {
+                showSheet(Sheet(root).title("Renommer « $name »").message(if (p.isMain) "Laissez le champ vide pour reprendre la silhouette et le nom « ${Profiles.MAIN_NAME} »." else null)
+                    .input(p.name, if (p.isMain) Profiles.MAIN_NAME else Profiles.DEFAULT_NAME) { text -> prefs.editProfiles { Profiles.rename(it, p.id, text) } })
+            }
+            .cycle("Couleur", Profiles.COLOR_NAMES, p.color) { c -> prefs.editProfiles { Profiles.setColor(it, p.id, c) } }
+            .toggle("Profil enfant", p.restricted) { on -> prefs.editProfiles { Profiles.setRestricted(it, p.id, on) } }
+        if (Profiles.canDelete(prefs.profileList(), p.id, prefs.currentProfile)) s.button("Supprimer") {
+            showSheet(Sheet(root).title("Supprimer « $name » ?").message("Son accueil (ordre des apps, apps masquées, dossiers, noms, fond d'écran) est effacé. Les apps elles-mêmes restent installées.")
+                .button("Supprimer") { prefs.deleteProfile(p.id) }
+                .button("Annuler") {})
+        }
+        showSheet(s.button("Annuler") {})
+    }
+
+    /** "Code PIN": set one, or change or remove it after giving the current one. */
+    private fun pinMenu() {
+        if (!prefs.hasPin) { pins.choose("Définir le code PIN"); return }
+        showSheet(Sheet(root).title("Code PIN").message(null)
+            .button("Modifier") { pins.ask("Code actuel") { pins.choose("Nouveau code PIN") } }
+            .button("Supprimer") {
+                pins.ask("Code actuel") {
+                    showSheet(Sheet(root).title("Supprimer le code PIN ?").message("Les profils enfants ne seront plus protégés : on pourra en sortir et ouvrir les réglages sans code.")
+                        .button("Supprimer") { prefs.setPin(null) }
+                        .button("Annuler") {})
+                }
+            }
+            .button("Annuler") {})
+    }
+
     /** Preinstalled apps deleted from the long-press menu; selecting one reinstalls it from the system partition. */
     private fun removedApps() {
         heading.text = "Apps préinstallées supprimées"
@@ -742,13 +858,17 @@ class SettingsActivity : Activity() {
     private fun idleMinutes() = Settings.System.getInt(contentResolver, Settings.System.SCREEN_OFF_TIMEOUT, 600_000) / 60_000
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK && sheets.isNotEmpty()) {
+            sheets.last().dismiss()
+            return true
+        }
         if (keyCode == KeyEvent.KEYCODE_BACK && page != Page.MAIN) {
-            show(Page.MAIN, opener)
+            if (page == entry) finish() else show(Page.MAIN, opener)
             return true
         }
         return super.onKeyUp(keyCode, event)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
-        if (keyCode == KeyEvent.KEYCODE_BACK && page != Page.MAIN) true else super.onKeyDown(keyCode, event)
+        if (keyCode == KeyEvent.KEYCODE_BACK && (page != Page.MAIN || sheets.isNotEmpty())) true else super.onKeyDown(keyCode, event)
 }
