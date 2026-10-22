@@ -105,6 +105,8 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    // Local unit tests only see android.jar's stubs, where org.json throws; this is the same API, for tests.
+    testImplementation("org.json:json:20240303")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("androidx.palette:palette:1.0.0")
     implementation("dev.mobile:dadb:2.0.0")
