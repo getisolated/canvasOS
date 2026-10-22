@@ -139,6 +139,8 @@ const val FONT_BOLD = "sans-serif-medium"
 object Fonts {
     private val cache = HashMap<Int, Typeface>()
 
+    /** Any thread: the phone page's server draws profile avatars too. */
+    @Synchronized
     fun inter(ctx: Context, weight: Int): Typeface = cache.getOrPut(weight) {
         try {
             Typeface.Builder(ctx.assets, "inter.ttf")
@@ -162,9 +164,10 @@ fun Context.text(sizeSp: Float, color: Int = Color.WHITE, bold: Boolean = false,
 
 /**
  * A pill button in tvOS style: translucent when idle, solid white with
- * dark text and a slight lift when focused.
+ * dark text and a slight lift when focused. [iconRes] is a glyph tinted with the text; [picture]
+ * (a profile's avatar) is shown larger and as it is.
  */
-class PillButton(ctx: Context, label: String, iconRes: Int? = null, val onClick: () -> Unit) : LinearLayout(ctx) {
+class PillButton(ctx: Context, label: String, iconRes: Int? = null, picture: android.graphics.drawable.Drawable? = null, val onClick: () -> Unit) : LinearLayout(ctx) {
     private val tv = ctx.text(17f, bold = true).apply {
         text = label
         maxLines = 1
@@ -182,6 +185,9 @@ class PillButton(ctx: Context, label: String, iconRes: Int? = null, val onClick:
         background = idle
         setPadding(dp(24), 0, dp(24), 0)
         icon?.let { addView(it, LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(10) }) }
+        picture?.let { d ->
+            addView(ImageView(ctx).apply { setImageDrawable(d) }, LayoutParams(dp(PICTURE_DP), dp(PICTURE_DP)).apply { marginEnd = dp(12) })
+        }
         addView(tv)
         setOnClickListener { onClick() }
         setOnFocusChangeListener { _, f ->
@@ -193,6 +199,11 @@ class PillButton(ctx: Context, label: String, iconRes: Int? = null, val onClick:
     }
 
     fun setLabel(label: CharSequence) { tv.text = label }
+
+    companion object {
+        /** Side of a [picture], in dp: most of the 52 dp pill, like the account pictures in tvOS's lists. */
+        const val PICTURE_DP = 36
+    }
 }
 
 /**
@@ -252,8 +263,14 @@ class Sheet(private val host: FrameLayout) {
         message.visibility = if (m.isNullOrEmpty()) View.GONE else View.VISIBLE
     }
 
-    fun button(label: String, icon: Int? = null, keepOpen: Boolean = false, action: () -> Unit) = apply {
-        val b = PillButton(ctx, label, icon) {
+    fun button(label: String, icon: Int? = null, keepOpen: Boolean = false, action: () -> Unit) = button(label, icon, null, keepOpen, action)
+
+    /** A button with a picture before its label, such as a profile's avatar ([PillButton.PICTURE_DP] square, not tinted). */
+    fun button(label: String, picture: android.graphics.drawable.Drawable, keepOpen: Boolean = false, action: () -> Unit) =
+        button(label, null, picture, keepOpen, action)
+
+    private fun button(label: String, icon: Int?, picture: android.graphics.drawable.Drawable?, keepOpen: Boolean, action: () -> Unit) = apply {
+        val b = PillButton(ctx, label, icon, picture) {
             if (!keepOpen) dismiss()
             action()
         }

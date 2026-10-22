@@ -182,6 +182,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     /** A name, tile picture or the hidden list changed on the phone page ([AppRepo.notifyChanged]). */
     private val tileReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
+            // A profile's photo changed on the phone page: only the avatar is drawn again.
+            if (i.hasExtra(Profiles.EXTRA_AVATAR)) { showAvatar(); return }
             val pkg = i.getStringExtra(AppRepo.EXTRA_PKG)
             // The profile was switched over adb (ConfigReceiver): that profile's home, as from the avatar.
             if (pkg == null && prefs.currentProfile != shownProfile) { showProfile(); return }
@@ -379,7 +381,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         buildWeather(icons)
         icons.addView(netButton, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(6) })
         icons.addView(ccButton, LinearLayout.LayoutParams(dp(28), dp(28)))
-        avatar = IconButton(this, R.drawable.profile_avatar, portrait = true) { profileSheet() }.apply {
+        avatar = IconButton(this, 0, portrait = true) { profileSheet() }.apply {
             id = View.generateViewId()
             contentDescription = "Profils"
         }
@@ -1120,14 +1122,13 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     }
 
     /**
-     * The avatar shows the profile on screen: its initial on its colour, or the silhouette for the
-     * main profile without a name. It stays up whenever there is more than one profile, being the
-     * only way to switch from here, even with "Photo de profil" off.
+     * The avatar shows the profile on screen: its photo, or its initial on its colour ([ProfileAvatar]).
+     * It stays up whenever there is more than one profile, being the only way to switch from here,
+     * even with "Photo de profil" off.
      */
     private fun showAvatar() {
         val p = prefs.current()
-        val pic = ProfileAvatar.bitmap(this, p)
-        if (pic != null) avatar.setIcon(BitmapDrawable(resources, pic)) else avatar.setIcon(R.drawable.profile_avatar)
+        avatar.setIcon(ProfileAvatar.drawable(this, p, IconButton.PORTRAIT_DP))
         avatar.contentDescription = "Profil : ${Profiles.displayName(p)}"
         avatar.visibility = if (prefs.showAvatar || prefs.profileList().size > 1) View.VISIBLE else View.GONE
     }
@@ -1145,7 +1146,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         val s = Sheet(root).title("Profils").message(msg)
         for (p in list) {
             val name = Profiles.displayName(p)
-            s.button(if (p.id == current) "✓  $name" else name) { if (p.id != current) switchTo(p) }
+            s.button(if (p.id == current) "✓  $name" else name, ProfileAvatar.drawable(this, p, PillButton.PICTURE_DP)) { if (p.id != current) switchTo(p) }
         }
         if (unprotected) s.button("Définir un code PIN…") { pins.choose("Code PIN") }
         // The settings ask for the PIN themselves in a restricted profile, however they are opened.
@@ -1377,9 +1378,17 @@ class ShelfScrim : Drawable() {
 
 /** Round glyph button for the top-right corner; fills white when focused. */
 class IconButton(ctx: Context, icon: Int, private val portrait: Boolean = false, onClick: () -> Unit) : FrameLayout(ctx) {
+    /** [icon] 0: none yet, for a [portrait] set later with [setIcon]. */
     private val img = ImageView(ctx).apply {
-        setImageResource(icon)
-        if (portrait) { scaleType = ImageView.ScaleType.CENTER_CROP; clipRounded(ctx.dp(12).toFloat()) }
+        if (icon != 0) setImageResource(icon)
+        if (portrait) {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            // A full circle whatever is set: a photo's square corners never show.
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: android.graphics.Outline) = outline.setOval(0, 0, view.width, view.height)
+            }
+            clipToOutline = true
+        }
     }
     private val disc = android.graphics.drawable.GradientDrawable().apply {
         shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -1390,7 +1399,7 @@ class IconButton(ctx: Context, icon: Int, private val portrait: Boolean = false,
         isFocusable = true
         isClickable = true
         background = disc
-        val size = ctx.dp(if (portrait) 24 else 16)
+        val size = ctx.dp(if (portrait) PORTRAIT_DP else 16)
         addView(img, LayoutParams(size, size, Gravity.CENTER))
         setOnClickListener { onClick() }
         setOnFocusChangeListener { _, f ->
@@ -1402,4 +1411,9 @@ class IconButton(ctx: Context, icon: Int, private val portrait: Boolean = false,
 
     fun setIcon(res: Int) = img.setImageResource(res)
     fun setIcon(d: Drawable) = img.setImageDrawable(d)
+
+    companion object {
+        /** Side of a portrait (the profile's avatar), in dp; a glyph is 16. */
+        const val PORTRAIT_DP = 24
+    }
 }

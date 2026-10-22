@@ -60,6 +60,9 @@ class SettingsActivity : Activity() {
             return android.graphics.BitmapFactory.decodeFile(f.path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
         }
 
+        /** A profile's avatar at the start of its row, and as the big icon of the profiles page. */
+        private const val ROW_AVATAR_DP = 36
+        private const val BIG_AVATAR_DP = 120
         private val IDLE_TEXT = Color.argb(235, 255, 255, 255)
         private val IDLE_VALUE = Color.argb(130, 255, 255, 255)
         private val FOCUS_VALUE = Color.argb(140, 0, 0, 0)
@@ -201,6 +204,7 @@ class SettingsActivity : Activity() {
             Page.FOLDERS -> foldersPage()
             Page.PROFILES -> profilesPage()
         }
+        pageIcon(p)
         list.post {
             val target = list.getChildAt(focusIndex.coerceIn(0, maxOf(list.childCount - 1, 0)))
             (target?.takeIf { it.isFocusable } ?: (0 until list.childCount).map { list.getChildAt(it) }.firstOrNull { it.isFocusable })
@@ -234,6 +238,22 @@ class SettingsActivity : Activity() {
         v.imageMatrix = android.graphics.Matrix().apply {
             setScale(s, s)
             postTranslate(v.width - d.intrinsicWidth * s, (v.height - d.intrinsicHeight * s) / 2)
+        }
+    }
+
+    /** Whether the big icon shows the current profile's avatar ([pageIcon]) rather than the settings icon. */
+    private var iconAvatar = false
+
+    /** On the profiles page the big icon is the current profile's avatar, as on tvOS's account screens; elsewhere the settings icon. */
+    private fun pageIcon(p: Page) {
+        if (p == Page.PROFILES) {
+            icon.setImageDrawable(ProfileAvatar.drawable(this, prefs.current(), BIG_AVATAR_DP))
+            icon.scaleType = ImageView.ScaleType.CENTER
+            iconAvatar = true
+        } else if (iconAvatar) {
+            iconAvatar = false
+            icon.scaleType = ImageView.ScaleType.CENTER_CROP
+            showIcon(icon)
         }
     }
 
@@ -275,8 +295,8 @@ class SettingsActivity : Activity() {
             prefs.ownIcon = !prefs.ownIcon
             showIcon(icon)
         }
-        row("Photo de profil", "La photo du profil en haut à droite de l'accueil ; appuyez dessus pour changer de profil. " +
-            "Elle reste affichée tant qu'il existe plusieurs profils.", { onOff(prefs.showAvatar) }) { prefs.showAvatar = !prefs.showAvatar }
+        row("Photo de profil", "La photo du profil en haut à droite de l'accueil : l'initiale de son nom sur sa couleur, ou une photo importée " +
+            "depuis la page téléphone. Appuyez dessus pour changer de profil. Elle reste affichée tant qu'il existe plusieurs profils.", { onOff(prefs.showAvatar) }) { prefs.showAvatar = !prefs.showAvatar }
         row("Effet de sélection", "tvOS : l'app sélectionnée s'agrandit, s'incline selon la direction et un reflet passe dessus. Simple : elle s'agrandit seulement." +
             "\nAuto choisit Simple sur les téléviseurs peu puissants.", {
             auto(prefs.focusStyle, prefs.focusTvos(this), "tvOS", "Simple")
@@ -656,7 +676,7 @@ class SettingsActivity : Activity() {
                 if (p.restricted) "Profil enfant : le code PIN est demandé pour en sortir, ouvrir les réglages ou supprimer une app ; « Masquer » et « Infos sur l'app » n'y sont pas proposés." else null,
                 if (p.isMain) "Le profil principal : celui de l'accueil d'avant les profils. Il ne peut pas être supprimé." else null,
             ).joinToString("\n").ifEmpty { "Appuyez pour le renommer, changer sa couleur, en faire un profil enfant ou le supprimer." }
-            row(Profiles.displayName(p), desc, { if (p.restricted) "Enfant" else "" }) { profileMenu(p) }
+            row(Profiles.displayName(p), desc, { if (p.restricted) "Enfant" else "" }, picture = ProfileAvatar.drawable(this, p, ROW_AVATAR_DP)) { profileMenu(p) }
         }
         row("Nouveau profil…", "Un profil de plus, avec son propre accueil. Il commence avec l'ordre des apps par défaut, sans apps masquées ni dossiers, " +
             "et avec le fond d'écran du profil principal.", { "" }) {
@@ -673,17 +693,34 @@ class SettingsActivity : Activity() {
         val s = Sheet(root).title(name)
             .message(if (prefs.hasPin) null else "Un profil enfant n'est protégé qu'une fois un code PIN défini (ligne « Code PIN » de cette page).")
             .button("Renommer") {
-                showSheet(Sheet(root).title("Renommer « $name »").message(if (p.isMain) "Laissez le champ vide pour reprendre la silhouette et le nom « ${Profiles.MAIN_NAME} »." else null)
+                showSheet(Sheet(root).title("Renommer « $name »").message(if (p.isMain) "Laissez le champ vide pour reprendre le nom « ${Profiles.MAIN_NAME} »." else null)
                     .input(p.name, if (p.isMain) Profiles.MAIN_NAME else Profiles.DEFAULT_NAME) { text -> prefs.editProfiles { Profiles.rename(it, p.id, text) } })
             }
             .cycle("Couleur", Profiles.COLOR_NAMES, p.color) { c -> prefs.editProfiles { Profiles.setColor(it, p.id, c) } }
-            .toggle("Profil enfant", p.restricted) { on -> prefs.editProfiles { Profiles.setRestricted(it, p.id, on) } }
+            .button("Photo…") { photoHelp(p) }
+        if (Profiles.photoFile(this, p.id) != null) s.button("Supprimer la photo") {
+            Profiles.clearPhoto(this, p.id)
+        }
+        s.toggle("Profil enfant", p.restricted) { on -> prefs.editProfiles { Profiles.setRestricted(it, p.id, on) } }
         if (Profiles.canDelete(prefs.profileList(), p.id, prefs.currentProfile)) s.button("Supprimer") {
             showSheet(Sheet(root).title("Supprimer « $name » ?").message("Son accueil (ordre des apps, apps masquées, dossiers, noms, fond d'écran) est effacé. Les apps elles-mêmes restent installées.")
                 .button("Supprimer") { prefs.deleteProfile(p.id) }
                 .button("Annuler") {})
         }
         showSheet(s.button("Annuler") {})
+    }
+
+    /**
+     * "Photo…": a picture cannot be chosen with a remote, so this says where it comes from: the phone
+     * page, or a computer (the path carries the profile's id).
+     */
+    private fun photoHelp(p: Profile) {
+        val name = Profiles.displayName(p)
+        showSheet(Sheet(root).title("Photo de « $name »")
+            .message("Sans photo, le profil montre l'initiale de son nom sur sa couleur.\n\n" +
+                "Depuis un téléphone : ouvrez la page téléphone (Réglages de l'accueil → Page téléphone), onglet Réglages, section Profils, puis « Changer la photo ».\n\n" +
+                "Depuis un ordinateur : adb push photo.jpg /sdcard/Android/data/$packageName/files/${Profiles.AVATARS_DIR}/${p.id}.jpg")
+            .button("OK") {})
     }
 
     /** "Code PIN": set one, or change or remove it after giving the current one. */
@@ -797,7 +834,7 @@ class SettingsActivity : Activity() {
      * One settings row; [value] is re-read after each click, [desc] shows under the icon while
      * the row is focused, and [chevron] marks a row that opens another screen.
      */
-    private fun row(label: String, desc: String?, value: () -> String, chevron: Boolean = false, onClick: (TextView) -> Unit) {
+    private fun row(label: String, desc: String?, value: () -> String, chevron: Boolean = false, picture: android.graphics.drawable.Drawable? = null, onClick: (TextView) -> Unit) {
         val r = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -811,6 +848,7 @@ class SettingsActivity : Activity() {
             ellipsize = TextUtils.TruncateAt.END
         }
         val v = text(16f, IDLE_VALUE).apply { text = value() }
+        picture?.let { d -> r.addView(ImageView(this).apply { setImageDrawable(d) }, LinearLayout.LayoutParams(dp(ROW_AVATAR_DP), dp(ROW_AVATAR_DP)).apply { marginEnd = dp(14) }) }
         r.addView(l, LinearLayout.LayoutParams(0, -2, 1f))
         r.addView(v, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(12) })
         val arrow = if (chevron) text(24f, IDLE_VALUE, weight = 300).apply { text = "›" } else null

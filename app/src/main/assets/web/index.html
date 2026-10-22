@@ -158,6 +158,11 @@
   .app .acts .busy { opacity: .5; pointer-events: none; }
   .app.off img, .app.off input { opacity: .45; }
 
+  /* Profiles: the avatar as the TV draws it, the name, then its actions. */
+  .app.profile { grid-template-columns: 56px minmax(0, 1fr); }
+  .app.profile img { width: 56px; aspect-ratio: 1; border-radius: 50%; object-fit: cover; }
+  .app.profile b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
   footer { color: var(--secondary); font-size: 13px; margin: 36px 4px 0; padding-top: 14px; border-top: .5px solid var(--sep); }
 </style>
 </head>
@@ -252,6 +257,10 @@
 <h2>Icône des réglages</h2>
 <label class="primary" id="pickIcon">Importer une icône<input type="file" id="iconFile" accept="image/*" hidden></label>
 <p class="hint" id="iconHint"></p>
+
+<h2>Profils</h2>
+<div class="apps" id="profiles"></div>
+<p class="hint">La photo de chaque profil en haut à droite de l'accueil. Sans photo, le profil montre l'initiale de son nom sur sa couleur ; une photo est recadrée en carré, centrée. Le nom et la couleur se changent sur le téléviseur (Réglages de l'accueil → Profils).</p>
 
 <h2>Météo</h2>
 <div class="seg" id="weather">
@@ -461,6 +470,7 @@ function render(s) {
   }
   if (document.activeElement !== $('links')) $('links').value = s.links;
   renderWeather(s);
+  renderProfiles(s.profiles);
   photos($('mine'), 'mine', s.mine);
   photos($('custom'), 'custom', s.custom);
 }
@@ -658,6 +668,51 @@ async function refreshApps() {
     if (!r.ok) throw new Error(r.status);
     renderApps((await r.json()).apps);
   } catch (_) { /* refresh() already says the TV is unreachable */ }
+}
+
+// ------------------------------------------------------------------ Profiles (Réglages tab)
+
+function profileRow(p) {
+  const row = document.createElement('div'); row.className = 'app profile';
+  const img = document.createElement('img'); img.alt = '';
+  img.src = base + 'thumb/avatar/' + encodeURIComponent(p.id) + '?v=' + p.v;
+  const body = document.createElement('div');
+  const name = document.createElement('b'); name.textContent = p.name;
+  const sub = document.createElement('small');
+  sub.textContent = (p.current ? 'Affiché en ce moment · ' : '') + 'identifiant ' + p.id;
+  body.append(name, sub);
+  const acts = document.createElement('div'); acts.className = 'acts';
+  const pick = document.createElement('label'); pick.textContent = 'Changer la photo';
+  const file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
+  file.onchange = async () => {
+    const f = file.files[0]; file.value = ''; if (!f) return;
+    if (f.size > 20 * 1048576) { toast('Image trop volumineuse : 20 Mo au maximum'); return; }
+    pick.classList.add('busy'); pick.firstChild.textContent = 'Envoi…';
+    try {
+      const fd = new FormData(); fd.append('id', p.id); fd.append('photo', f, f.name);
+      const r = await fetch(base + 'api/profile/photo', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error(r.status);
+      const s = await r.json(); pick.classList.remove('busy'); render(s);
+      toast(s.ok ? 'Photo de « ' + p.name + ' » changée' : (s.message || 'Image inutilisable'));
+    } catch (_) { toast(LOST); pick.classList.remove('busy'); pick.firstChild.textContent = 'Changer la photo'; }
+  };
+  pick.append(file); acts.append(pick);
+  if (p.photo) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Supprimer la photo';
+    b.onclick = () => post('api/profile/photo/delete', { id: p.id }).then(() => toast('Photo supprimée : l\'initiale revient')).catch(() => toast(LOST));
+    acts.append(b);
+  }
+  row.append(img, body, acts);
+  return row;
+}
+
+function renderProfiles(list) {
+  if (!Array.isArray(list)) return;
+  const el = $('profiles');
+  // Not while a photo is being sent: its row says so.
+  if (el.querySelector('.busy')) return;
+  el.innerHTML = '';
+  for (const p of list) el.append(profileRow(p));
 }
 
 function renderWeather(s) {

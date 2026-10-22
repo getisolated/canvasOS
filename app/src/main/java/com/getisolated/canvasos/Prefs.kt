@@ -379,16 +379,18 @@ class Prefs(ctx: Context) {
         sp.getString("background", null)?.let { e.putString("background", it) }
         if (sp.contains("wall_minutes")) e.putInt("wall_minutes", sp.getInt("wall_minutes", 30))
         e.apply()
+        Profiles.clearPhoto(appCtx, id)
         val next = Profiles.add(list, id, name, restricted)
         profiles = Profiles.encode(next)
         return Profiles.byId(next, id)!!
     }
 
-    /** Deletes profile [id] and its grid; false when it cannot go ([Profiles.canDelete]). */
+    /** Deletes profile [id], its grid and its photo; false when it cannot go ([Profiles.canDelete]). */
     fun deleteProfile(id: String): Boolean {
         val list = profileList()
         if (!Profiles.canDelete(list, id, currentProfile)) return false
         store(id).edit().clear().apply()
+        Profiles.clearPhoto(appCtx, id)
         profiles = Profiles.encode(Profiles.delete(list, id, currentProfile))
         return true
     }

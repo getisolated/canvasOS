@@ -459,7 +459,7 @@ class ConfigReceiver : BroadcastReceiver() {
             val v = pin.trim().removeSurrounding("'")
             if (v.isEmpty()) prefs.setPin(null) else if (Profiles.validPin(v)) prefs.setPin(v) else resultData += " profile_pin=invalid"
         }
-        resultData += " profile=\"${Profiles.displayName(prefs.current())}\" profiles=${prefs.profileList().size} pin=${if (prefs.hasPin) "set" else "unset"}"
+        resultData += " profile=\"${Profiles.displayName(prefs.current())}\" profile_id=${prefs.currentProfile} profiles=${prefs.profileList().size} pin=${if (prefs.hasPin) "set" else "unset"}"
         // Must stay last: a weather_city is looked up over the network, so this may call goAsync(),
         // after which resultData can only be set through the pending result (Weather.config does).
         Weather.config(this, c, i)

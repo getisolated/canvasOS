@@ -82,7 +82,7 @@ class ProfilesTest {
         val list = listOf(main, kids, yass)
         assertEquals(listOf(main, kids.copy(name = "Les petits"), yass), Profiles.rename(list, "k1", " Les petits "))
         assertEquals(Profiles.DEFAULT_NAME, Profiles.byId(Profiles.rename(list, "k1", ""), "k1")!!.name)
-        // The main profile renamed to nothing goes back to its silhouette and "Principal".
+        // The main profile renamed to nothing goes back to "Principal" (and its "P").
         assertEquals("", Profiles.byId(Profiles.rename(Profiles.rename(list, Profiles.MAIN, "Papa"), Profiles.MAIN, " "), Profiles.MAIN)!!.name)
         assertEquals(0, Profiles.byId(Profiles.setColor(list, "y1", Profiles.COLORS.size), "y1")!!.color)
         assertEquals(Profiles.COLORS.size - 1, Profiles.byId(Profiles.setColor(list, "y1", -1), "y1")!!.color)
@@ -126,9 +126,44 @@ class ProfilesTest {
         assertEquals("Y", Profiles.initial("yassine"))
         assertEquals("É", Profiles.initial("  élodie"))
         assertEquals("", Profiles.initial("   "))
+        assertEquals("", Profiles.initial(""))
         assertEquals("7", Profiles.initial("7e"))
-        // A character outside the BMP stays whole.
-        assertEquals("😀", Profiles.initial("😀 Joie"))
+        assertEquals("Ö", Profiles.initial("ölüm"))
+        assertEquals("张", Profiles.initial("张伟"))
+        // A digraph letter takes its title case (Dž), not its all-capitals form (DŽ).
+        assertEquals("ǅ", Profiles.initial("ǆemal"))
+        // Emoji and punctuation are skipped: no half of a surrogate pair, no emoji in a white letter's place.
+        assertEquals("J", Profiles.initial("😀 Joie"))
+        assertEquals("L", Profiles.initial("« léa »"))
+        assertEquals("", Profiles.initial("😀👍"))
+        // A letter outside the BMP stays whole.
+        assertEquals("𝐀", Profiles.initial("𝐀bc"))
+    }
+
+    @Test fun everyProfileHasALetter() {
+        assertEquals("P", Profiles.letter(main))
+        assertEquals("P", Profiles.letter(Profile(Profiles.MAIN, "", 0, false)))
+        assertEquals("E", Profiles.letter(kids))
+        assertEquals("P", Profiles.letter(Profile("e1", "😀", 0, false)))
+        assertEquals("P", Profiles.letter(Profiles.add(listOf(main), "n1", "  ").last()))
+    }
+
+    @Test fun sixTvosColours() {
+        assertEquals(6, Profiles.COLORS.size)
+        assertEquals(Profiles.COLORS.size, Profiles.COLORS.toSet().size)
+        assertTrue(Profiles.COLORS.all { (it ushr 24) == 0xFF })
+        assertEquals("#2f7cf6", Profiles.colorHex(0))
+        assertEquals(Profiles.colorHex(0), Profiles.colorHex(Profiles.COLORS.size))
+    }
+
+    @Test fun photoPathsAreOnlyForProfileIds() {
+        val files = java.io.File("/data/files")
+        val ext = java.io.File("/sdcard/ext")
+        assertEquals(listOf(java.io.File("/data/files/avatars/abc123.jpg"), java.io.File("/sdcard/ext/avatars/abc123.jpg")),
+            Profiles.photoPaths(files, ext, "abc123"))
+        assertEquals(listOf(java.io.File("/data/files/avatars/main.jpg")), Profiles.photoPaths(files, null, Profiles.MAIN))
+        assertTrue(Profiles.photoPaths(files, ext, "../prefs").isEmpty())
+        assertTrue(Profiles.photoPaths(files, ext, "").isEmpty())
     }
 
     @Test fun pinsAreFourToSixAsciiDigits() {
@@ -163,6 +198,10 @@ class ProfilesTest {
         fun of(name: String) = stores.getOrPut(name) { MemorySharedPreferences() }
         override fun getSharedPreferences(name: String?, mode: Int): SharedPreferences = of(name.orEmpty())
         override fun getApplicationContext() = this
+        /** Profile photos ([Profiles.photoFile]) go to a folder of their own, gone with the test. */
+        val files: java.io.File by lazy { kotlin.io.path.createTempDirectory("profiles").toFile().apply { deleteOnExit() } }
+        override fun getFilesDir() = files
+        override fun getExternalFilesDir(type: String?): java.io.File? = null
     }
 
     private val ctx = Stores()
@@ -238,8 +277,11 @@ class ProfilesTest {
         p.order = listOf("x")
         assertFalse("not the profile on screen", p.deleteProfile(a.id))
         assertFalse("never the main one", p.deleteProfile(Profiles.MAIN))
+        // Its photo, as pushed over adb or uploaded, goes with it.
+        val photo = java.io.File(java.io.File(ctx.files, Profiles.AVATARS_DIR).apply { mkdirs() }, "${a.id}.jpg").apply { writeBytes(byteArrayOf(1)) }
         p.switchProfile(b.id)
         assertTrue(p.deleteProfile(a.id))
+        assertFalse(photo.exists())
         assertTrue(ctx.of("tvhome-${a.id}").keys.isEmpty())
         assertEquals(listOf(Profiles.MAIN, b.id), p.profileList().map { it.id })
         // A current profile that no longer exists (deleted over adb, say) shows the main grid.

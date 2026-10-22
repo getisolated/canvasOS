@@ -57,6 +57,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                 path == "/api/state" -> json(state())
                 path == "/api/apps" -> json(apps())
                 path.startsWith("/thumb/app/") -> appThumb(path.removePrefix("/thumb/app/"))
+                path.startsWith("/thumb/avatar/") -> avatarThumb(path.removePrefix("/thumb/avatar/"))
                 path.startsWith("/thumb/") -> thumb(path.removePrefix("/thumb/"))
                 post && path == "/api/background" -> {
                     val v = form(session)["id"].orEmpty()
@@ -152,6 +153,13 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                     AppRepo.notifyChanged(ctx, app.pkg)
                     json(apps().put("ok", true))
                 }
+                post && path == "/api/profile/photo" -> uploadProfilePhoto(session)
+                post && path == "/api/profile/photo/delete" -> {
+                    val p = Profiles.byId(prefs.profileList(), form(session)["id"].orEmpty()) ?: return json(state().put("ok", false))
+                    Profiles.clearPhoto(ctx, p.id)
+                    Profiles.notifyPhoto(ctx, p.id)
+                    json(state().put("ok", true))
+                }
                 path == "/api/weather/search" -> weatherSearch(session.parameters["q"]?.firstOrNull().orEmpty())
                 post && path == "/api/weather" -> {
                     form(session)["on"]?.let { prefs.weather = it == "true" }
@@ -205,6 +213,55 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("weatherPlace", prefs.weatherPlace)
         .put("weatherAuto", prefs.weatherAuto)
         .put("tmdbKey", prefs.tmdbKey.isNotEmpty())
+        .put("profiles", profiles())
+
+    /** The profiles for the Réglages tab; `v` changes with the picture, so the phone fetches a new one rather than its cached one. */
+    private fun profiles(): JSONArray {
+        val current = prefs.currentProfile
+        return JSONArray().apply {
+            for (p in prefs.profileList()) {
+                val photo = Profiles.photoFile(ctx, p.id)
+                put(JSONObject()
+                    .put("id", p.id)
+                    .put("name", Profiles.displayName(p))
+                    .put("color", Profiles.colorHex(p.color))
+                    .put("photo", photo != null)
+                    .put("current", p.id == current)
+                    .put("v", "${Profiles.letter(p)}|${p.color}|${Profiles.photoStamp(photo)}".hashCode().toUInt().toString(36)))
+            }
+        }
+    }
+
+    /** A profile's avatar as the TV draws it (photo or initial), 128 px, as PNG: the circle keeps its transparent corners. */
+    private fun avatarThumb(id: String): Response {
+        val p = Profiles.byId(prefs.profileList(), id) ?: return text(Response.Status.NOT_FOUND, "")
+        val bmp = ProfileAvatar.draw(ctx, p, AVATAR_THUMB)
+        val out = ByteArrayOutputStream()
+        bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+        bmp.recycle()
+        val bytes = out.toByteArray()
+        return newFixedLengthResponse(Response.Status.OK, "image/png", ByteArrayInputStream(bytes), bytes.size.toLong()).apply {
+            addHeader("Cache-Control", "max-age=3600")
+        }
+    }
+
+    /** A profile's photo: any picture up to 20 MB, centre-cropped to a square by [Profiles.setPhoto]; the home screen shows it at once. */
+    private fun uploadProfilePhoto(session: IHTTPSession): Response {
+        val length = session.headers["content-length"]?.toLongOrNull() ?: -1L
+        if (length > MAX_TILE + 64 * 1024) {
+            drain(session, length)
+            return json(state().put("ok", false).put("message", "Image trop volumineuse : 20 Mo au maximum."))
+        }
+        val files = HashMap<String, String>()
+        session.parseBody(files)
+        val p = Profiles.byId(prefs.profileList(), session.parameters["id"]?.firstOrNull().orEmpty())
+            ?: return json(state().put("ok", false).put("message", "Ce profil n'existe plus."))
+        val f = files.values.map { File(it) }.firstOrNull { it.exists() && it.length() in 1..MAX_TILE }
+            ?: return json(state().put("ok", false))
+        val ok = Profiles.setPhoto(ctx, p.id, f.readBytes())
+        if (ok) Profiles.notifyPhoto(ctx, p.id)
+        return json(state().put("ok", ok))
+    }
 
     /**
      * The Apps tab: the grid's apps in grid order (a folder's apps in its place), then the hidden ones by name. `tile` says whether
@@ -458,6 +515,8 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         private const val MAX_INTRO = 100L * 1024 * 1024
         private const val MAX_APK = 200L * 1024 * 1024
         private const val MAX_TILE = 20L * 1024 * 1024
+        /** Side of the phone page's avatars, in px: 64 CSS px at a phone's 2x. */
+        private const val AVATAR_THUMB = 128
         private const val APK_FILE = "install.apk"
 
         @Volatile
