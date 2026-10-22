@@ -58,8 +58,8 @@ android {
         applicationId = "com.getisolated.canvasos"
         minSdk = 28
         targetSdk = 31
-        versionCode = 8
-        versionName = "1.0.0"
+        versionCode = 9
+        versionName = "1.1.0"
     }
 
     // standard declares itself a home screen. guard does not: TCL's package verifier refuses any
