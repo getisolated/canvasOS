@@ -92,17 +92,24 @@ adb -s 192.168.x.x:5555 install -r canvasOS.apk`,
 adb -s 192.168.x.x:5555 install -r canvasOS.apk`,
   },
 
+  /* Grants follow AGENTS.md step 4. BLUETOOTH_CONNECT only exists on Android 12+ (an
+     "unknown permission" error on older systems is harmless) and READ_TV_LISTINGS is refused
+     without consequence where the TV has no TvProvider. */
   setHomeAndGrant: cmd(
     `adb -s 192.168.x.x:5555 shell cmd package set-home-activity ${P}/.HomeActivity
 adb -s 192.168.x.x:5555 shell input keyevent KEYCODE_HOME
 adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.WRITE_SECURE_SETTINGS
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.BLUETOOTH_CONNECT
 adb -s 192.168.x.x:5555 shell cmd notification allow_listener ${P}/${P}.RevivalListener
-adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow`,
+adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.READ_TV_LISTINGS`,
     `adb -s 192.168.x.x:5555 shell cmd package set-home-activity ${P}/.HomeActivity
 adb -s 192.168.x.x:5555 shell input keyevent KEYCODE_HOME
 adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.WRITE_SECURE_SETTINGS
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.BLUETOOTH_CONNECT
 adb -s 192.168.x.x:5555 shell cmd notification allow_listener ${P}/${P}.RevivalListener
-adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow`,
+adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.READ_TV_LISTINGS`,
   ),
 
   /* Sony BRAVIA IP-control registration. Both variants prompt for the PIN so
@@ -129,14 +136,18 @@ python tcast-push.py 192.168.x.x canvasOS-guard.apk`,
 
   tclGrants: cmd(
     `adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.WRITE_SECURE_SETTINGS
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.BLUETOOTH_CONNECT
 adb -s 192.168.x.x:5555 shell cmd notification allow_listener ${P}/${P}.RevivalListener
 adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.READ_TV_LISTINGS
 adb -s 192.168.x.x:5555 shell appops set ${P} APP_AUTO_START allow
 adb -s 192.168.x.x:5555 shell appops set ${P} APP_ASSOC_START allow
 adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez guard true`,
     `adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.WRITE_SECURE_SETTINGS
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.BLUETOOTH_CONNECT
 adb -s 192.168.x.x:5555 shell cmd notification allow_listener ${P}/${P}.RevivalListener
 adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.READ_TV_LISTINGS
 adb -s 192.168.x.x:5555 shell appops set ${P} APP_AUTO_START allow
 adb -s 192.168.x.x:5555 shell appops set ${P} APP_ASSOC_START allow
 adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez guard true`,
@@ -159,12 +170,16 @@ adb -s 192.168.x.x:5555 shell "dumpsys activity activities | grep -m1 ResumedAct
   xiaomiSetup: cmd(
     `adb -s 192.168.x.x:5555 shell cmd package set-home-activity ${P}/.HomeActivity
 adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.WRITE_SECURE_SETTINGS
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.BLUETOOTH_CONNECT
 adb -s 192.168.x.x:5555 shell cmd notification allow_listener ${P}/${P}.RevivalListener
-adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow`,
+adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.READ_TV_LISTINGS`,
     `adb -s 192.168.x.x:5555 shell cmd package set-home-activity ${P}/.HomeActivity
 adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.WRITE_SECURE_SETTINGS
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.BLUETOOTH_CONNECT
 adb -s 192.168.x.x:5555 shell cmd notification allow_listener ${P}/${P}.RevivalListener
-adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow`,
+adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.READ_TV_LISTINGS`,
   ),
 
   xiaomiGuard: cmd(
@@ -182,6 +197,48 @@ adb -s 192.168.x.x:5555 install -r canvasOS.apk
 adb -s 192.168.x.x:5555 shell cmd package set-home-activity ${P}/.HomeActivity
 adb -s 192.168.x.x:5555 shell input keyevent KEYCODE_HOME`,
   },
+
+  /* Stock Android TV and Google-certified boxes: same grants, no brand-specific appops. */
+  stockGrants: cmd(
+    `adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.WRITE_SECURE_SETTINGS
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.BLUETOOTH_CONNECT
+adb -s 192.168.x.x:5555 shell cmd notification allow_listener ${P}/${P}.RevivalListener
+adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.READ_TV_LISTINGS`,
+    `adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.WRITE_SECURE_SETTINGS
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.BLUETOOTH_CONNECT
+adb -s 192.168.x.x:5555 shell cmd notification allow_listener ${P}/${P}.RevivalListener
+adb -s 192.168.x.x:5555 shell appops set ${P} SYSTEM_ALERT_WINDOW allow
+adb -s 192.168.x.x:5555 shell pm grant ${P} android.permission.READ_TV_LISTINGS`,
+  ),
+
+  /* Only when 1.0.0 is installed: its APK was signed with a throwaway key, so the first move
+     to the stable key needs one uninstall (settings and grants are erased). The guard is
+     switched off first so the accessibility list goes back to its recorded value. */
+  upgradeFrom10: cmd(
+    `adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez guard false --ez keep_adb false
+adb -s 192.168.x.x:5555 uninstall ${P}`,
+    `adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez guard false --ez keep_adb false
+adb -s 192.168.x.x:5555 uninstall ${P}`,
+  ),
+
+  /* Asks the app whether a newer Release exists: data="... update=<version|none|unavailable>". */
+  checkUpdate: cmd(
+    `adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez check_update true`,
+    `adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez check_update true`,
+  ),
+
+  /* TMDB key for the Top Shelf; "''" clears it. Replace <TMDB_KEY> with your own key. */
+  tmdbKey: cmd(
+    `adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --es tmdb_key <TMDB_KEY>`,
+    `adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --es tmdb_key <TMDB_KEY>`,
+  ),
+
+  /* Forgotten child-profile PIN: adb never asks for it. */
+  clearProfilePin: cmd(
+    `adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --es profile_pin "''"`,
+    `adb -s 192.168.x.x:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --es profile_pin "''"`,
+  ),
 
   verify: cmd(
     `adb -s 192.168.x.x:5555 exec-out screencap -p > tv.png`,
