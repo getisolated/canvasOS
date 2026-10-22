@@ -75,7 +75,7 @@ class SettingsActivity : Activity() {
     /** The main-page row that opened the current sub-page, focused again on the way back. */
     private var opener = 0
 
-    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS }
+    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS }
 
     /** "Régénérer le code" was pressed while this screen was open. */
     private var tokenRenewed = false
@@ -148,6 +148,7 @@ class SettingsActivity : Activity() {
             Page.PHONE -> phonePage()
             Page.LAST_CLEAN -> lastCleanPage()
             Page.BANNER_APPS -> bannerAppsPage()
+            Page.FOLDERS -> foldersPage()
         }
         list.post {
             val target = list.getChildAt(focusIndex.coerceIn(0, maxOf(list.childCount - 1, 0)))
@@ -364,6 +365,8 @@ class SettingsActivity : Activity() {
         row("Apps préinstallées supprimées", "Apps préinstallées supprimées depuis le menu d'appui long ; vous pouvez les restaurer ici.", { "${prefs.removed.size}" }, chevron = true) {
             show(Page.REMOVED)
         }
+        row("Dossiers", "Les dossiers de l'accueil et leurs apps. Ils se créent et se gèrent depuis l'accueil, par un appui long sur une app ou un dossier.",
+            { "${prefs.folderList().size}" }, chevron = true) { show(Page.FOLDERS) }
 
         section("Page téléphone")
         row("Afficher le QR code", "Scannez-le avec un téléphone sur le même Wi-Fi. La page qui s'ouvre sert de télécommande avec clavier, choisit le fond d'écran, " +
@@ -560,6 +563,26 @@ class SettingsActivity : Activity() {
         if (!prefs.adbAuthorized) return false
         LocalAdb.shell(applicationContext, "cmd notification allow_listener $packageName/$packageName.RevivalListener; echo done", 10_000) ?: return false
         return Banners.listenerGranted(applicationContext)
+    }
+
+    /**
+     * The home grid's folders with what they show, read-only: they are made and changed on the home
+     * screen itself (long press), where the apps are.
+     */
+    private fun foldersPage() {
+        heading.text = "Dossiers"
+        about.text = "Les dossiers de l'accueil, dans leur ordre, avec le nombre d'apps qu'ils affichent."
+        // What the grid shows: installed apps that are not hidden.
+        val folders = repo.orderedVisible().filter { it.folder != null }
+        if (folders.isEmpty()) row("Aucun dossier", null, { "" }) {}
+        for (f in folders) {
+            val apps = f.folder.orEmpty()
+            row(f.label, if (apps.isEmpty()) "Ce dossier est vide." else apps.joinToString(", ") { it.label },
+                { if (apps.size < 2) "${apps.size} app" else "${apps.size} apps" }) {}
+        }
+        row("Les dossiers se gèrent depuis l'accueil (appui long)", "Sur l'accueil, appuyez longuement sur une app : « Nouveau dossier… » " +
+            "la range dans un nouveau dossier, « Ajouter au dossier… » dans un dossier existant. Appuyez longuement sur un dossier pour " +
+            "le renommer, y ajouter des apps, le déplacer ou le supprimer ; ses apps reviennent alors sur l'accueil.", { "" }) {}
     }
 
     /** Preinstalled apps deleted from the long-press menu; selecting one reinstalls it from the system partition. */

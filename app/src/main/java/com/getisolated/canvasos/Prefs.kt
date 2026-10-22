@@ -303,6 +303,19 @@ class Prefs(ctx: Context) {
     /** Renames [pkg]; null or blank gives it back its own name. */
     fun setLabel(pkg: String, label: String?) { labels = Labels.with(labels, pkg, label) }
 
+    /**
+     * The home grid's folders, a JSON array of {id, name, apps} ([Folders]). A folder is a grid entry
+     * ([Folders.key]) placed by [order]; its apps leave the grid ([AppRepo.orderedVisible]).
+     */
+    var folders: String
+        get() = sp.getString("folders", "")!!
+        set(v) = sp.edit().putString("folders", v).apply()
+
+    fun folderList(): List<Folder> = Folders.decode(folders)
+
+    /** Applies one [Folders] edit to the saved folders. */
+    fun editFolders(edit: (List<Folder>) -> List<Folder>) { folders = Folders.encode(edit(folderList())) }
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"

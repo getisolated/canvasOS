@@ -29,6 +29,8 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
         ellipsize = android.text.TextUtils.TruncateAt.END
         setShadowLayer(dp(6).toFloat(), 0f, dp(1).toFloat(), Color.argb(140, 0, 0, 0))
     }
+    /** The entry last bound here; a tile that finishes loading for an earlier one is not shown. */
+    var entry: AppEntry? = null
     private var jiggle: ObjectAnimator? = null
     /** Soft shadow under the card, only visible while it is lifted (focused). */
     private val shadow = ImageView(ctx).apply {
@@ -159,7 +161,6 @@ class TileAdapter(
     var apps: MutableList<AppEntry> = mutableListOf()
         private set
     var movingPkg: String? = null
-    private val loader = Executors.newFixedThreadPool(2)
 
     /** Tiles in the dock (the first row) hide their name, which would sit on the glass edge. */
     var dockCount = 0
@@ -181,7 +182,9 @@ class TileAdapter(
             override fun getOldListSize() = old.size
             override fun getNewListSize() = list.size
             override fun areItemsTheSame(o: Int, n: Int) = old[o].pkg == list[n].pkg
-            override fun areContentsTheSame(o: Int, n: Int) = old[o] == list[n] && list[n].pkg != changed
+            // A folder is redrawn with the app it shows.
+            override fun areContentsTheSame(o: Int, n: Int) =
+                old[o] == list[n] && list[n].pkg != changed && list[n].folder?.any { it.pkg == changed } != true
         })
         apps = list.toMutableList()
         diff.dispatchUpdatesTo(this)
@@ -225,8 +228,9 @@ class TileAdapter(
         cell.label.text = app.label
         val same = cell.tag == app.pkg
         cell.tag = app.pkg
+        cell.entry = app
         cell.setJiggle(app.pkg == movingPkg)
-        val cached = repo.cachedTile(app.pkg)
+        val cached = repo.cachedTile(app)
         if (cached != null) {
             cell.image.setImageBitmap(cached)
         } else {
@@ -234,8 +238,16 @@ class TileAdapter(
             if (!same) cell.image.setImageDrawable(null)
             loader.execute {
                 val bmp = repo.tile(app)
-                cell.post { if (cell.tag == app.pkg) cell.image.setImageBitmap(bmp) }
+                cell.post { if (cell.entry === app) cell.image.setImageBitmap(bmp) }
             }
         }
+    }
+
+    companion object {
+        /**
+         * One pool for every grid, the home grid and an open folder: tiles are built two at a time,
+         * and opening a folder starts no threads of its own.
+         */
+        private val loader = Executors.newFixedThreadPool(2)
     }
 }
