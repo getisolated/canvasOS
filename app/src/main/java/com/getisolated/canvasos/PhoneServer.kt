@@ -18,25 +18,28 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.Inet4Address
-import java.security.SecureRandom
 
 /**
- * The page a phone opens after scanning the QR code in the 壁纸 app: choose the background and the
- * screensaver, send photos, paste picture links, and upload the boot animation. Typing a link or picking photos with a remote
- * is slow; with a phone it is not. After Aerial's phone page (github.com/pengchujin/aerial-tv, MIT).
+ * The page a phone opens after scanning the QR code (in the 壁纸 app, or Réglages de l'accueil →
+ * Page téléphone): choose the background and the screensaver, send photos, paste picture links,
+ * upload the boot animation, use the phone as a remote with a keyboard, and install an APK. Typing
+ * a link or picking photos with a remote is slow; with a phone it is not. After Aerial's phone page
+ * (github.com/pengchujin/aerial-tv, MIT).
  *
- * It listens on the local network only while [WallpaperActivity] (the 壁纸 app) is open (and a few minutes after, so
- * an upload can finish), and every address carries a random token shown only in the QR code, so
- * another device on the network cannot use it by guessing.
+ * [KeeperService] keeps it listening on the local network whenever [Prefs.phoneServer] is on, so a
+ * phone that opened it once can come back. Every address carries a random token ([Prefs.phoneToken])
+ * shown only in the QR code. It is the only authentication: another device on the network cannot
+ * use the page by guessing, and regenerating it locks out every phone that knew the old one. The
+ * remote and the APK install go through local adb ([LocalAdb]) and need its authorization.
  */
-class PhoneServer private constructor(private val ctx: Context, private val token: String) : NanoHTTPD(PORT) {
+class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT) {
     private val prefs = Prefs(ctx)
 
     override fun serve(session: IHTTPSession): Response {
-        val prefix = "/$token"
-        val uri = session.uri
-        if (!uri.startsWith(prefix)) return text(Response.Status.NOT_FOUND, "Not found")
-        val path = uri.removePrefix(prefix).ifEmpty { "/" }
+        // The first path segment is the token, read each time so a new one applies at once.
+        val parts = session.uri.removePrefix("/").split('/', limit = 2)
+        if (!PhoneApi.sameToken(parts[0], prefs.phoneToken)) return text(Response.Status.NOT_FOUND, "Not found")
+        val path = "/" + parts.getOrElse(1) { "" }
         val post = session.method == Method.POST
         return runCatching {
             when {
@@ -105,6 +108,16 @@ class PhoneServer private constructor(private val ctx: Context, private val toke
                     introFiles().forEach { it.delete() }
                     json(state())
                 }
+                post && path == "/api/key" -> {
+                    val code = PhoneApi.keycode(form(session)["key"]) ?: return text(Response.Status.BAD_REQUEST, "Unknown key")
+                    json(remote(code))
+                }
+                post && path == "/api/text" -> {
+                    val args = PhoneApi.textArgs(form(session)["text"].orEmpty())
+                        ?: return json(JSONObject().put("ok", false).put("reason", "empty"))
+                    json(remote(args))
+                }
+                post && path == "/api/apk/upload" -> installApk(session)
                 else -> text(Response.Status.NOT_FOUND, "Not found")
             }
         }.getOrElse { text(Response.Status.INTERNAL_ERROR, it.message ?: "error") }
@@ -132,6 +145,7 @@ class PhoneServer private constructor(private val ctx: Context, private val toke
         .put("backdrop", SettingsActivity.backdropFile(ctx) != null)
         .put("mine", names(Wallpapers.MINE))
         .put("custom", names(Wallpapers.CUSTOM))
+        .put("adb", prefs.adbAuthorized)
 
     private fun thumb(rest: String): Response {
         val (source, name) = rest.split('/', limit = 2).takeIf { it.size == 2 } ?: return text(Response.Status.NOT_FOUND, "")
@@ -228,6 +242,71 @@ class PhoneServer private constructor(private val ctx: Context, private val toke
         return json(state().put("ok", true))
     }
 
+    /** Presses a key or types text on the TV through local adb; "adb" means local debugging was never authorized. */
+    private fun remote(item: String): JSONObject = when {
+        !prefs.adbAuthorized -> JSONObject().put("ok", false).put("reason", "adb")
+        send(ctx, item) -> JSONObject().put("ok", true)
+        else -> JSONObject().put("ok", false).put("reason", "unreachable")
+    }
+
+    /**
+     * Installs the uploaded APK with the shell's `pm`, which needs a file the shell can read: app
+     * storage under Android/data is, the cache NanoHTTPD writes uploads to is not. The file goes in
+     * through stdin (`-S`): handed a path on shared storage, `pm` on Android 9 and later can fail
+     * with "Unable to open file", because system_server opens it and may not read there.
+     */
+    private fun installApk(session: IHTTPSession): Response {
+        val length = session.headers["content-length"]?.toLongOrNull() ?: -1L
+        if (length > MAX_APK + 64 * 1024) return json(failure("Fichier trop volumineux : 200 Mo au maximum."))
+        if (!prefs.adbAuthorized) {
+            drain(session, length)
+            return json(JSONObject().put("ok", false).put("reason", "adb"))
+        }
+        val files = HashMap<String, String>()
+        session.parseBody(files)
+        val part = files.values.map { File(it) }.firstOrNull { it.exists() && it.length() in 1..MAX_APK }
+            ?: return json(failure("Aucun fichier reçu."))
+        if (!PhoneApi.isApk(part)) return json(failure("Ce fichier n'est pas un APK."))
+        val pm = ctx.packageManager
+        val info = runCatching { pm.getPackageArchiveInfo(part.path, 0) }.getOrNull()
+        // Installing itself would kill this server halfway; and each release is signed differently anyway.
+        if (info?.packageName == ctx.packageName)
+            return json(failure("C'est canvasOS lui-même : mettez-le à jour depuis un ordinateur (AGENTS.md, étape 3)."))
+        val label = info?.applicationInfo?.let {
+            it.sourceDir = part.path
+            it.publicSourceDir = part.path
+            runCatching { it.loadLabel(pm).toString() }.getOrNull()
+        } ?: info?.packageName ?: "l'app"
+        val dir = ctx.getExternalFilesDir(null) ?: return json(failure("Le stockage partagé du téléviseur est indisponible."))
+        return synchronized(installing) {
+            val apk = File(dir, APK_FILE)
+            try {
+                part.copyTo(apk, overwrite = true)
+                val out = LocalAdb.shell(ctx, "pm install -r -S ${apk.length()} < ${PhoneApi.shellQuote(apk.absolutePath)}", 180_000)
+                when {
+                    out == null -> json(JSONObject().put("ok", false).put("reason", "unreachable"))
+                    "Success" in out -> json(JSONObject().put("ok", true).put("message", "Installée : $label"))
+                    else -> json(failure(listOfNotNull(PhoneApi.installHint(out), out.trim().takeLast(400).ifEmpty { null }).joinToString("\n")))
+                }
+            } finally {
+                apk.delete()
+            }
+        }
+    }
+
+    private fun failure(message: String) = JSONObject().put("ok", false).put("message", message)
+
+    /** Reads and drops a body that is turned down, so the phone gets the answer rather than a reset connection. */
+    private fun drain(session: IHTTPSession, length: Long) {
+        val buf = ByteArray(64 * 1024)
+        var left = length
+        while (left > 0) {
+            val n = session.inputStream.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
+            if (n < 0) break
+            left -= n
+        }
+    }
+
     private fun backdropFiles() = listOfNotNull(File(ctx.filesDir, SettingsActivity.BACKDROP_FILE),
         ctx.getExternalFilesDir(null)?.let { File(it, SettingsActivity.BACKDROP_FILE) })
 
@@ -249,19 +328,30 @@ class PhoneServer private constructor(private val ctx: Context, private val toke
         const val PORT = 8790
         private const val MAX_UPLOAD = 40L * 1024 * 1024
         private const val MAX_INTRO = 100L * 1024 * 1024
+        private const val MAX_APK = 200L * 1024 * 1024
+        private const val APK_FILE = "install.apk"
 
         @Volatile
         private var running: PhoneServer? = null
 
-        /** Starts the server if needed and returns the address to put in the QR code, or null offline. */
+        /** One install at a time: they share [APK_FILE]. */
+        private val installing = Any()
+
+        /**
+         * Starts the server unless it is off ([Prefs.phoneServer]) or already listening; cheap to call
+         * again. Blocking (binds the socket): call it off the main thread, or use [ensure].
+         */
         @Synchronized
-        fun start(ctx: Context): String? {
-            val ip = lanAddress(ctx) ?: return null
-            val server = running ?: PhoneServer(ctx.applicationContext, newToken()).also {
-                runCatching { it.start(SOCKET_READ_TIMEOUT, true) }.onFailure { return null }
-                running = it
+        fun start(ctx: Context): Boolean {
+            val app = ctx.applicationContext
+            if (!Prefs(app).phoneServer) {
+                stop()
+                return false
             }
-            return "http://$ip:$PORT/${server.token}/"
+            running?.let { if (it.isAlive) return true else it.stop() }
+            running = null
+            val server = PhoneServer(app)
+            return runCatching { server.start(SOCKET_READ_TIMEOUT, true) }.isSuccess.also { if (it) running = server }
         }
 
         @Synchronized
@@ -270,10 +360,56 @@ class PhoneServer private constructor(private val ctx: Context, private val toke
             running = null
         }
 
-        private fun newToken(): String {
-            val alphabet = "abcdefghjkmnpqrstuvwxyz23456789"
-            val rnd = SecureRandom()
-            return (1..8).map { alphabet[rnd.nextInt(alphabet.length)] }.joinToString("")
+        /** Starts or stops the server to match [Prefs.phoneServer], on a background thread; does nothing when it already does. */
+        fun ensure(ctx: Context) {
+            val app = ctx.applicationContext
+            if (Prefs(app).phoneServer == (running?.isAlive == true)) return
+            // start() reads the setting again under its lock, so quick on/off/on switches end on the last one.
+            Thread { start(app) }.start()
+        }
+
+        /**
+         * The page's address, for the QR code and status reports. Re-read each time, since the TV may
+         * have moved to another network; null when the page is off or the TV is offline.
+         */
+        fun url(ctx: Context): String? {
+            if (running?.isAlive != true) return null
+            val ip = lanAddress(ctx) ?: return null
+            return "http://$ip:$PORT/${Prefs(ctx).phoneToken}/"
+        }
+
+        /** Why [url] is null, for the screens that show the QR code. */
+        fun unavailable(ctx: Context): String = when {
+            !Prefs(ctx).phoneServer -> "La page téléphone est désactivée (Réglages de l'accueil → Page téléphone)."
+            lanAddress(ctx) == null -> "Le téléviseur n'est pas connecté au réseau. Connectez-le, puis rouvrez cette page."
+            else -> "La page téléphone n'a pas pu démarrer : le port $PORT est peut-être pris par une autre app."
+        }
+
+        /** A new token: every address handed out so far stops working at once. */
+        fun regenerate(ctx: Context) {
+            Prefs(ctx).phoneToken = PhoneApi.newToken()
+        }
+
+        private val pending = ArrayList<String>()
+        private val inputLock = Any()
+
+        @Volatile
+        private var lastSent = false
+
+        /**
+         * Sends a keycode or `input text` arguments to the TV in the order the phone pressed them:
+         * one `input` call at a time, carrying everything queued while the previous one ran
+         * ([PhoneApi.script]). Blocking.
+         */
+        private fun send(ctx: Context, item: String): Boolean {
+            synchronized(pending) { pending += item }
+            synchronized(inputLock) {
+                val batch = synchronized(pending) { pending.toList().also { pending.clear() } }
+                // Already sent by an earlier request, together with its own.
+                if (batch.isEmpty()) return lastSent
+                lastSent = LocalAdb.shell(ctx, PhoneApi.script(batch), 15_000) != null
+                return lastSent
+            }
         }
 
         private fun lanAddress(ctx: Context): String? {

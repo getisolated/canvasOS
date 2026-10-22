@@ -18,7 +18,8 @@ import java.util.concurrent.Executors
 
 /**
  * Keeps the launcher process alive, cleans memory when the TV goes to
- * standby (the remote's power key only turns the screen off) and on a timer.
+ * standby (the remote's power key only turns the screen off) and on a timer,
+ * and keeps the phone page ([PhoneServer]) listening.
  */
 class KeeperService : Service() {
     private val main = Handler(Looper.getMainLooper())
@@ -65,6 +66,9 @@ class KeeperService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_RESCHEDULE) schedule()
+        // Runs right after onCreate too: the phone page listens whenever it is on, and every start
+        // (home screen, boot, revival, its own switch) brings it back in line with the setting.
+        PhoneServer.ensure(this)
         return START_STICKY
     }
 

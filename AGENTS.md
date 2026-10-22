@@ -83,6 +83,8 @@ adb -s <TV_IP>:5555 shell am start -n com.dangbeimarket/.ui.apkmanager.ApkManage
 
 Demandez ensuite à l'utilisateur de choisir canvasOS dans le gestionnaire de paquets de Dangbei (ou avec n'importe quel gestionnaire de fichiers du téléviseur) et de l'installer. Vérifiez le résultat avec `adb shell pm path com.getisolated.canvasos`.
 
+Une fois canvasOS installé et le débogage local autorisé (étape 6), les APK suivants peuvent aussi être envoyés depuis la page téléphone (section 8, onglet Apps), jamais la première installation ni canvasOS lui-même ; elle installe toutefois par l'adb local du téléviseur, que le vérificateur de TCL peut refuser de la même façon (`INSTALL_FAILED_VERIFICATION_FAILURE`) : dans ce cas, gardez la méthode ci-dessus.
+
 Si GitHub est inaccessible, compilez depuis les sources : clonez le dépôt (https://github.com/getisolated/canvasOS), puis `./gradlew assembleStandardRelease assembleGuardRelease` (nécessite JDK 17 et un SDK Android ; renseignez `sdk.dir` dans `local.properties`). Les APK se trouvent dans `app/build/outputs/apk/standard/release/app-standard-release.apk` et `app/build/outputs/apk/guard/release/app-guard-release.apk`. Une version compilée localement n'a pas la clé des Releases (elle est signée avec la clé debug de cet ordinateur) : même règle de désinstallation que ci-dessus, et aussi dans l'autre sens, pour repasser plus tard à une Release.
 
 ## 4. En faire l'écran d'accueil
@@ -176,7 +178,8 @@ Si le premier appel renvoie une erreur ou rien du tout, demandez à l'utilisateu
 
 Signalez à l'utilisateur qu'ils existent ; ne les modifiez que s'il le demande. Ils se trouvent tous dans Centre de contrôle → Réglages (engrenage), ou sur la page « Réglages de l'accueil » :
 
-- Fond d'écran (aussi la tuile **Fond d'écran** de l'accueil) : chaque choix est présenté en image et se sélectionne d'un seul appui — Photos du jour (Bing), Paysages, Animaux mignons, Anime, Chefs-d'œuvre, Mes photos (importées), Lien personnalisé, ou un dégradé ; plus la fréquence de changement (Changer de photo). La même page affiche un QR code : un téléphone sur le même Wi-Fi ouvre une page pour importer ses propres photos, coller des liens d'images (une image, une API d'images aléatoires, ou une page / un JSON qui liste des images ; récupérés chaque jour), et choisir le fond d'écran et l'économiseur.
+- Fond d'écran (aussi la tuile **Fond d'écran** de l'accueil) : chaque choix est présenté en image et se sélectionne d'un seul appui — Photos du jour (Bing), Paysages, Animaux mignons, Anime, Chefs-d'œuvre, Mes photos (importées), Lien personnalisé, ou un dégradé ; plus la fréquence de changement (Changer de photo). La même page affiche le QR code de la page téléphone (ci-dessous), où l'utilisateur peut importer ses propres photos, coller des liens d'images (une image, une API d'images aléatoires, ou une page / un JSON qui liste des images ; récupérés chaque jour), et choisir le fond d'écran et l'économiseur.
+- Page téléphone : accessible à tout moment depuis un téléphone sur le même Wi-Fi, en scannant le QR code de Réglages de l'accueil → Page téléphone → Afficher le QR code (ou celui de la tuile **Fond d'écran**). Elle choisit le fond d'écran, l'économiseur et l'animation de démarrage, importe des photos, sert de télécommande avec clavier, et installe des APK. La télécommande, le clavier et l'installation d'APK passent par le débogage local : il faut l'autorisation de l'étape 6. Le code dans l'adresse est la seule protection de la page ; Régénérer le code (même section) rend les anciennes adresses inutilisables, par exemple si un téléphone est perdu, et la ligne Page téléphone la désactive entièrement.
 - Le cadre photo comme économiseur système (Cadre photo en économiseur), le délai d'inactivité (Délai avant le cadre photo) et son contenu (Contenu de l'économiseur) : photos ou Vues aériennes (Apple TV) (lues en streaming depuis Apple, environ 15–20 Mbit/s ; retour aux photos sans connexion). Sur Xiaomi, qui affiche son propre économiseur au lieu de celui d'Android, l'écran d'accueil lance le cadre photo 15 s avant celui de Xiaomi.
 - Entrées HDMI sur l'écran d'accueil : Centre de contrôle → Source → Afficher sur l'accueil….
 - Apps conservées lors du nettoyage de la mémoire (Apps à conserver).
@@ -192,6 +195,7 @@ adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com
 # --ei wake_delay <ms> (intro=wake : écran noir avant l'animation à la sortie de veille, 5000 par défaut ; les dalles OLED s'allument tard)
 # own_icon / settings_bg true|false (l'icône de réglages / le fond de page importés, ou l'aspect intégré ; les fichiers sont conservés dans les deux cas)
 # background daily|scenery|fresh|anime|art|mine|custom|green|blue|purple|orange|graphite (source du fond d'écran de l'accueil, ou un dégradé intégré)
+# phone_server true|false (la page téléphone, activée par défaut ; désactivée, son adresse ne répond plus du tout)
 ```
 
 ## 9. Adapter canvasOS à un téléviseur mal pris en charge

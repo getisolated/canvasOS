@@ -192,6 +192,22 @@ class Prefs(ctx: Context) {
         get() = sp.getLong("intro_boot", 0L)
         set(v) = sp.edit().putLong("intro_boot", v).apply()
 
+    /**
+     * The secret in the phone page's address ([PhoneServer]), made on first use and kept, so a phone
+     * that opened the page once can come back; replaced only by "Régénérer le code".
+     */
+    var phoneToken: String
+        get() = sp.getString("phone_token", null) ?: synchronized(Prefs::class.java) {
+            // apply() updates the in-memory map at once, so a second caller here sees the first token.
+            sp.getString("phone_token", null) ?: PhoneApi.newToken().also { sp.edit().putString("phone_token", it).apply() }
+        }
+        set(v) = sp.edit().putString("phone_token", v).apply()
+
+    /** The phone page listens on the local network (started by [KeeperService]); off, it does not answer at all. */
+    var phoneServer: Boolean
+        get() = sp.getBoolean("phone_server", true)
+        set(v) = sp.edit().putBoolean("phone_server", v).apply()
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"
