@@ -51,6 +51,38 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The project's stable release key (create it once with tools/make-keystore.sh and store the
+      # four values as repository secrets). Every Release must carry the same signature, or
+      # `adb install -r` cannot update an installed canvasOS in place. The keystore is decoded
+      # outside the checkout. Pull requests from forks get no secrets: they build with the debug
+      # key (app/build.gradle.kts), which is fine as nothing is published from them. A tag build
+      # without the key must never go on to publish a debug-signed Release.
+      - name: Load the release signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.CANVASOS_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.CANVASOS_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.CANVASOS_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.CANVASOS_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            case "$GITHUB_REF" in
+              refs/tags/v*)
+                echo "::error title=Release signing key missing::Add the secrets CANVASOS_KEYSTORE_B64, CANVASOS_KEYSTORE_PASSWORD, CANVASOS_KEY_ALIAS and CANVASOS_KEY_PASSWORD (tools/make-keystore.sh prints them) before tagging. Refusing to publish a debug-signed Release."
+                exit 1 ;;
+            esac
+            echo "::warning title=No release signing key::The signing secrets are not available to this run: its release APKs are signed with the debug key and cannot update a Release install."
+            exit 0
+          fi
+          KEYSTORE_FILE="$RUNNER_TEMP/canvasos.jks"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$KEYSTORE_FILE"
+          chmod 600 "$KEYSTORE_FILE"
+          {
+            echo "CANVASOS_KEYSTORE_FILE=$KEYSTORE_FILE"
+            echo "CANVASOS_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "CANVASOS_KEY_ALIAS=$KEY_ALIAS"
+            echo "CANVASOS_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
       - name: JVM unit tests - standard and guard
         run: bash ./gradlew --no-daemon :app:testStandardDebugUnitTest :app:testGuardDebugUnitTest --stacktrace
 
@@ -81,6 +113,17 @@ jobs:
           mkdir -p release
           cp app/build/outputs/apk/standard/release/app-standard-release.apk release/canvasOS.apk
           cp app/build/outputs/apk/guard/release/app-guard-release.apk release/canvasOS-guard.apk
+          # Last line of defence: a Release signed with the debug key would break in-place updates.
+          test -n "${CANVASOS_KEYSTORE_FILE:-}" || { echo "::error::No release signing key loaded"; exit 1; }
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          for apk in release/canvasOS.apk release/canvasOS-guard.apk; do
+            CERTS="$("$APKSIGNER" verify --print-certs "$apk")"
+            echo "$apk: $(echo "$CERTS" | grep 'certificate SHA-256')"
+            if echo "$CERTS" | grep -q 'CN=Android Debug'; then
+              echo "::error::$apk is signed with the debug key"
+              exit 1
+            fi
+          done
           gh release create "$GITHUB_REF_NAME" release/canvasOS.apk release/canvasOS-guard.apk \
             --title "canvasOS $GITHUB_REF_NAME" \
-            --notes "canvasOS.apk : version standard. canvasOS-guard.apk : version pour TCL (voir AGENTS.md). Signée avec la clé debug du runner : désinstaller la version précédente avant d'installer celle-ci."
+            --notes "canvasOS.apk : version standard. canvasOS-guard.apk : version pour TCL (voir AGENTS.md). Les APK sont signés avec la clé stable du projet : adb install -r met à jour sur place, sans rien désinstaller, depuis toute version publiée après ce changement. Seule une installation venue d'une ancienne version signée avec la clé debug, ou d'un APK compilé localement, demande une désinstallation unique avant (adb uninstall com.getisolated.canvasos)."
