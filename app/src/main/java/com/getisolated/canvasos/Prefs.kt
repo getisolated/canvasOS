@@ -208,6 +208,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("phone_server", true)
         set(v) = sp.edit().putBoolean("phone_server", v).apply()
 
+    /** Packages the last memory cleanup closed, comma-separated ([Cleaner.Result.closed]); listed in Réglages → Dernier nettoyage. */
+    var lastCleanClosed: String
+        get() = sp.getString("last_clean_closed", "")!!
+        set(v) = sp.edit().putString("last_clean_closed", v).apply()
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"
