@@ -51,6 +51,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         const val SHELF_SECONDS = 8
         private const val EXTRA_GUARD = "com.getisolated.canvasos.GUARD"
         private const val EXTRA_WAKE = "com.getisolated.canvasos.WAKE"
+        private const val REQUEST_BLUETOOTH = 41
 
         /**
          * How the home guard and the boot receiver bring the home screen back: the same task, with
@@ -1000,6 +1001,19 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                 Toast.makeText(this, if (ok) "C'est fait : l'extinction et la libération de la mémoire sont disponibles" else "Autorisation refusée ; réessayez dans Réglages de l'accueil", Toast.LENGTH_LONG).show()
                 control.refresh()
             }
+        }
+    }
+
+    /** The Bluetooth capsule's first press, from Android 12 on, where BLUETOOTH_CONNECT is asked on screen; before, the manifest grants it. */
+    fun requestBluetoothPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= 31) requestPermissions(arrayOf(Bluetooth.PERMISSION), REQUEST_BLUETOOTH)
+        else control.onBluetoothPermission(true)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_BLUETOOTH) {
+            control.onBluetoothPermission(grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED)
         }
     }
 }

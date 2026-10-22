@@ -87,6 +87,8 @@ object Guard {
         val p = ctx.packageName
         val script = listOf(
             "pm grant $p ${Manifest.permission.WRITE_SECURE_SETTINGS}",
+            // The Bluetooth capsule's runtime permission on Android 12+; unknown (and harmless) before.
+            "pm grant $p ${Bluetooth.PERMISSION}",
             "cmd notification allow_listener $p/$p.RevivalListener",
             "appops set $p SYSTEM_ALERT_WINDOW allow",
             "appops set $p APP_AUTO_START allow",

@@ -4,6 +4,8 @@
 
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <!-- The Bluetooth permissions below would otherwise make the feature mandatory; a TV without it just hides the capsule. -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -26,6 +28,12 @@
     <!-- The sleep timer's alarm (SleepTimer). Granted at install for an app of this target version;
          where Android refuses it, the timer falls back to an inexact alarm. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- The Bluetooth capsule of the Control Center (Bluetooth.kt): lists the paired devices and connects or
+         disconnects the audio ones. Android 12 split these in two: BLUETOOTH_CONNECT is asked on screen the
+         first time the capsule is pressed, or granted over adb (AGENTS.md step 4). Nothing is scanned. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <application
         android:name=".App"
