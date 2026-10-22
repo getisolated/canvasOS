@@ -292,6 +292,17 @@ class Prefs(ctx: Context) {
         get() = sp.getString("update_available", "")!!
         set(v) = sp.edit().putString("update_available", v).apply()
 
+    /** The user's names for grid apps, a JSON object package → name ([Labels]); [AppRepo.allApps] applies them. */
+    var labels: String
+        get() = sp.getString("labels", "")!!
+        set(v) = sp.edit().putString("labels", v).apply()
+
+    /** The name the user gave [pkg], or null when it keeps its own. */
+    fun label(pkg: String): String? = Labels.decode(labels)[pkg]
+
+    /** Renames [pkg]; null or blank gives it back its own name. */
+    fun setLabel(pkg: String, label: String?) { labels = Labels.with(labels, pkg, label) }
+
     companion object {
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"

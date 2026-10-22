@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.media.MediaMetadataRetriever
 import android.net.ConnectivityManager
 import android.os.Build
+import android.util.LruCache
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -22,9 +23,9 @@ import java.net.Inet4Address
 /**
  * The page a phone opens after scanning the QR code (in the 壁纸 app, or Réglages de l'accueil →
  * Page téléphone): choose the background and the screensaver, send photos, paste picture links,
- * upload the boot animation, use the phone as a remote with a keyboard, and install an APK. Typing
- * a link or picking photos with a remote is slow; with a phone it is not. After Aerial's phone page
- * (github.com/pengchujin/aerial-tv, MIT).
+ * upload the boot animation, rename the grid's apps and change their tiles, use the phone as a
+ * remote with a keyboard, and install an APK. Typing a link or picking photos with a remote is
+ * slow; with a phone it is not. After Aerial's phone page (github.com/pengchujin/aerial-tv, MIT).
  *
  * [KeeperService] keeps it listening on the local network whenever [Prefs.phoneServer] is on, so a
  * phone that opened it once can come back. Every address carries a random token ([Prefs.phoneToken])
@@ -34,6 +35,15 @@ import java.net.Inet4Address
  */
 class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT) {
     private val prefs = Prefs(ctx)
+    /** The grid's apps for the Apps tab; its tiles are drawn for the thumbnails and not kept. */
+    private val repo by lazy { AppRepo(ctx) }
+    /** The apps as last listed, so each thumbnail needn't query the package manager again. */
+    @Volatile private var known: Map<String, AppEntry> = emptyMap()
+    /** Thumbnails as JPEG by tile key: a new picture has a new key. */
+    private val appThumbs = object : LruCache<String, ByteArray>(4 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ByteArray) = value.size
+    }
+    private val thumbLock = Any()
 
     override fun serve(session: IHTTPSession): Response {
         // The first path segment is the token, read each time so a new one applies at once.
@@ -45,6 +55,8 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
             when {
                 path == "/" -> newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", page())
                 path == "/api/state" -> json(state())
+                path == "/api/apps" -> json(apps())
+                path.startsWith("/thumb/app/") -> appThumb(path.removePrefix("/thumb/app/"))
                 path.startsWith("/thumb/") -> thumb(path.removePrefix("/thumb/"))
                 post && path == "/api/background" -> {
                     val v = form(session)["id"].orEmpty()
@@ -118,6 +130,28 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                     json(remote(args))
                 }
                 post && path == "/api/apk/upload" -> installApk(session)
+                post && path == "/api/app/label" -> {
+                    val f = form(session)
+                    val app = app(f["pkg"].orEmpty()) ?: return json(apps().put("ok", false))
+                    val name = f["label"].orEmpty().trim()
+                    prefs.setLabel(app.pkg, name.takeIf { it.isNotEmpty() && it != app.originalLabel })
+                    AppRepo.notifyChanged(ctx, app.pkg)
+                    json(apps().put("ok", true))
+                }
+                post && path == "/api/app/tile" -> uploadTile(session)
+                post && path == "/api/app/tile/delete" -> {
+                    val app = app(form(session)["pkg"].orEmpty()) ?: return json(apps().put("ok", false))
+                    AppRepo.clearCustomTile(ctx, app.pkg)
+                    AppRepo.notifyChanged(ctx, app.pkg)
+                    json(apps().put("ok", true))
+                }
+                post && path == "/api/app/hidden" -> {
+                    val f = form(session)
+                    val app = app(f["pkg"].orEmpty()) ?: return json(apps().put("ok", false))
+                    prefs.hidden = if (f["on"] == "true") prefs.hidden + app.pkg else prefs.hidden - app.pkg
+                    AppRepo.notifyChanged(ctx, app.pkg)
+                    json(apps().put("ok", true))
+                }
                 path == "/api/weather/search" -> weatherSearch(session.parameters["q"]?.firstOrNull().orEmpty())
                 post && path == "/api/weather" -> {
                     form(session)["on"]?.let { prefs.weather = it == "true" }
@@ -171,6 +205,65 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("weatherPlace", prefs.weatherPlace)
         .put("weatherAuto", prefs.weatherAuto)
         .put("tmdbKey", prefs.tmdbKey.isNotEmpty())
+
+    /**
+     * The Apps tab: the grid's apps in grid order, then the hidden ones by name. `tile` says whether
+     * the app can take a picture of the user's (not canvasOS's own screens nor TV inputs); `v`
+     * changes with the tile, so the phone fetches a new thumbnail rather than its cached one.
+     */
+    private fun apps(): JSONObject {
+        val all = repo.allApps()
+        known = all.associateBy { it.pkg }
+        val hidden = prefs.hidden
+        val collator = java.text.Collator.getInstance(java.util.Locale.FRANCE)
+        val list = repo.orderedVisible(all) + all.filter { it.pkg in hidden }.sortedWith { a, b -> collator.compare(a.label, b.label) }
+        return JSONObject().put("apps", JSONArray().apply {
+            for (a in list) put(JSONObject()
+                .put("id", a.pkg)
+                .put("label", a.label)
+                .put("originalLabel", a.originalLabel)
+                .put("custom", a.tileStamp != 0L)
+                .put("hidden", a.pkg in hidden)
+                .put("tile", AppRepo.canHaveCustomTile(ctx, a.pkg))
+                .put("v", repo.tileKey(a.pkg).hashCode().toUInt().toString(36)))
+        })
+    }
+
+    /** A grid entry by key, from the last listing or a fresh one; null for anything else. */
+    private fun app(pkg: String): AppEntry? =
+        known[pkg] ?: repo.allApps().also { all -> known = all.associateBy { it.pkg } }.firstOrNull { it.pkg == pkg }
+
+    /** An app's tile as the home screen draws it, as a 400×225 JPEG. */
+    private fun appThumb(pkg: String): Response {
+        val app = app(pkg) ?: return text(Response.Status.NOT_FOUND, "")
+        val key = repo.tileKey(pkg)
+        // One tile at a time: the page asks for them all at once, and each is a few hundred kB to draw.
+        val bytes = appThumbs.get(key) ?: synchronized(thumbLock) {
+            appThumbs.get(key) ?: ByteArrayOutputStream().also {
+                repo.tile(app, keep = false).compress(Bitmap.CompressFormat.JPEG, 80, it)
+            }.toByteArray().also { appThumbs.put(key, it) }
+        }
+        return newFixedLengthResponse(Response.Status.OK, "image/jpeg", ByteArrayInputStream(bytes), bytes.size.toLong()).apply {
+            addHeader("Cache-Control", "max-age=3600")
+        }
+    }
+
+    /** An app's own tile picture: any picture up to 20 MB, centre-cropped to 16:9 by [AppRepo.setCustomTile]. */
+    private fun uploadTile(session: IHTTPSession): Response {
+        val length = session.headers["content-length"]?.toLongOrNull() ?: -1L
+        if (length > MAX_TILE + 64 * 1024) {
+            drain(session, length)
+            return json(apps().put("ok", false).put("message", "Image trop volumineuse : 20 Mo au maximum."))
+        }
+        val files = HashMap<String, String>()
+        session.parseBody(files)
+        val app = app(session.parameters["pkg"]?.firstOrNull().orEmpty()) ?: return json(apps().put("ok", false))
+        val f = files.values.map { File(it) }.firstOrNull { it.exists() && it.length() in 1..MAX_TILE }
+            ?: return json(apps().put("ok", false))
+        val ok = AppRepo.setCustomTile(ctx, app.pkg, f.readBytes())
+        if (ok) AppRepo.notifyChanged(ctx, app.pkg)
+        return json(apps().put("ok", ok))
+    }
 
     /** Cities for the phone page's search, looked up by the TV (Open-Meteo's geocoding); ok=false when it cannot reach it. */
     private fun weatherSearch(q: String): Response {
@@ -363,6 +456,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         private const val MAX_UPLOAD = 40L * 1024 * 1024
         private const val MAX_INTRO = 100L * 1024 * 1024
         private const val MAX_APK = 200L * 1024 * 1024
+        private const val MAX_TILE = 20L * 1024 * 1024
         private const val APK_FILE = "install.apk"
 
         @Volatile
