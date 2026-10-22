@@ -54,6 +54,11 @@ if command -v keytool >/dev/null 2>&1 && keytool -help >/dev/null 2>&1; then
   KEYTOOL="keytool"
 elif [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/keytool" ]; then
   KEYTOOL="$JAVA_HOME/bin/keytool"
+else
+  # Homebrew's openjdk formulae are keg-only: nothing of theirs is on the PATH.
+  for d in /opt/homebrew/opt/openjdk@17 /opt/homebrew/opt/openjdk /usr/local/opt/openjdk@17 /usr/local/opt/openjdk; do
+    if [ -x "$d/bin/keytool" ]; then KEYTOOL="$d/bin/keytool"; break; fi
+  done
 fi
 [ -n "$KEYTOOL" ] || die "keytool introuvable : installez un JDK 17 (macOS : brew install openjdk@17 ; Debian/Ubuntu : apt install openjdk-17-jdk-headless) ou renseignez JAVA_HOME."
 
