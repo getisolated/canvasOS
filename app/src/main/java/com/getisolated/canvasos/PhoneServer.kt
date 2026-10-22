@@ -412,11 +412,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
             }
         }
 
-        private fun lanAddress(ctx: Context): String? {
-            val cm = ctx.getSystemService(ConnectivityManager::class.java) ?: return null
-            val props = cm.getLinkProperties(cm.activeNetwork ?: return null) ?: return null
-            return props.linkAddresses.map { it.address }.firstOrNull { it is Inet4Address && !it.isLoopbackAddress }?.hostAddress
-        }
+        private fun lanAddress(ctx: Context): String? = Net.lanAddress(ctx)
 
         /** A QR code, dark modules on white, each module [scale] pixels square. */
         fun qr(text: String, scale: Int = 10): Bitmap {
