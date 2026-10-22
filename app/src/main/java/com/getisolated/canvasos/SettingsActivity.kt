@@ -60,6 +60,7 @@ class SettingsActivity : Activity() {
         private val IDLE_TEXT = Color.argb(235, 255, 255, 255)
         private val IDLE_VALUE = Color.argb(130, 255, 255, 255)
         private val FOCUS_VALUE = Color.argb(140, 0, 0, 0)
+        private const val LISTENER_NEEDED = "Écouteur requis (étape 4)"
     }
 
     private lateinit var prefs: Prefs
@@ -74,7 +75,7 @@ class SettingsActivity : Activity() {
     /** The main-page row that opened the current sub-page, focused again on the way back. */
     private var opener = 0
 
-    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN }
+    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS }
 
     /** "Régénérer le code" was pressed while this screen was open. */
     private var tokenRenewed = false
@@ -146,6 +147,7 @@ class SettingsActivity : Activity() {
             Page.REMOVED -> removedApps()
             Page.PHONE -> phonePage()
             Page.LAST_CLEAN -> lastCleanPage()
+            Page.BANNER_APPS -> bannerAppsPage()
         }
         list.post {
             val target = list.getChildAt(focusIndex.coerceIn(0, maxOf(list.childCount - 1, 0)))
@@ -378,6 +380,44 @@ class SettingsActivity : Activity() {
             KeeperService.start(this)
         }
 
+        section("Lecture et notifications")
+        row("Lecture en cours", "Affiche dans le Centre de contrôle ce que lit une app (titre, artiste, pochette) avec lecture/pause et piste suivante. " +
+            "Lit uniquement les métadonnées de lecture via l'écouteur de notifications ; aucune notification n'est lue pour cela.",
+            { if (!MediaSessions.isAvailable(this)) LISTENER_NEEDED else onOff(prefs.nowPlaying) }) { v ->
+            if (prefs.nowPlaying) { prefs.nowPlaying = false; return@row }
+            v.text = "Réglage…"
+            Thread {
+                val ok = MediaSessions.isAvailable(applicationContext) || (allowListener() && MediaSessions.isAvailable(applicationContext))
+                if (ok) prefs.nowPlaying = true
+                runOnUiThread { v.text = if (ok) onOff(true) else LISTENER_NEEDED }
+            }.start()
+        }
+        row("Bannières de notifications", "Affiche en haut à droite les notifications des apps choisies (sonnette, domotique…). " +
+            "Seules ces apps sont lues : titre et texte, affichés 6 secondes, jamais enregistrés.",
+            { if (!Banners.listenerGranted(this)) LISTENER_NEEDED else onOff(prefs.banners) }) { v ->
+            if (prefs.banners) {
+                prefs.banners = false
+                show(Page.MAIN, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
+                return@row
+            }
+            v.text = "Réglage…"
+            Thread {
+                val ok = Banners.listenerGranted(applicationContext) || allowListener()
+                // Over the app being watched, banners need the overlay permission the guard also uses.
+                if (ok && !Settings.canDrawOverlays(applicationContext) && prefs.adbAuthorized)
+                    LocalAdb.shell(applicationContext, "appops set $packageName SYSTEM_ALERT_WINDOW allow", 10_000)
+                if (ok) prefs.banners = true
+                runOnUiThread {
+                    if (!ok) v.text = LISTENER_NEEDED
+                    // "Apps des bannières" appears below: the page is rebuilt where the focus is.
+                    else if (page == Page.MAIN && !isDestroyed) show(Page.MAIN, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
+                }
+            }.start()
+        }
+        if (prefs.banners) row("Apps des bannières", "Les apps dont les notifications s'affichent en bannière. Aucune autre notification n'est lue." +
+            if (Settings.canDrawOverlays(this)) "" else "\nSans l'autorisation d'affichage par-dessus les autres apps (étape 4), les bannières n'apparaissent que sur l'accueil.",
+            { "${prefs.bannerApps.size}" }, chevron = true) { show(Page.BANNER_APPS) }
+
         section("Système")
         row("Débogage local", "Permet à l'accueil d'éteindre le téléviseur, de libérer la mémoire, etc. via le débogage local. Dans la fenêtre qui s'affiche, choisissez « Toujours autoriser ».",
             { if (prefs.adbAuthorized) "Autorisé" else "Non autorisé, appuyez sur OK" }) { v ->
@@ -419,10 +459,10 @@ class SettingsActivity : Activity() {
             { "Version " + packageManager.getPackageInfo(packageName, 0).versionName }) {}
     }
 
-    private fun appPicker(title: String, selected: Set<String>, includeHidden: Boolean = false, toggle: (String, Boolean) -> Unit) {
+    private fun appPicker(title: String, selected: Set<String>, includeHidden: Boolean = false, source: List<AppEntry>? = null, toggle: (String, Boolean) -> Unit) {
         heading.text = title
         about.text = if (page == Page.KEEP) "La libération de la mémoire ne ferme pas les apps cochées." else "Les apps cochées n'apparaissent pas sur l'écran d'accueil."
-        val apps = if (includeHidden) repo.allApps().sortedBy { it.label } else repo.allApps().filter { !repo.isSystem(it.pkg) }.sortedBy { it.label }
+        val apps = source ?: if (includeHidden) repo.allApps().sortedBy { it.label } else repo.allApps().filter { !repo.isSystem(it.pkg) }.sortedBy { it.label }
         val sel = selected.toMutableSet()
         for (a in apps) {
             row(a.label, null, { if (a.pkg in sel) "✓" else "" }) { v ->
@@ -432,6 +472,31 @@ class SettingsActivity : Activity() {
                 v.text = if (on) "✓" else ""
             }
         }
+    }
+
+    /**
+     * The apps whose notifications become banners: every app on the TV, system ones included (a
+     * doorbell or home-automation app may come with the firmware), and any package set over adb.
+     */
+    private fun bannerAppsPage() {
+        val listed = repo.allApps().filter { !repo.isOwn(it.pkg) }
+        val known = listed.mapTo(HashSet()) { it.pkg }
+        val more = (prefs.bannerApps - known).mapNotNull { pkg ->
+            runCatching {
+                AppEntry(pkg, packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString(), android.content.ComponentName(pkg, ""), false)
+            }.getOrNull()
+        }
+        appPicker("Apps des bannières", prefs.bannerApps, source = (listed + more).sortedBy { it.label.lowercase() }) { pkg, on ->
+            prefs.bannerApps = if (on) prefs.bannerApps + pkg else prefs.bannerApps - pkg
+        }
+        about.text = "Les notifications des apps cochées s'affichent 6 secondes en haut à droite. Celles des autres apps ne sont pas lues."
+    }
+
+    /** Approves the notification listener through local adb, as AGENTS.md step 4 does from a computer. Blocking. */
+    private fun allowListener(): Boolean {
+        if (!prefs.adbAuthorized) return false
+        LocalAdb.shell(applicationContext, "cmd notification allow_listener $packageName/$packageName.RevivalListener; echo done", 10_000) ?: return false
+        return Banners.listenerGranted(applicationContext)
     }
 
     /** Preinstalled apps deleted from the long-press menu; selecting one reinstalls it from the system partition. */

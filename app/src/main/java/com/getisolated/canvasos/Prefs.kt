@@ -257,6 +257,23 @@ class Prefs(ctx: Context) {
     var weatherCache: String
         get() = sp.getString("weather_cache", "")!!
         set(v) = sp.edit().putString("weather_cache", v).apply()
+    /**
+     * "Lecture en cours": the Control Center shows what a media session is playing (title, artist,
+     * artwork) with play/pause and skip ([NowPlaying]). Off by default: it reads session metadata.
+     */
+    var nowPlaying: Boolean
+        get() = sp.getBoolean("now_playing", false)
+        set(v) = sp.edit().putBoolean("now_playing", v).apply()
+
+    /** tvOS-style banners for the notifications of [bannerApps] ([Banners]). Off by default: it reads notifications. */
+    var banners: Boolean
+        get() = sp.getBoolean("banners", false)
+        set(v) = sp.edit().putBoolean("banners", v).apply()
+
+    /** The only packages whose notifications [Banners] reads (title and text), when [banners] is on. */
+    var bannerApps: Set<String>
+        get() = sp.getStringSet("banner_apps", emptySet())!!.toSet()
+        set(v) = sp.edit().putStringSet("banner_apps", v).apply()
 
     companion object {
         const val SAVER_PHOTOS = "photos"
