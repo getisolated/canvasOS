@@ -297,8 +297,9 @@ class ProfilesTest {
         assertTrue(p.checkPin("2580"))
         assertFalse(p.checkPin("0000"))
         val stored = ctx.of("tvhome")["profile_pin"] as String
-        assertFalse(stored.contains("2580"))
-        assertEquals(64, stored.length)
+        // A 64-digit hex hash, never the PIN itself. (It may well contain "2580" by chance: the salt
+        // is random, so a substring check here was flaky.)
+        assertTrue(stored != "2580" && stored.matches(Regex("[0-9a-f]{64}")))
         // The salt is made once: a new PIN keeps it.
         val salt = ctx.of("tvhome")["profile_pin_salt"]
         p.setPin("1111")
