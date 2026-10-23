@@ -75,4 +75,37 @@ class NowPlayingTest {
         assertEquals(510_000L, NowPlaying.step(500_000, 1, 0))
         assertEquals(10_000L, NowPlaying.step(-1, 1, 200_000))
     }
+    @Test fun theCursorBarIsOneFillFromTheStartToTheCursor() {
+        // Without a cursor: up to what has played; nothing before playback starts.
+        assertEquals(50f, NowPlaying.barFill(200f, 0.25f, -1f, 6f), 0.001f)
+        assertEquals(0f, NowPlaying.barFill(200f, 0f, -1f, 6f), 0.001f)
+        // With one: up to the cursor, behind or ahead of playback, whatever has played.
+        assertEquals(150f, NowPlaying.barFill(200f, 0.25f, 0.75f, 6f), 0.001f)
+        assertEquals(20f, NowPlaying.barFill(200f, 0.6f, 0.1f, 6f), 0.001f)
+        // Never shorter than its thickness (round ends), never past the end.
+        assertEquals(6f, NowPlaying.barFill(200f, 0.01f, -1f, 6f), 0.001f)
+        assertEquals(6f, NowPlaying.barFill(200f, 0.5f, 0f, 6f), 0.001f)
+        assertEquals(200f, NowPlaying.barFill(200f, 0.5f, 1.4f, 6f), 0.001f)
+        assertEquals(200f, NowPlaying.barFill(200f, 3f, -1f, 6f), 0.001f)
+    }
+
+    @Test fun artworkAddressesFromAppsAndTheWebAreLoaded() {
+        assertTrue(NowPlaying.loadable("content://com.spotify.music.provider/art/123"))
+        assertTrue(NowPlaying.loadable("https://lh3.googleusercontent.com/abc=w544-h544"))
+        assertTrue(NowPlaying.loadable("HTTP://example.com/a.jpg"))
+        assertTrue(NowPlaying.loadable("android.resource://com.plexapp.android/drawable/art"))
+        assertFalse(NowPlaying.loadable("file:///sdcard/a.jpg"))
+        assertFalse(NowPlaying.loadable("data:image/png;base64,AAAA"))
+        assertFalse(NowPlaying.loadable("not a uri"))
+        assertFalse(NowPlaying.loadable(""))
+    }
+
+    @Test fun largeArtworkIsDecodedAtAboutTheSizeItIsShown() {
+        // Shown at 440 px: a 3000 px poster is decoded at a quarter (750 px), never below 440.
+        assertEquals(4, NowPlaying.sampleSize(3000, 3000, 440))
+        assertEquals(2, NowPlaying.sampleSize(1200, 900, 440))
+        assertEquals(1, NowPlaying.sampleSize(544, 544, 440))
+        assertEquals(1, NowPlaying.sampleSize(300, 300, 440))
+        assertEquals(1, NowPlaying.sampleSize(3000, 3000, 0))
+    }
 }
