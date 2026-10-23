@@ -353,8 +353,9 @@ class SettingsActivity : Activity() {
                 if (prefs.background == Wallpapers.MINE) it else "$it (auto)"
             }
         }, chevron = true) { startActivity(Intent(this, WallpaperActivity::class.java)) }
-        row("Changer de photo", "À quelle fréquence le fond d'écran automatique change.", { minutesLabel(prefs.wallMinutes) }) {
-            val opts = listOf(15, 30, 60, 180, 1440)
+        row("Changer de photo", "À quelle fréquence le fond d'écran automatique change. Jamais : la photo ne change qu'avec le bouton Photo suivante du Centre de contrôle (ou Changer maintenant ci-dessous).",
+            { minutesLabel(prefs.wallMinutes) }) {
+            val opts = listOf(0, 15, 30, 60, 180, 1440)
             prefs.wallMinutes = opts[(opts.indexOf(prefs.wallMinutes) + 1) % opts.size]
         }
         row("Changer maintenant", "Prend une nouvelle photo de la source de fonds d'écran. Les photos sont téléchargées au moment de les afficher ; les anciennes sont effacées après quelques jours.",
@@ -894,6 +895,7 @@ class SettingsActivity : Activity() {
         else LocalAdb.shell(applicationContext, "settings put secure $key $value") != null
 
     private fun minutesLabel(m: Int) = when {
+        m <= 0 -> "Jamais"
         m >= 1440 -> "Chaque jour"
         m >= 60 -> "${m / 60} h"
         else -> "$m min"

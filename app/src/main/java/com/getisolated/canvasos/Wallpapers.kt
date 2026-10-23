@@ -61,11 +61,16 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
         return all.firstOrNull { it.name == name } ?: all.firstOrNull()
     }
 
-    /** Blocking. Moves the home screen on once every [minutes] (or now, with [force]); true if its picture changed. */
+    /**
+     * Blocking. Moves the home screen on once every [minutes] (or now, with [force]); true if its
+     * picture changed. With [minutes] at 0 ("Jamais") nothing moves by itself: only [force], from the
+     * Control Center's "Photo suivante" or the settings, does, except for the very first picture.
+     */
     fun advance(minutes: Int, force: Boolean = false): Boolean {
+        val before = current()
+        if (minutes <= 0 && !force && before != null) return false
         val slot = System.currentTimeMillis() / (minutes.coerceAtLeast(1) * 60_000L)
         if (!force && runCatching { slotFile.readText().toLong() }.getOrNull() == slot) return false
-        val before = current()
         val f = next(before) ?: return false
         slotFile.writeText(slot.toString())
         showFile.writeText(f.name)

@@ -81,7 +81,7 @@ class Prefs(ctx: Context) {
         get() = grid.getString("background", "daily")!!
         set(v) = grid.edit().putString("background", v).apply()
 
-    /** Minutes between background photo changes. */
+    /** Minutes between background photo changes; 0 = never, only the "Photo suivante" button moves on. */
     var wallMinutes: Int
         get() = grid.getInt("wall_minutes", 30)
         set(v) = grid.edit().putInt("wall_minutes", v).apply()
