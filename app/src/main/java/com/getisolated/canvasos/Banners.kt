@@ -44,6 +44,8 @@ import java.lang.ref.WeakReference
 object Banners {
     private const val TAG = "canvasOSBanners"
     private const val SHOW_MS = 6_000L
+    /** Longer than an app's banner: a notice says what to do. */
+    private const val NOTICE_MS = 12_000L
     private const val WIDTH_DP = 420
     private const val MARGIN_END_DP = 32
     private const val MARGIN_TOP_DP = 26
@@ -122,14 +124,30 @@ object Banners {
             title?.toString()?.trim().orEmpty().ifEmpty { label }, text?.toString()?.trim().orEmpty())
     }
 
-    private fun show(ctx: Context, label: String, icon: Drawable?, silhouette: Boolean, accent: Int, title: String, text: String) {
+    /**
+     * A notice from canvasOS itself (the TV changed address, [KeeperService]), shown like an app's
+     * banner with canvasOS's name and icon. Not an app notification, so the banners setting
+     * ([Prefs.banners]) and the excluded apps do not apply; like any banner, nothing shows in standby.
+     * Main thread.
+     */
+    internal fun notice(ctx: Context, title: String, text: String) {
+        val app = ctx.applicationContext
+        if (app.getSystemService(PowerManager::class.java)?.isInteractive == false) return
+        val icon = runCatching { app.getDrawable(R.drawable.ic_wifi) }.getOrNull()
+        show(app, "canvasOS", icon, true, Color.rgb(10, 132, 255), title, text, lines = 4, ms = NOTICE_MS)
+    }
+
+    private fun show(
+        ctx: Context, label: String, icon: Drawable?, silhouette: Boolean, accent: Int, title: String, text: String,
+        lines: Int = 2, ms: Long = SHOW_MS,
+    ) {
         removeNow()
         handler.removeCallbacks(hide)
         val host = home?.get()?.takeIf { it.isAttachedToWindow && it.windowToken != null }
         val shown = try {
             when {
-                host != null -> inHome(host, card(host.context, label, icon, silhouette, accent, title, text))
-                Settings.canDrawOverlays(ctx) -> inWindow(ctx, label, icon, silhouette, accent, title, text)
+                host != null -> inHome(host, card(host.context, label, icon, silhouette, accent, title, text, lines))
+                Settings.canDrawOverlays(ctx) -> inWindow(ctx, label, icon, silhouette, accent, title, text, lines)
                 else -> null // nowhere to show it; it is not kept for later either
             }
         } catch (e: RuntimeException) {
@@ -140,7 +158,7 @@ object Banners {
         val from = shown.card.dp(WIDTH_DP + MARGIN_END_DP).toFloat()
         shown.card.translationX = from
         shown.tween.start(380, Motion.ease) { f -> shown.card.translationX = lerp(from, 0f, f) }
-        handler.postDelayed(hide, SHOW_MS)
+        handler.postDelayed(hide, ms)
     }
 
     private fun inHome(host: FrameLayout, card: View): Up {
@@ -158,10 +176,10 @@ object Banners {
      * A window over the app in front that takes no focus and no touch: the remote keeps working the
      * app being watched. It reaches the right edge of the screen, so the banner slides in from there.
      */
-    private fun inWindow(ctx: Context, label: String, icon: Drawable?, silhouette: Boolean, accent: Int, title: String, text: String): Up {
+    private fun inWindow(ctx: Context, label: String, icon: Drawable?, silhouette: Boolean, accent: Int, title: String, text: String, lines: Int): Up {
         val wctx = windowContext(ctx)
         val wm = wctx.getSystemService(WindowManager::class.java)
-        val card = card(wctx, label, icon, silhouette, accent, title, text)
+        val card = card(wctx, label, icon, silhouette, accent, title, text, lines)
         val root = FrameLayout(wctx).apply {
             clipChildren = true
             setPadding(0, ctx.dp(MARGIN_TOP_DP), ctx.dp(MARGIN_END_DP), ctx.dp(8))
@@ -209,7 +227,7 @@ object Banners {
     }
 
     /** Dark rounded card with a thin light rim, like the Control Center's panel: icon, bold title, text. */
-    private fun card(ctx: Context, label: String, icon: Drawable?, silhouette: Boolean, accent: Int, title: String, text: String): View {
+    private fun card(ctx: Context, label: String, icon: Drawable?, silhouette: Boolean, accent: Int, title: String, text: String, lines: Int): View {
         val card = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -243,7 +261,7 @@ object Banners {
         })
         if (text.isNotEmpty()) col.addView(ctx.text(13.5f, Color.argb(205, 255, 255, 255)).apply {
             this.text = text
-            maxLines = 2
+            maxLines = lines
             ellipsize = TextUtils.TruncateAt.END
             setLineSpacing(0f, 1.15f)
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ctx.dp(3) })

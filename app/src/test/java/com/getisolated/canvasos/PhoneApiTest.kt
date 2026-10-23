@@ -14,19 +14,43 @@ import java.util.zip.ZipOutputStream
 
 class PhoneApiTest {
     @Test fun everyRemoteKeyMapsToARealKeycode() {
-        val page = listOf("UP", "DOWN", "LEFT", "RIGHT", "CENTER", "BACK", "HOME", "MENU", "VOLUME_UP", "VOLUME_DOWN",
-            "VOLUME_MUTE", "MEDIA_PLAY_PAUSE", "MEDIA_REWIND", "MEDIA_FAST_FORWARD", "MEDIA_PREVIOUS", "MEDIA_NEXT", "DEL")
+        val page = listOf("UP", "DOWN", "LEFT", "RIGHT", "CENTER", "BACK", "HOME", "VOLUME_UP", "VOLUME_DOWN",
+            "VOLUME_MUTE", "DEL", "ENTER")
         for (k in page) assertNotNull(k, PhoneApi.keycode(k))
+        // The allow-list is what the page sends, nothing more.
+        assertEquals(page.toSet(), PhoneApi.KEYS.keys)
         assertEquals("KEYCODE_DPAD_UP", PhoneApi.keycode("UP"))
         assertEquals("KEYCODE_DPAD_CENTER", PhoneApi.keycode("CENTER"))
         assertEquals("KEYCODE_DEL", PhoneApi.keycode("DEL"))
+        assertEquals("KEYCODE_ENTER", PhoneApi.keycode("ENTER"))
+    }
+
+    @Test fun theMediaKeysAndMenuAreGone() {
+        for (k in listOf("MENU", "MEDIA_PLAY_PAUSE", "MEDIA_REWIND", "MEDIA_FAST_FORWARD", "MEDIA_PREVIOUS", "MEDIA_NEXT"))
+            assertNull(k, PhoneApi.keyInput(k))
+    }
+
+    @Test fun aLongOkIsALongPressOfTheCenterKey() {
+        assertEquals("keyevent --longpress KEYCODE_DPAD_CENTER", PhoneApi.keyInput("CENTER_LONG"))
+        // Not a keycode: the plain allow-list does not know it.
+        assertNull(PhoneApi.keycode("CENTER_LONG"))
+        // Short keys queue their keycode as before.
+        assertEquals("KEYCODE_DPAD_CENTER", PhoneApi.keyInput("CENTER"))
+        assertEquals("input keyevent --longpress KEYCODE_DPAD_CENTER", PhoneApi.script(listOf(PhoneApi.keyInput("CENTER_LONG")!!)))
     }
 
     @Test fun nothingThatTurnsTheTvOffIsAllowed() {
-        for (k in listOf("POWER", "SLEEP", "SOFT_SLEEP", "WAKEUP", "KEYCODE_POWER", "KEYCODE_SLEEP", "up", "", "UP; reboot", null))
+        for (k in listOf("POWER", "SLEEP", "SOFT_SLEEP", "WAKEUP", "KEYCODE_POWER", "KEYCODE_SLEEP", "up", "", "UP; reboot", null,
+            "POWER_LONG", "SLEEP_LONG", "center_long", "CENTER_LONG; reboot")) {
             assertNull(k, PhoneApi.keycode(k))
+            assertNull(k, PhoneApi.keyInput(k))
+        }
         for (code in PhoneApi.KEYS.values)
             assertFalse(code, code.contains("POWER") || code.contains("SLEEP") || code.contains("WAKE"))
+        for (name in PhoneApi.LONG_PRESSES.keys) {
+            val item = PhoneApi.keyInput(name)!!
+            assertFalse(item, item.contains("POWER") || item.contains("SLEEP") || item.contains("WAKE"))
+        }
     }
 
     @Test fun textBecomesTypeableAscii() {

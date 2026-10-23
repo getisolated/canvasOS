@@ -1,13 +1,19 @@
 package com.getisolated.canvasos
 
+import android.app.ActivityManager
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.media.MediaMetadataRetriever
 import android.net.ConnectivityManager
 import android.os.Build
+import android.os.SystemClock
+import android.provider.Settings
 import android.util.LruCache
+import com.getisolated.canvasos.tv.TvControls
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -22,16 +28,18 @@ import java.net.Inet4Address
 
 /**
  * The page a phone opens after scanning the QR code (in the 壁纸 app, or Réglages de l'accueil →
- * Page téléphone): choose the background and the screensaver, send photos, paste picture links,
- * upload the boot animation, rename the grid's apps and change their tiles, use the phone as a
- * remote with a keyboard, and install an APK. Typing a link or picking photos with a remote is
+ * Page téléphone): send photos, paste picture links, upload the boot animation and the settings
+ * icon, set profile photos, the weather city and API keys, rename the grid's apps and change their
+ * tiles, use the phone as a remote with a keyboard, and install an APK. The wallpaper source and
+ * the screensaver are chosen on the TV. Typing a link or picking photos with a remote is
  * slow; with a phone it is not. After Aerial's phone page (github.com/pengchujin/aerial-tv, MIT).
  *
  * [KeeperService] keeps it listening on the local network whenever [Prefs.phoneServer] is on, so a
  * phone that opened it once can come back. Every address carries a random token ([Prefs.phoneToken])
  * shown only in the QR code. It is the only authentication: another device on the network cannot
  * use the page by guessing, and regenerating it locks out every phone that knew the old one. The
- * remote and the APK install go through local adb ([LocalAdb]) and need its authorization.
+ * remote reaches canvasOS's own screens directly ([Foreground]); other apps, and the APK install,
+ * go through local adb ([LocalAdb]) and need its authorization.
  */
 class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT) {
     private val prefs = Prefs(ctx)
@@ -49,29 +57,25 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         // The first path segment is the token, read each time so a new one applies at once.
         val parts = session.uri.removePrefix("/").split('/', limit = 2)
         if (!PhoneApi.sameToken(parts[0], prefs.phoneToken)) return text(Response.Status.NOT_FOUND, "Not found")
+        // Without the trailing slash, the page's relative links would resolve above the token.
+        if (parts.size == 1) {
+            return newFixedLengthResponse(Response.Status.REDIRECT, "text/plain; charset=utf-8", "").apply {
+                addHeader("Location", "/${parts[0]}/")
+            }
+        }
         val path = "/" + parts.getOrElse(1) { "" }
         val post = session.method == Method.POST
         return runCatching {
             when {
                 path == "/" -> newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", page())
+                path == "/manifest.webmanifest" -> newFixedLengthResponse(
+                    Response.Status.OK, "application/manifest+json; charset=utf-8", phoneManifest(parts[0]).toString())
+                path == "/icon-192.png" || path == "/icon-512.png" || path == "/apple-touch-icon.png" -> webAsset(path.drop(1))
                 path == "/api/state" -> json(state())
                 path == "/api/apps" -> json(apps())
                 path.startsWith("/thumb/app/") -> appThumb(path.removePrefix("/thumb/app/"))
                 path.startsWith("/thumb/avatar/") -> avatarThumb(path.removePrefix("/thumb/avatar/"))
                 path.startsWith("/thumb/") -> thumb(path.removePrefix("/thumb/"))
-                post && path == "/api/background" -> {
-                    val v = form(session)["id"].orEmpty()
-                    if (v in Wallpapers.SOURCES || v in Backgrounds.THEMES) {
-                        prefs.background = v
-                        Wallpapers.trimExcept(ctx, v)
-                    }
-                    json(state())
-                }
-                post && path == "/api/screensaver" -> {
-                    val v = form(session)["mode"].orEmpty()
-                    if (v == Prefs.SAVER_PHOTOS || v == Prefs.SAVER_AERIAL) prefs.saverMode = v
-                    json(state())
-                }
                 post && path == "/api/links" -> {
                     val links = form(session)["links"].orEmpty().lines().map { it.trim() }
                         .filter { it.startsWith("http://") || it.startsWith("https://") }.distinct().take(20)
@@ -91,7 +95,17 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                 post && path == "/api/upload" -> upload(session)
                 post && path == "/api/intro/source" -> {
                     val v = form(session)["source"].orEmpty()
-                    if (v == Prefs.INTRO_VIDEO || v == Prefs.INTRO_WORDMARK) prefs.introSource = v
+                    if (v in Prefs.INTRO_SOURCES) prefs.introSource = v
+                    json(state())
+                }
+                post && path == "/api/brand" -> {
+                    val v = form(session)["brand"].orEmpty()
+                    if (v in Brand.ALL) prefs.brand = v
+                    json(state())
+                }
+                post && path == "/api/icon" -> {
+                    val v = form(session)["source"].orEmpty()
+                    if (v in Prefs.ICON_SOURCES) prefs.settingsIcon = v
                     json(state())
                 }
                 post && path == "/api/intro" -> {
@@ -108,21 +122,26 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                 post && path == "/api/icon/delete" -> {
                     session.parseBody(HashMap())
                     iconFiles().forEach { it.delete() }
+                    if (prefs.settingsIcon == Prefs.ICON_OWN) prefs.settingsIcon = Prefs.ICON_BRAND
                     json(state())
                 }
                 post && path == "/api/intro/delete" -> {
                     session.parseBody(HashMap())
                     introFiles().forEach { it.delete() }
+                    if (prefs.introSource == Prefs.INTRO_VIDEO) prefs.introSource = Prefs.INTRO_BRAND
                     json(state())
                 }
                 post && path == "/api/key" -> {
-                    val code = PhoneApi.keycode(form(session)["key"]) ?: return text(Response.Status.BAD_REQUEST, "Unknown key")
-                    json(remote(code))
+                    val name = form(session)["key"]
+                    val item = PhoneApi.keyInput(name) ?: return text(Response.Status.BAD_REQUEST, "Unknown key")
+                    val plan = PhoneApi.direct(name)
+                    json(remote(item) { plan != null && Foreground.press(ctx, plan, adb = prefs.adbAuthorized) })
                 }
                 post && path == "/api/text" -> {
-                    val args = PhoneApi.textArgs(form(session)["text"].orEmpty())
+                    val typed = PhoneApi.typeable(form(session)["text"].orEmpty())
+                    val args = PhoneApi.textArgs(typed)
                         ?: return json(JSONObject().put("ok", false).put("reason", "empty"))
-                    json(remote(args))
+                    json(remote(args) { Foreground.type(typed) })
                 }
                 post && path == "/api/apk/upload" -> installApk(session)
                 post && path == "/api/app/label" -> {
@@ -147,6 +166,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                     AppRepo.notifyChanged(ctx, app.pkg)
                     json(apps().put("ok", true))
                 }
+                post && path == "/api/app/open" -> json(open(form(session)["pkg"].orEmpty()))
                 post && path == "/api/profile/photo" -> uploadProfilePhoto(session)
                 post && path == "/api/profile/photo/delete" -> {
                     val p = Profiles.byId(prefs.profileList(), form(session)["id"].orEmpty()) ?: return json(state().put("ok", false))
@@ -191,25 +211,26 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
     private fun page(): String = ctx.assets.open("web/index.html").bufferedReader().use { it.readText() }
         .replace("{{DEVICE}}", Build.MODEL.replace("_", " "))
 
+    private fun webAsset(name: String): Response {
+        val bytes = ctx.assets.open("web/$name").use { it.readBytes() }
+        return newFixedLengthResponse(Response.Status.OK, "image/png", ByteArrayInputStream(bytes), bytes.size.toLong())
+            .apply { addHeader("Cache-Control", "max-age=86400") }
+    }
+
     private fun names(source: String) = JSONArray().apply { Wallpapers(ctx, source).files().forEach { put(it.name) } }
 
     private fun state(): JSONObject = JSONObject()
-        .put("background", prefs.background)
-        .put("screensaver", prefs.saverMode)
         .put("links", prefs.customWallUrls)
-        .put("sources", JSONArray().apply {
-            Wallpapers.SOURCES.forEach { put(JSONObject().put("id", it).put("label", Wallpapers.label(it))) }
-        })
-        .put("themes", JSONArray().apply {
-            Backgrounds.THEMES.forEach { (k, v) -> put(JSONObject().put("id", k).put("label", v.first)) }
-        })
         .put("intro", prefs.intro)
         .put("introVideo", Intro.videoFile(ctx)?.length() ?: 0L)
         .put("introSource", prefs.introSource)
+        .put("brand", prefs.brand)
         .put("icon", SettingsActivity.iconFile(ctx) != null)
+        .put("settingsIcon", prefs.settingsIcon)
         .put("mine", names(Wallpapers.MINE))
         .put("custom", names(Wallpapers.CUSTOM))
         .put("adb", prefs.adbAuthorized)
+        .put("front", Foreground.activity != null)
         .put("weather", prefs.weather)
         .put("weatherPlace", prefs.weatherPlace)
         .put("weatherAuto", prefs.weatherAuto)
@@ -266,37 +287,49 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
     }
 
     /**
-     * The Apps tab: the grid's apps in grid order (a folder's apps in its place), then the hidden ones by name. `tile` says whether
-     * the app can take a picture of the user's (not canvasOS's own screens nor TV inputs); `v`
+     * The Apps tab: the home in its order, each item of `kind` app, folder (its shown apps under
+     * `apps`, in the folder's order) or input; then the hidden apps by name. `tile` says whether the
+     * app can take a picture of the user's (not canvasOS's own screens, inputs nor folders); `v`
      * changes with the tile, so the phone fetches a new thumbnail rather than its cached one.
      */
     private fun apps(): JSONObject {
         val all = repo.allApps()
+        val grid = repo.orderedVisible(all)
         known = all.associateBy { it.pkg }
+        knownGrid = grid
         val hidden = prefs.hidden
         val collator = java.text.Collator.getInstance(java.util.Locale.FRANCE)
-        val list = repo.orderedVisible(all).flatMap { it.folder ?: listOf(it) } +
-            all.filter { it.pkg in hidden }.sortedWith { a, b -> collator.compare(a.label, b.label) }
-        return JSONObject().put("apps", JSONArray().apply {
-            for (a in list) put(JSONObject()
-                .put("id", a.pkg)
-                .put("label", a.label)
-                .put("originalLabel", a.originalLabel)
-                .put("custom", a.tileStamp != 0L)
-                .put("hidden", a.pkg in hidden)
-                .put("tile", AppRepo.canHaveCustomTile(ctx, a.pkg))
-                .put("v", repo.tileKey(a.pkg).hashCode().toUInt().toString(36)))
-        })
+        fun item(a: AppEntry): JSONObject = JSONObject()
+            .put("id", a.pkg)
+            .put("kind", when { a.folder != null -> "folder"; a.input != null -> "input"; else -> "app" })
+            .put("label", a.label)
+            .put("originalLabel", a.originalLabel)
+            .put("custom", a.tileStamp != 0L)
+            .put("hidden", a.pkg in hidden)
+            .put("tile", a.folder == null && AppRepo.canHaveCustomTile(ctx, a.pkg))
+            .put("v", repo.tileKey(a).hashCode().toUInt().toString(36))
+            .apply { a.folder?.let { m -> put("apps", JSONArray().apply { m.forEach { put(item(it)) } }) } }
+        val list = grid + all.filter { it.pkg in hidden }.sortedWith { a, b -> collator.compare(a.label, b.label) }
+        return JSONObject().put("apps", JSONArray().apply { list.forEach { put(item(it)) } })
     }
 
-    /** A grid entry by key, from the last listing or a fresh one; null for anything else. */
+    /** The home as last listed (folders with their shown apps), for the folders' thumbnails and « Ouvrir ». */
+    @Volatile private var knownGrid: List<AppEntry> = emptyList()
+    private val tv by lazy { TvControls(ctx) }
+
+    /** An app or input by key, from the last listing or a fresh one; null for anything else (folders included). */
     private fun app(pkg: String): AppEntry? =
         known[pkg] ?: repo.allApps().also { all -> known = all.associateBy { it.pkg } }.firstOrNull { it.pkg == pkg }
 
-    /** An app's tile as the home screen draws it, as a 400×225 JPEG. */
+    /** Any grid entry by key, a folder too: what the thumbnails draw. */
+    private fun entry(key: String): AppEntry? =
+        if (Folders.isFolder(key)) (knownGrid.firstOrNull { it.pkg == key } ?: repo.orderedVisible().firstOrNull { it.pkg == key })
+        else app(key)
+
+    /** An entry's tile as the home screen draws it (an app's, a folder's mosaic, an input's), as a 400×225 JPEG. */
     private fun appThumb(pkg: String): Response {
-        val app = app(pkg) ?: return text(Response.Status.NOT_FOUND, "")
-        val key = repo.tileKey(pkg)
+        val app = entry(pkg) ?: return text(Response.Status.NOT_FOUND, "")
+        val key = repo.tileKey(app)
         // One tile at a time: the page asks for them all at once, and each is a few hundred kB to draw.
         val bytes = appThumbs.get(key) ?: synchronized(thumbLock) {
             appThumbs.get(key) ?: ByteArrayOutputStream().also {
@@ -305,6 +338,88 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         }
         return newFixedLengthResponse(Response.Status.OK, "image/jpeg", ByteArrayInputStream(bytes), bytes.size.toLong()).apply {
             addHeader("Cache-Control", "max-age=3600")
+        }
+    }
+
+    /**
+     * « Ouvrir » on the Apps tab: [key] opened on the TV as OK on its tile would. With canvasOS in
+     * front, the home screen does it ([HomeActivity.ACTION_OPEN]); otherwise an app goes through local
+     * adb or the overlay permission (Android drops activity starts from the background), an input
+     * switches directly, and a folder brings the home screen back first.
+     */
+    private fun open(key: String): JSONObject {
+        val listing = apps()
+        val grid = knownGrid
+        val entry = grid.firstOrNull { it.pkg == key } ?: grid.firstNotNullOfOrNull { f -> f.folder?.firstOrNull { it.pkg == key } }
+        val res = when {
+            entry == null -> known[key]?.takeIf { it.pkg in prefs.hidden }?.let { fail("« ${it.label} » est masquée sur l'accueil.") }
+                ?: fail("Cet élément n'est plus sur l'accueil.")
+            inFront() -> if (startHome(key)) ok() else fail("Impossible d'ouvrir ${entry.label}.")
+            entry.input != null -> { tv.setInput(entry.input); ok() }
+            entry.folder != null -> openFolderFromBackground(key)
+            else -> openAppFromBackground(entry)
+        }
+        for (k in res.keys()) listing.put(k, res.get(k))
+        return listing
+    }
+
+    private fun ok() = JSONObject().put("ok", true)
+    private fun fail(message: String) = JSONObject().put("ok", false).put("message", message)
+
+    /** canvasOS's own process shows a screen: the home screen (or its settings) is what the TV shows. */
+    private fun inFront(): Boolean {
+        val me = android.os.Process.myPid()
+        return ctx.getSystemService(ActivityManager::class.java)?.runningAppProcesses.orEmpty().any {
+            it.pid == me && it.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        }
+    }
+
+    private fun startHome(key: String) = runCatching {
+        ctx.startActivity(Intent(ctx, HomeActivity::class.java)
+            .setAction(HomeActivity.ACTION_OPEN)
+            .putExtra(HomeActivity.EXTRA_KEY, key)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        true
+    }.getOrDefault(false)
+
+    /** Through local adb when it can; else a direct start, which Android may drop silently, so the home screen must be seen in front. */
+    private fun openFolderFromBackground(key: String): JSONObject {
+        if (prefs.adbAuthorized) {
+            val home = ComponentName(ctx, HomeActivity::class.java).flattenToShortString()
+            val out = LocalAdb.shell(ctx, "am start -n " + PhoneApi.shellQuote(home) + " -a " + HomeActivity.ACTION_OPEN +
+                " --es " + HomeActivity.EXTRA_KEY + " " + PhoneApi.shellQuote(key) +
+                " -f " + (Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            if (out != null && !out.contains("Error")) return ok()
+        }
+        if (startHome(key)) {
+            val until = SystemClock.uptimeMillis() + 1500
+            while (SystemClock.uptimeMillis() < until) {
+                if (inFront()) return ok()
+                Thread.sleep(150)
+            }
+        }
+        return fail("Ouvrez d'abord l'accueil canvasOS.")
+    }
+
+    private fun openAppFromBackground(app: AppEntry): JSONObject {
+        // The stock launcher (Xiaomi's PatchWall) only opens through the system Home action, as from its tile.
+        if (HomeGuardService.isStockHome(app.pkg) && HomeGuardService.openStockLauncher()) return ok()
+        val intent = repo.launchIntent(app) ?: return fail("Impossible d'ouvrir ${app.label}.")
+        return when {
+            prefs.adbAuthorized -> {
+                val cmd = StringBuilder("am start -n ").append(PhoneApi.shellQuote((intent.component ?: app.component).flattenToShortString()))
+                intent.action?.let { cmd.append(" -a ").append(PhoneApi.shellQuote(it)) }
+                intent.categories?.forEach { cmd.append(" -c ").append(PhoneApi.shellQuote(it)) }
+                val out = LocalAdb.shell(ctx, cmd.toString())
+                when {
+                    out == null -> JSONObject().put("ok", false).put("reason", "unreachable")
+                    out.contains("Error") -> fail("Impossible d'ouvrir ${app.label}.")
+                    else -> ok()
+                }
+            }
+            Settings.canDrawOverlays(ctx) ->
+                if (runCatching { ctx.startActivity(intent) }.isSuccess) ok() else fail("Impossible d'ouvrir ${app.label}.")
+            else -> JSONObject().put("ok", false).put("reason", "adb")
         }
     }
 
@@ -384,6 +499,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         // One pushed over adb would otherwise come back once this one is deleted.
         introFiles().forEach { it.delete() }
         tmp.renameTo(dest)
+        prefs.introSource = Prefs.INTRO_VIDEO
         return json(state().put("ok", true))
     }
 
@@ -411,14 +527,19 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
         iconFiles().forEach { it.delete() }
         tmp.renameTo(File(ctx.filesDir, SettingsActivity.ICON_FILE))
-        prefs.ownIcon = true
+        prefs.settingsIcon = Prefs.ICON_OWN
         return json(state().put("ok", true))
     }
 
-    /** Presses a key or types text on the TV through local adb; "adb" means local debugging was never authorized. */
-    private fun remote(item: String): JSONObject = when {
+    /**
+     * Presses a key or types text on the TV: [direct] first, which needs nothing while canvasOS is in
+     * front ([Foreground]), otherwise [item] through local adb. `via` says which; "adb" means local
+     * debugging was never authorized and another app is in front.
+     */
+    private fun remote(item: String, direct: () -> Boolean): JSONObject = when {
+        sendDirect(direct) -> JSONObject().put("ok", true).put("via", "direct")
         !prefs.adbAuthorized -> JSONObject().put("ok", false).put("reason", "adb")
-        send(ctx, item) -> JSONObject().put("ok", true)
+        send(ctx, item) -> JSONObject().put("ok", true).put("via", "adb")
         else -> JSONObject().put("ok", false).put("reason", "unreachable")
     }
 
@@ -520,16 +641,26 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                 stop()
                 return false
             }
-            running?.let { if (it.isAlive) return true else it.stop() }
+            running?.let {
+                if (it.isAlive) {
+                    Mdns.start(app) // nothing to do unless the address changed
+                    return true
+                }
+                it.stop()
+            }
             running = null
             val server = PhoneServer(app)
-            return runCatching { server.start(SOCKET_READ_TIMEOUT, true) }.isSuccess.also { if (it) running = server }
+            return runCatching { server.start(SOCKET_READ_TIMEOUT, true) }.isSuccess.also {
+                if (it) running = server
+                if (it) Mdns.start(app) else Mdns.stop()
+            }
         }
 
         @Synchronized
         fun stop() {
             running?.stop()
             running = null
+            Mdns.stop()
         }
 
         /** Starts or stops the server to match [Prefs.phoneServer], on a background thread; does nothing when it already does. */
@@ -550,6 +681,16 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
             return "http://$ip:$PORT/${Prefs(ctx).phoneToken}/"
         }
 
+        /**
+         * The same page by name, `http://canvasos.local:8790/<token>/`, answered by [Mdns]: iPhones and
+         * recent Android phones resolve it, older Android phones do not, so the QR code keeps [url].
+         * Null when the page is off or the name is not being answered.
+         */
+        fun hostUrl(ctx: Context): String? {
+            if (running?.isAlive != true || !Mdns.isRunning) return null
+            return "http://${Mdns.HOST}:$PORT/${Prefs(ctx).phoneToken}/"
+        }
+
         /** Why [url] is null, for the screens that show the QR code. */
         fun unavailable(ctx: Context): String = when {
             !Prefs(ctx).phoneServer -> "La page téléphone est désactivée (Réglages de l'accueil → Page téléphone)."
@@ -567,6 +708,13 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
 
         @Volatile
         private var lastSent = false
+
+        /**
+         * Presses a key straight into canvasOS ([Foreground]), after whatever adb is still sending
+         * ([send]) and before the next: one press at a time, in the order the requests got here.
+         * False when canvasOS is not in front, or Android would not take it. Blocking.
+         */
+        private fun sendDirect(direct: () -> Boolean): Boolean = synchronized(inputLock) { direct() }
 
         /**
          * Sends a keycode or `input text` arguments to the TV in the order the phone pressed them:
@@ -599,4 +747,17 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
             return Bitmap.createBitmap(px, n * scale, n * scale, Bitmap.Config.ARGB_8888)
         }
     }
+}
+
+/** The web app manifest for the phone page: scoped to the token directory so the icon keeps the code. */
+internal fun phoneManifest(token: String): JSONObject {
+    val root = "/$token/"
+    fun icon(size: Int, purpose: String) = JSONObject().put("src", "icon-$size.png").put("sizes", "${size}x$size")
+        .put("type", "image/png").put("purpose", purpose)
+    return JSONObject()
+        .put("name", "canvasOS").put("short_name", "canvasOS").put("lang", "fr")
+        .put("id", root).put("start_url", root).put("scope", root)
+        .put("display", "standalone").put("orientation", "portrait")
+        .put("background_color", "#000000").put("theme_color", "#000000")
+        .put("icons", JSONArray().put(icon(192, "any")).put(icon(512, "any")).put(icon(192, "maskable")).put(icon(512, "maskable")))
 }

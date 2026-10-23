@@ -199,7 +199,7 @@ class AppRepo(private val ctx: Context) {
      * calls it for every tile it binds.
      */
     fun tileKey(pkg: String, st: Map<String, Long> = stamps): String = when {
-        pkg == ctx.packageName -> pkg + "@" + (SettingsActivity.customIcon(ctx)?.lastModified() ?: 0L)
+        pkg == ctx.packageName -> pkg + "@" + (SettingsActivity.iconSource(ctx)?.key ?: "gear")
         else -> st[pkg]?.let { "$pkg@$it" } ?: pkg
     }
 
@@ -230,7 +230,7 @@ class AppRepo(private val ctx: Context) {
             return bmp
         }
         val own = if (app.component.className == SettingsActivity::class.java.name)
-            SettingsActivity.customIcon(ctx)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
+            SettingsActivity.iconSource(ctx)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
         else if (app.pkg in st)
             customTileFile(ctx, app.pkg)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
         else null
@@ -404,7 +404,7 @@ class AppRepo(private val ctx: Context) {
             if (!PACKAGE.matches(pkg)) emptyList()
             else listOfNotNull(filesDir, externalDir).map { File(File(it, TILES_DIR), "$pkg.jpg") }
 
-        /** Whether [pkg] can have a picture of the user's; the settings tile has its own icon (Prefs.ownIcon). */
+        /** Whether [pkg] can have a picture of the user's; the settings tile has its own icon (Prefs.settingsIcon). */
         fun canHaveCustomTile(ctx: Context, pkg: String) = pkg != ctx.packageName && PACKAGE.matches(pkg)
 
         fun customTileFile(ctx: Context, pkg: String): File? =

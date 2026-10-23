@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -25,6 +26,8 @@ class WallpaperActivity : Activity() {
     private val cards = LinkedHashMap<String, PickCard>()
     private lateinit var qr: ImageView
     private lateinit var address: TextView
+    /** The same page by name ([Mdns]); the QR code stays on the IP, which every phone resolves. */
+    private lateinit var byName: TextView
     private var counts = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,6 +57,7 @@ class WallpaperActivity : Activity() {
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
         address = text(13f, Color.argb(130, 255, 255, 255))
+        byName = text(12f, Color.argb(110, 255, 255, 255)).apply { visibility = View.GONE }
         val right = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(text(20f, bold = true).apply { text = "Depuis un téléphone" })
@@ -63,6 +67,7 @@ class WallpaperActivity : Activity() {
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10); bottomMargin = dp(18) })
             addView(qr, LinearLayout.LayoutParams(dp(220), dp(220)))
             addView(address, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+            addView(byName, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
         }
         setContentView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -82,16 +87,29 @@ class WallpaperActivity : Activity() {
             // Usually already running (KeeperService); the address is read again, Wi-Fi may have changed.
             PhoneServer.start(this)
             val url = PhoneServer.url(this)
-            // Opens the page on its wallpaper tab.
-            val bmp = url?.let { PhoneServer.qr("$it#fond") }
+            val host = url?.let { PhoneServer.hostUrl(this) }
+            // Opens the page on its settings tab, where Mes photos and the picture links come first.
+            val bmp = url?.let { PhoneServer.qr("$it#reglages") }
             val off = if (url == null) PhoneServer.unavailable(this) else null
             main.post {
                 address.text = url ?: off
+                byName.text = host?.let { "Aussi : $it (iPhone et Android récents)" }
+                byName.visibility = if (host != null) View.VISIBLE else View.GONE
                 qr.setImageBitmap(bmp)
             }
         }
         counts = ""
         poll.run()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Foreground.resumed(this)
+    }
+
+    override fun onPause() {
+        Foreground.paused(this)
+        super.onPause()
     }
 
     override fun onStop() {

@@ -142,11 +142,27 @@ class PhoneApiEdgeTest {
         assertEquals("input text 'Hello%sworld'; input keyevent KEYCODE_DPAD_CENTER KEYCODE_DPAD_DOWN; input text 'ok'", PhoneApi.script(items))
     }
 
+    @Test fun aLongPressIsItsOwnKeyeventCallAndSplitsTheRun() {
+        val long = PhoneApi.keyInput("CENTER_LONG")!!
+        val keys = { n: String -> PhoneApi.keyInput(n)!! }
+        assertEquals("input keyevent KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN; input keyevent --longpress KEYCODE_DPAD_CENTER; input keyevent KEYCODE_DPAD_UP",
+            PhoneApi.script(listOf(keys("DOWN"), keys("DOWN"), long, keys("UP"))))
+        // Two long presses in a row stay two: one --longpress applies to every keycode after it.
+        assertEquals("input keyevent --longpress KEYCODE_DPAD_CENTER; input keyevent --longpress KEYCODE_DPAD_CENTER",
+            PhoneApi.script(listOf(long, long)))
+        assertEquals("input text 'a'; input keyevent --longpress KEYCODE_DPAD_CENTER; input keyevent KEYCODE_ENTER",
+            PhoneApi.script(listOf(PhoneApi.textArgs("a")!!, long, keys("ENTER"))))
+        assertFalse(PhoneApi.script(listOf(long)).contains("input --longpress"))
+    }
+
     // ---- keys ----
 
     @Test fun keyNamesAreMatchedExactly() {
-        for (bad in listOf("up", "Up", " UP", "UP ", "UP\n", "KEYCODE_DPAD_UP", "DPAD_UP", "VOLUME", "MEDIA_STOP", "SEARCH", "TV", "SETTINGS", "ASSIST"))
+        for (bad in listOf("up", "Up", " UP", "UP ", "UP\n", "KEYCODE_DPAD_UP", "DPAD_UP", "VOLUME", "MEDIA_STOP", "SEARCH", "TV", "SETTINGS", "ASSIST",
+            "CENTER_LONG ", "Center_Long", "LONG", "--longpress", "UP_LONG", "HOME_LONG", "KEYCODE_DPAD_CENTER_LONG")) {
             assertNull(bad, PhoneApi.keycode(bad))
+            assertNull(bad, PhoneApi.keyInput(bad))
+        }
     }
 
     @Test fun everyKeyIsAKeycodeNameAndNoTwoNamesShareOne() {
@@ -155,6 +171,15 @@ class PhoneApiEdgeTest {
             assertTrue(name, name.matches(Regex("[A-Z_]+")))
         }
         assertEquals(PhoneApi.KEYS.size, PhoneApi.KEYS.values.toSet().size)
+    }
+
+    @Test fun aLongPressIsOnlyEverOfAnAllowedKeyUnderItsOwnName() {
+        for ((name, key) in PhoneApi.LONG_PRESSES) {
+            assertTrue(name, name.matches(Regex("[A-Z_]+_LONG")))
+            assertFalse("$name shadows a plain key", name in PhoneApi.KEYS)
+            assertEquals("keyevent --longpress " + PhoneApi.KEYS.getValue(key), PhoneApi.keyInput(name))
+        }
+        assertEquals(PhoneApi.LONG_PRESSES.size, PhoneApi.LONG_PRESSES.values.toSet().size)
     }
 
     // ---- install hints ----

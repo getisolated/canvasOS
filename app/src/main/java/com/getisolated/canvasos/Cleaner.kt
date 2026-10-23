@@ -3,6 +3,7 @@ package com.getisolated.canvasos
 import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import dadb.AdbKeyPair
@@ -11,14 +12,39 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * Talks to the TV's own adbd on 127.0.0.1:5555 so a normal app can run
  * shell-privileged commands (force-stop, shutdown). The first connection
  * makes the TV show "允许调试吗？"; after "始终允许" it is silent.
+ *
+ * Once authorized, short commands share one connection, one at a time, so the phone page's
+ * remote doesn't pay a handshake per key; it is closed after a minute unused. Long ones (an
+ * install, the authorization prompt, shutdown) open their own: the read timeout is fixed per
+ * connection, and a long command would hold up the rest.
  */
 object LocalAdb {
     private const val TAG = "LocalAdb"
+    private const val HOST = "127.0.0.1"
+    private const val PORT = 5555
+    private const val CONNECT_MS = 3000
+
+    /** Calls allowing up to this long go over the shared connection, whose read timeout it is. */
+    private const val SHARED_MAX_MS = 15_000
+    private const val IDLE_MS = 60_000L
+
+    private val lock = ReentrantLock()
+    /** The shared connection (connected on its first command), or null; guarded by [lock], as is the rest. */
+    private var shared: Dadb? = null
+    /** [shared] has run a command: failing to open the next may only mean it went stale. */
+    private var sharedUsed = false
+    private var lastUsed = 0L
+    private var idleClose: ScheduledFuture<*>? = null
+    private val idle = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "LocalAdbIdle").apply { isDaemon = true } }
 
     private fun keys(ctx: Context): AdbKeyPair {
         val priv = File(ctx.filesDir, "adbkey")
@@ -33,20 +59,78 @@ object LocalAdb {
      * user to accept the authorization prompt.
      */
     fun shell(ctx: Context, cmd: String, waitAuthMs: Int = 4000): String? {
-        val prefs = Prefs(ctx)
-        return try {
-            Dadb.create("127.0.0.1", 5555, keys(ctx), connectTimeout = 3000, socketTimeout = waitAuthMs).use { d ->
-                d.shell(cmd).allOutput.also { prefs.adbAuthorized = true }
-            }
-        } catch (e: Throwable) {
-            Log.w(TAG, "adb shell failed: $cmd", e)
-            null
-        }
+        // Never authorized: the prompt must be waited for no longer than the caller said.
+        val share = waitAuthMs <= SHARED_MAX_MS && Prefs(ctx).adbAuthorized
+        val out = if (share) sharedShell(ctx, cmd, waitAuthMs) else freshShell(ctx, cmd, waitAuthMs)
+        if (out != null) Prefs(ctx).adbAuthorized = true
+        return out
     }
 
     /** Fire-and-forget variant for commands that kill the connection (shutdown). */
     fun shellAsync(ctx: Context, cmd: String) {
         Thread { shell(ctx.applicationContext, cmd, 60_000) }.start()
+    }
+
+    private fun freshShell(ctx: Context, cmd: String, timeoutMs: Int): String? = try {
+        Dadb.create(HOST, PORT, keys(ctx), connectTimeout = CONNECT_MS, socketTimeout = timeoutMs).use { d -> d.shell(cmd).allOutput }
+    } catch (e: Throwable) {
+        Log.w(TAG, "adb shell failed: $cmd", e)
+        null
+    }
+
+    private fun sharedShell(ctx: Context, cmd: String, timeoutMs: Int): String? {
+        // Busy for longer than this caller would wait: its own connection rather than a queue.
+        if (!lock.tryLock(timeoutMs.toLong(), TimeUnit.MILLISECONDS)) return freshShell(ctx, cmd, timeoutMs)
+        try {
+            for (attempt in 0..1) {
+                val reused = shared != null && sharedUsed
+                val stream = try {
+                    val d = shared ?: Dadb.create(HOST, PORT, keys(ctx), connectTimeout = CONNECT_MS, socketTimeout = SHARED_MAX_MS)
+                        .also { shared = it; sharedUsed = false }
+                    d.openShell(cmd)
+                } catch (e: Throwable) {
+                    drop()
+                    // Kept from earlier and dead since (adbd restarted, ADB switched off at wake): the
+                    // command never started, so once more on a new connection.
+                    if (reused && attempt == 0) continue
+                    Log.w(TAG, "adb shell failed: $cmd", e)
+                    return null
+                }
+                return try {
+                    stream.use { it.readAll().allOutput }.also { sharedUsed = true }
+                } catch (e: Throwable) {
+                    // Timed out or cut halfway: not retried, the command may have run.
+                    drop()
+                    Log.w(TAG, "adb shell failed: $cmd", e)
+                    null
+                }
+            }
+            return null
+        } finally {
+            lastUsed = SystemClock.elapsedRealtime()
+            scheduleIdleClose()
+            lock.unlock()
+        }
+    }
+
+    /** Under [lock]. */
+    private fun drop() {
+        shared?.let { runCatching { it.close() } }
+        shared = null
+        sharedUsed = false
+    }
+
+    /** Under [lock]: closes the shared connection once it has gone unused for [IDLE_MS]. */
+    private fun scheduleIdleClose() {
+        idleClose?.cancel(false)
+        idleClose = if (shared == null) null else idle.schedule({
+            lock.lock()
+            try {
+                if (SystemClock.elapsedRealtime() - lastUsed >= IDLE_MS - 100) drop()
+            } finally {
+                lock.unlock()
+            }
+        }, IDLE_MS, TimeUnit.MILLISECONDS)
     }
 }
 

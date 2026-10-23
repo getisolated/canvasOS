@@ -120,7 +120,7 @@ export const zh = {
       frameAlt: "Capture réelle du Cadre photo : une pieuvre sous l'eau, avec l'heure, la date et la légende en bas à gauche.",
       bulletsTitle: "Comment l'activer",
       attribution:
-        "Les films aériens sont diffusés en ligne par les serveurs d'Apple ; canvasOS ne contient aucun fichier vidéo. « Apple TV » est une marque d'Apple Inc. Ce projet n'a aucun lien avec Apple.",
+        "Les films aériens sont diffusés en ligne par les serveurs d'Apple ; canvasOS n'en embarque aucun. « Apple TV » est une marque d'Apple Inc. Ce projet n'a aucun lien avec Apple.",
     },
 
     features: {

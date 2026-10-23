@@ -170,8 +170,8 @@ class FrameActivity : Activity() {
         setContentView(frame)
     }
 
-    override fun onResume() { super.onResume(); frame.start() }
-    override fun onPause() { frame.stop(); super.onPause() }
+    override fun onResume() { super.onResume(); Foreground.resumed(this); frame.start() }
+    override fun onPause() { frame.stop(); Foreground.paused(this); super.onPause() }
     override fun onDestroy() { main.removeCallbacks(releaseScreen); super.onDestroy() }
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean = when (e.keyCode) {

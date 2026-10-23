@@ -58,8 +58,8 @@ android {
         applicationId = "com.getisolated.canvasos"
         minSdk = 28
         targetSdk = 31
-        versionCode = 11
-        versionName = "1.1.2"
+        versionCode = 12
+        versionName = "1.1.3"
     }
 
     // standard declares itself a home screen. guard does not: TCL's package verifier refuses any
@@ -91,6 +91,9 @@ android {
             signingConfig = signingConfigs.getByName(if (releaseKey != null) "release" else "debug")
         }
     }
+
+    // The brand films (assets/brand/*.mp4) are read in place by MediaPlayer, which needs them stored uncompressed.
+    androidResources { noCompress += listOf("mp4") }
 
     lint {
         // Sideloaded onto one TV, never published to Play.

@@ -34,25 +34,44 @@ class SettingsActivity : Activity() {
         /** Apparence, where the weather is switched on (the Control Center's idle Météo control leads there). */
         const val PAGE_LOOK = "look"
 
-        /**
-         * A picture of the user's own for the settings icon (Apple TV's, say), uploaded from the phone
-         * page or pushed over adb to Android/data/com.getisolated.canvasos/files; null for the built-in gear.
-         * Like the boot video, it is not part of the app.
-         */
-        fun customIcon(ctx: android.content.Context): java.io.File? = if (Prefs(ctx).ownIcon) iconFile(ctx) else null
+        /** Where the settings icon is read from, with a key that changes whenever the picture does. */
+        class IconSource(val key: String, val open: () -> java.io.InputStream)
 
-        /** The uploaded picture whether or not it is in use ([Prefs.ownIcon]). */
+        /**
+         * The settings icon in use ([Prefs.settingsIcon]): the chosen brand's title card from the APK
+         * ([Brand]), a picture of the user's own uploaded from the phone page or pushed over adb to
+         * Android/data/com.getisolated.canvasos/files (the title card again while there is none), or
+         * null for the built-in gear.
+         */
+        fun iconSource(ctx: android.content.Context): IconSource? {
+            val prefs = Prefs(ctx)
+            val own = if (prefs.settingsIcon == Prefs.ICON_OWN) iconFile(ctx) else null
+            return when {
+                prefs.settingsIcon == Prefs.ICON_GEAR -> null
+                own != null -> IconSource("own@" + own.lastModified()) { own.inputStream() }
+                else -> IconSource(prefs.brand) { Brand.openIcon(ctx, prefs.brand) }
+            }
+        }
+
+        /** The uploaded picture whether or not it is in use ([Prefs.settingsIcon]). */
         fun iconFile(ctx: android.content.Context): java.io.File? =
             listOfNotNull(java.io.File(ctx.filesDir, ICON_FILE), ctx.getExternalFilesDir(null)?.let { java.io.File(it, ICON_FILE) })
                 .firstOrNull { it.isFile && it.length() > 0 }
 
         /** The icon decoded at no more than about [width] px wide: a 1280 px picture shown at 600 needn't take 6 MB. */
-        fun decodeIcon(f: java.io.File, width: Int): android.graphics.Bitmap? {
+        fun decodeIcon(src: IconSource, width: Int): android.graphics.Bitmap? = decode(src.open, width)
+
+        /** The same for a picture on disk (an app's own tile, [AppRepo.customTileFile]); null if it cannot be read. */
+        fun decodeIcon(f: java.io.File, width: Int): android.graphics.Bitmap? = decode({ f.inputStream() }, width)
+
+        private fun decode(open: () -> java.io.InputStream, width: Int): android.graphics.Bitmap? {
             val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            android.graphics.BitmapFactory.decodeFile(f.path, o)
+            runCatching { open().use { android.graphics.BitmapFactory.decodeStream(it, null, o) } }.getOrElse { return null }
             var sample = 1
             while (o.outWidth / (sample * 2) >= width) sample *= 2
-            return android.graphics.BitmapFactory.decodeFile(f.path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+            return runCatching {
+                open().use { android.graphics.BitmapFactory.decodeStream(it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) }
+            }.getOrNull()
         }
 
         /** A profile's avatar at the start of its row (drawn at this size, shown at [ROW_AVATAR]), and as the big icon of the profiles page. */
@@ -135,7 +154,7 @@ class SettingsActivity : Activity() {
             "et ce que fait le bouton marche/arrêt."),
         APPS("Apps", "Les apps masquées de l'accueil, les apps préinstallées supprimées et les dossiers."),
         ACCOUNTS("Profils", "Un accueil par personne, avec ses apps, ses dossiers et son fond d'écran ; un profil enfant est protégé par un code PIN."),
-        PHONE_GROUP("Page téléphone", "Une page web pour un téléphone sur le même Wi-Fi : télécommande avec clavier, fond d'écran, photos, " +
+        PHONE_GROUP("Page téléphone", "Une page web pour un téléphone sur le même Wi-Fi : télécommande avec clavier, photos et liens d'images, " +
             "installation d'apps. Son QR code et sa protection."),
         SYSTEM("Système", "Le débogage local et ADB, l'adresse du téléviseur, la protection de l'accueil, les réglages d'origine du téléviseur, " +
             "la mise à jour de canvasOS et sa version."),
@@ -309,7 +328,13 @@ class SettingsActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        Foreground.resumed(this)
         loadBackdrop()
+    }
+
+    override fun onPause() {
+        Foreground.paused(this)
+        super.onPause()
     }
 
     /**
@@ -407,7 +432,7 @@ class SettingsActivity : Activity() {
     }
 
     private fun showIcon(v: ImageView) {
-        val own = customIcon(this)?.let { decodeIcon(it, u(CARD_W * 2)) }
+        val own = iconSource(this)?.let { decodeIcon(it, u(CARD_W * 2)) }
         if (own != null) v.setImageBitmap(own) else v.setImageResource(R.drawable.banner_settings)
     }
 
@@ -467,18 +492,25 @@ class SettingsActivity : Activity() {
                 .button("Réinitialiser") { prefs.resetCcLayout() }
                 .button("Annuler") {})
         }
-        // Only once a picture of the user's own was uploaded for this page.
-        if (iconFile(this) != null) section("Cette page")
-        if (iconFile(this) != null) row("Icône des réglages", "L'icône de ces réglages : votre image importée, ou l'engrenage intégré.", {
-            if (prefs.ownIcon) "Image importée" else "Engrenage"
+        section("Logo")
+        row("Logo", "La carte-titre et le film de démarrage intégrés : ceux de canvasOS, ou ceux de l'Apple TV (tvOS). Ils servent d'icône à ces réglages et d'animation de démarrage, sauf choix contraire ci-dessous.", {
+            Brand.label(prefs.brand)
         }) {
-            prefs.ownIcon = !prefs.ownIcon
+            prefs.brand = if (prefs.brand == Brand.TVOS) Brand.CANVASOS else Brand.TVOS
+            showIcon(icon)
+        }
+        val picture = iconFile(this) != null
+        row("Icône des réglages", "L'icône de ces réglages, sur l'accueil et en haut de cette page : la carte-titre du logo choisi, votre image importée depuis la page téléphone, ou l'engrenage intégré." +
+            if (picture) "" else "\nAucune image importée pour l'instant.", {
+            when (prefs.settingsIcon) { Prefs.ICON_OWN -> "Image importée"; Prefs.ICON_GEAR -> "Engrenage"; else -> "Logo " + Brand.label(prefs.brand) }
+        }) {
+            val opts = listOfNotNull(Prefs.ICON_BRAND, Prefs.ICON_OWN.takeIf { picture }, Prefs.ICON_GEAR)
+            prefs.settingsIcon = opts[(opts.indexOf(prefs.settingsIcon) + 1) % opts.size]
             showIcon(icon)
         }
         section("Animation de démarrage")
         val video = Intro.videoFile(this) != null
-        row("Animation de démarrage", "Jouée au premier affichage de l'accueil après l'allumage ; à la fin, le logo s'agrandit et ouvre l'accueil. Appuyez sur une touche pour la passer." +
-            if (video) "" else "\nAucune vidéo importée : le logo canvasOS la remplace.", {
+        row("Animation de démarrage", "Jouée au premier affichage de l'accueil après l'allumage ; à la fin, le logo s'agrandit et ouvre l'accueil. Appuyez sur une touche pour la passer.", {
             when (prefs.intro) { Prefs.INTRO_BOOT -> "Au démarrage"; Prefs.INTRO_WAKE -> "Démarrage et réveil"; else -> "Désactivée" }
         }) {
             val opts = listOf(Prefs.INTRO_OFF, Prefs.INTRO_BOOT, Prefs.INTRO_WAKE)
@@ -486,11 +518,12 @@ class SettingsActivity : Activity() {
             // This boot counts as played: turning it on doesn't start it on the next return home.
             prefs.introBoot = Intro.bootStamp(this)
         }
-        row("Contenu de l'animation", "Vidéo importée : par exemple l'animation de démarrage de l'Apple TV, dont le logo final s'agrandit et ouvre l'accueil. Logo canvasOS : le nom canvasOS apparaît en fondu puis s'agrandit." +
-            if (video) "" else "\nTant qu'aucune vidéo n'est importée, les deux affichent le logo canvasOS.", {
-            if (prefs.introSource == Prefs.INTRO_WORDMARK) "Logo canvasOS" else "Vidéo importée"
+        row("Contenu de l'animation", "Film du logo choisi : celui de canvasOS ou celui de l'Apple TV, selon la ligne Logo. Vidéo importée : la vôtre, depuis la page téléphone, dont le logo final s'agrandit et ouvre l'accueil. Nom canvasOS : le nom apparaît en fondu puis s'agrandit." +
+            if (video) "" else "\nAucune vidéo importée pour l'instant : à sa place, le film du logo choisi.", {
+            when (prefs.introSource) { Prefs.INTRO_VIDEO -> "Vidéo importée"; Prefs.INTRO_WORDMARK -> "Nom canvasOS"; else -> "Film " + Brand.label(prefs.brand) }
         }) {
-            prefs.introSource = if (prefs.introSource == Prefs.INTRO_WORDMARK) Prefs.INTRO_VIDEO else Prefs.INTRO_WORDMARK
+            val opts = listOfNotNull(Prefs.INTRO_BRAND, Prefs.INTRO_VIDEO.takeIf { video }, Prefs.INTRO_WORDMARK)
+            prefs.introSource = opts[(opts.indexOf(prefs.introSource) + 1) % opts.size]
         }
         row("Délai au réveil", "Au sortir de la veille, l'écran reste noir ce temps avant l'animation. Beaucoup de téléviseurs (surtout OLED) n'affichent l'image que quelques secondes après l'allumage : allongez si le début de l'animation manque, raccourcissez si le noir dure trop.", {
             if (prefs.wakeDelay == 0) "Aucun" else "${prefs.wakeDelay / 1000.0} s".replace(".0 ", " ")
@@ -498,7 +531,7 @@ class SettingsActivity : Activity() {
             val opts = listOf(0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 10_000)
             prefs.wakeDelay = opts.firstOrNull { it > prefs.wakeDelay } ?: 0
         }
-        row("Son de l'animation", "Joue le son de la vidéo d'animation.", { onOff(prefs.introSound) }) { prefs.introSound = !prefs.introSound }
+        row("Son de l'animation", "Joue le son du film ou de la vidéo d'animation.", { onOff(prefs.introSound) }) { prefs.introSound = !prefs.introSound }
         row("Aperçu de l'animation", "Revient à l'accueil et la joue une fois maintenant.", { "" }, chevron = true) {
             startActivity(Intent(this, HomeActivity::class.java)
                 .putExtra(Intro.EXTRA_PREVIEW, true)
@@ -690,8 +723,8 @@ class SettingsActivity : Activity() {
     /** Page téléphone. */
     private fun phoneGroup() {
         section("Accès")
-        row("Afficher le QR code", "Scannez-le avec un téléphone sur le même Wi-Fi. La page qui s'ouvre sert de télécommande avec clavier, choisit le fond d'écran, " +
-            "l'économiseur et l'animation de démarrage, importe des photos et installe des apps (APK). La télécommande et l'installation d'apps demandent le débogage local.",
+        row("Afficher le QR code", "Scannez-le avec un téléphone sur le même Wi-Fi. La page qui s'ouvre sert de télécommande avec clavier, importe des photos et des liens d'images, règle l'animation de démarrage " +
+            "et la météo, et installe des apps (APK). La télécommande et l'installation d'apps demandent le débogage local.",
             { "" }, chevron = true) { open(Page.PHONE) }
         section("Sécurité")
         row("Régénérer le code", "Change le code secret de l'adresse : les téléphones qui connaissaient l'ancienne ne peuvent plus s'en servir et doivent scanner à nouveau. " +
@@ -978,7 +1011,7 @@ class SettingsActivity : Activity() {
     private fun phonePage() {
         heading.text = "Page téléphone"
         about.text = "Sur le même Wi-Fi, scannez le code avec l'appareil photo d'un téléphone ; la page reste accessible à tout moment. " +
-            "Télécommande et clavier, fond d'écran, économiseur, animation de démarrage, installation d'apps (APK).\n" +
+            "Télécommande et clavier, photos et liens d'images, animation de démarrage, installation d'apps (APK).\n" +
             "Le code dans l'adresse est la seule protection : régénérez-le si un téléphone qui a ouvert la page est perdu ; " +
             "les téléphones qui connaissaient l'ancien devront scanner à nouveau."
         val qr = ImageView(this).apply {
@@ -987,20 +1020,27 @@ class SettingsActivity : Activity() {
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
         val address = label(15f, DESCRIPTION).apply { gravity = Gravity.CENTER_HORIZONTAL }
+        // The same page by name (Mdns): the QR code stays on the IP, which every phone resolves.
+        val byName = label(13f, DESCRIPTION).apply { gravity = Gravity.CENTER_HORIZONTAL }
         list.addView(qr, LinearLayout.LayoutParams(u(210), u(210)).apply { gravity = Gravity.CENTER_HORIZONTAL })
-        list.addView(address, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(12); bottomMargin = u(16) })
+        list.addView(address, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(12) })
+        list.addView(byName, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(4); bottomMargin = u(16) })
         fun load() {
             address.text = "Démarrage…"
+            byName.visibility = android.view.View.GONE
             Thread {
                 // Usually already running (KeeperService); the address is read again, Wi-Fi may have changed.
                 PhoneServer.start(applicationContext)
                 val url = PhoneServer.url(applicationContext)
+                val host = url?.let { PhoneServer.hostUrl(applicationContext) }
                 val bmp = url?.let { PhoneServer.qr(it) }
                 val off = if (url == null) PhoneServer.unavailable(applicationContext) else null
                 runOnUiThread {
                     qr.setImageBitmap(bmp)
                     qr.visibility = if (bmp != null) android.view.View.VISIBLE else android.view.View.GONE
                     address.text = url ?: off
+                    byName.text = host?.let { "Aussi : $it (iPhone et Android récents)" }
+                    byName.visibility = if (host != null) android.view.View.VISIBLE else android.view.View.GONE
                 }
             }.start()
         }

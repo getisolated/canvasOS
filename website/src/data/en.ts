@@ -119,7 +119,7 @@ export const en = {
     frameAlt: "Photo frame screensaver: an underwater octopus photograph with the time and date in the corner.",
     bulletsTitle: "How to enable it",
     attribution:
-      "Aerial films stream from Apple's servers; canvasOS ships no video files. “Apple TV” is a trademark of Apple Inc. This project is not affiliated with Apple.",
+      "Aerial films stream from Apple's servers; canvasOS ships none of them. “Apple TV” is a trademark of Apple Inc. This project is not affiliated with Apple.",
   },
 
   features: {

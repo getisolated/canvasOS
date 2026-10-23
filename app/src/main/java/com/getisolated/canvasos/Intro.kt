@@ -31,8 +31,9 @@ import kotlin.math.sin
  * flies into its home screen. The logo is taken from the video's last frame (whatever is bright on
  * black), so any clip that ends on a logo works. Without a video, the name "canvasOS" stands in.
  *
- * The video is not part of the app: the phone page (壁纸 → QR code) uploads one, or adb pushes it
- * to Android/data/com.getisolated.canvasos/files/intro.mp4.
+ * The film is the chosen brand's ([Brand], shipped in the APK) unless the user picked a video of their
+ * own, uploaded from the phone page (Réglages → Animation de démarrage) or pushed over adb to
+ * Android/data/com.getisolated.canvasos/files/intro.mp4, or the canvasOS name instead of any video.
  */
 class Intro(
     private val ctx: Context,
@@ -72,7 +73,7 @@ class Intro(
     }
 
     private fun begin() {
-        val video = if (Prefs(ctx).introSource == Prefs.INTRO_WORDMARK) null else videoFile(ctx)
+        val video = source(ctx)
         if (video == null) {
             showWordmark()
             return
@@ -92,12 +93,12 @@ class Intro(
         overlay.addView(tv, FrameLayout.LayoutParams(-1, -1))
     }
 
-    private fun play(file: File, surface: Surface) {
+    private fun play(source: (MediaPlayer) -> Unit, surface: Surface) {
         if (finished) return
         val mp = MediaPlayer()
         player = mp
         try {
-            mp.setDataSource(file.path)
+            source(mp)
             mp.setSurface(surface)
             if (!sound) mp.setVolume(0f, 0f)
             mp.setOnPreparedListener { it.start() }
@@ -349,6 +350,20 @@ class Intro(
         fun videoFile(ctx: Context): File? =
             listOfNotNull(File(ctx.filesDir, FILE), ctx.getExternalFilesDir(null)?.let { File(it, FILE) })
                 .firstOrNull { it.isFile && it.length() > 0 }
+
+        /**
+         * What to feed the player, by [Prefs.introSource]: the user's video, or the brand's film from the
+         * APK (also when a video was chosen but none is there); null for the wordmark alone.
+         */
+        fun source(ctx: Context): ((MediaPlayer) -> Unit)? {
+            val prefs = Prefs(ctx)
+            val own = if (prefs.introSource == Prefs.INTRO_VIDEO) videoFile(ctx) else null
+            return when {
+                prefs.introSource == Prefs.INTRO_WORDMARK -> null
+                own != null -> { mp -> mp.setDataSource(own.path) }
+                else -> { mp -> Brand.openVideo(ctx, prefs.brand).use { mp.setDataSource(it.fileDescriptor, it.startOffset, it.length) } }
+            }
+        }
 
         /** Identifies the current boot, so the intro plays once per boot. */
         fun bootStamp(ctx: Context): Long =

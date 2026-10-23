@@ -26,6 +26,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -51,6 +52,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         private const val EXTRA_WAKE = "com.getisolated.canvasos.WAKE"
         /** From the settings ("Personnaliser le Centre de contrôle"): the home opens with the Control Center in edit mode. */
         const val EXTRA_EDIT_CC = "com.getisolated.canvasos.EDIT_CC"
+        /** From the phone page's « Ouvrir » ([PhoneServer]): open the grid entry [EXTRA_KEY] as OK on its tile would. */
+        const val ACTION_OPEN = "com.getisolated.canvasos.OPEN"
+        const val EXTRA_KEY = "com.getisolated.canvasos.KEY"
         private const val REQUEST_BLUETOOTH = 41
 
         /**
@@ -254,6 +258,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.action == ACTION_OPEN) pendingOpen = intent.getStringExtra(EXTRA_KEY)
         Tween.readScale(this)
         prefs = Prefs(this)
         repo = AppRepo(this)
@@ -845,6 +850,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             main.post {
                 val focusedPkg = adapter.apps.getOrNull(focusedPos)?.pkg
                 adapter.submit(list, changed)
+                pendingOpen?.let { pendingOpen = null; openFromPhone(it) }
                 val idx = if (first) 0 else list.indexOfFirst { it.pkg == focusedPkg }.coerceAtLeast(0)
                 // An open folder follows the grid; one that was deleted or emptied closes.
                 folderView?.let { fv ->
@@ -913,9 +919,10 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     /**
      * Opens [app] from its tile, or switches to it for a TV input. [recent] is what "Récents" brings
-     * to the front once it has opened: the app itself, or the folder it was opened from.
+     * to the front once it has opened: the app itself, or the folder it was opened from. Without a
+     * [cell] (opened from the phone) the app opens without zooming out of a tile.
      */
-    private fun launch(app: AppEntry, cell: TileCell, recent: String) {
+    private fun launch(app: AppEntry, cell: TileCell?, recent: String) {
         app.input?.let { i -> io.execute { tv.setInput(i) }; return }
         // The stock launcher (Xiaomi's PatchWall) can only be opened through the system Home action.
         if (HomeGuardService.isStockHome(app.pkg) && HomeGuardService.openStockLauncher()) {
@@ -923,9 +930,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             return
         }
         val intent = repo.launchIntent(app) ?: return
-        val opts = ActivityOptions.makeScaleUpAnimation(cell.card, 0, 0, cell.card.width, cell.card.height)
+        val opts = cell?.let { ActivityOptions.makeScaleUpAnimation(it.card, 0, 0, it.card.width, it.card.height) }
         try {
-            startActivity(intent, opts.toBundle())
+            startActivity(intent, opts?.toBundle())
             rememberOpened(recent)
         } catch (e: Exception) {
             Toast.makeText(this, "Impossible d'ouvrir ${app.label}", Toast.LENGTH_SHORT).show()
@@ -1363,6 +1370,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         focusAt(focusedPos)
     }
 
+    /** The up of an injected long OK handled in [dispatchKeyEvent] is still to come and must not click. */
+    private var dropOkUp = false
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         restartIdle()
         // Any key skips the intro to its closing zoom; nothing behind it reacts meanwhile.
@@ -1382,6 +1392,25 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             return true
         }
         if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU) return true
+        // A long OK injected by `input keyevent --longpress` (the phone page's trackpad, held still).
+        // On Android 9 and 10, `input` sends the down, the long-press repeat and the up at the same
+        // instant, so a view's own long-press timer never fires and it would see a plain click. A
+        // repeat flagged as a long press at the very time of its down cannot come from a remote
+        // (its repeats arrive after the long-press timeout): the focused view gets the long click
+        // directly, its pending click is cancelled, and the up that follows is dropped. Views
+        // without a long-click listener (the player times its own holds) are left alone.
+        if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
+            if (event.action == KeyEvent.ACTION_UP && dropOkUp) { dropOkUp = false; return true }
+            val v = currentFocus
+            if (event.action == KeyEvent.ACTION_DOWN && event.isLongPress && v != null && v.isLongClickable &&
+                event.eventTime - event.downTime < ViewConfiguration.getLongPressTimeout() / 2
+            ) {
+                super.dispatchKeyEvent(KeyEvent.changeFlags(KeyEvent.changeAction(event, KeyEvent.ACTION_UP), event.flags or KeyEvent.FLAG_CANCELED))
+                dropOkUp = true
+                v.performLongClick()
+                return true
+            }
+        }
         // The Control Center's grid: edit mode takes the arrows and OK first; otherwise a control
         // keeps the keys it uses (the slider's Left and Right) and the panel moves focus with the rest.
         if (control.isOpen && sheets.isEmpty() && folderView == null) {
@@ -1397,6 +1426,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (intent.getBooleanExtra(Intro.EXTRA_PREVIEW, false)) { playIntro(preview = true); return }
         if (intent.getBooleanExtra(EXTRA_WAKE, false)) return  // onResume plays the intro
         if (intent.getBooleanExtra(EXTRA_EDIT_CC, false)) { editControlCenter(); return }
+        if (intent.action == ACTION_OPEN) { openFromPhone(intent.getStringExtra(EXTRA_KEY).orEmpty()); return }
         checkCustomTiles()
         // Home pressed while already home: close everything and go back to the top.
         sheets.toList().forEach { it.dismiss() }
@@ -1411,6 +1441,28 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         grid.postDelayed({ focusAt(0) }, 400)
     }
 
+    /**
+     * The phone page's « Ouvrir »: what OK on the tile does, over whatever the home screen had open.
+     * An app in a folder counts as opened from its folder for "Récents", as on the TV.
+     */
+    /** An « Ouvrir » that started the activity itself: served once the grid is loaded ([reload]). */
+    private var pendingOpen: String? = null
+
+    private fun openFromPhone(key: String) {
+        sheets.toList().forEach { it.dismiss() }
+        control.close()
+        if (moving >= 0) endMove()
+        val pos = adapter.apps.indexOfFirst { it.pkg == key }
+        val entry = adapter.apps.getOrNull(pos)
+        when {
+            entry?.folder != null -> openFolder(pos)
+            entry != null -> launch(entry, null, entry.pkg)
+            else -> adapter.apps.firstOrNull { f -> f.folder?.any { it.pkg == key } == true }?.let { f ->
+                launch(f.folder!!.first { it.pkg == key }, null, f.pkg)
+            }
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         Guard.ensure(this)
@@ -1419,6 +1471,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     override fun onResume() {
         super.onResume()
+        Foreground.resumed(this)
         // Renamed or recoloured in the settings meanwhile, or switched over adb.
         if (prefs.currentProfile != shownProfile) showProfile() else showAvatar()
         adapter.tvosFocus = prefs.focusTvos(this)
@@ -1451,6 +1504,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         main.removeCallbacks(ticker)
         main.removeCallbacks(shelfAdvance)
         Banners.detach(root)
+        Foreground.paused(this)
         super.onPause()
     }
 

@@ -9,6 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -19,7 +22,7 @@ import java.util.concurrent.Executors
 /**
  * Keeps the launcher process alive, cleans memory when the TV goes to
  * standby (the remote's power key only turns the screen off) and on a timer,
- * and keeps the phone page ([PhoneServer]) listening.
+ * and keeps the phone page ([PhoneServer]) listening, and findable ([Mdns]) when the network changes.
  */
 class KeeperService : Service() {
     private val main = Handler(Looper.getMainLooper())
@@ -65,6 +68,38 @@ class KeeperService : Service() {
         }
     }
 
+    /**
+     * Any change of network: looked at once things settle ([addressCheck]), so a Wi-Fi blip that
+     * comes back with the same address goes unnoticed. Called on a system thread.
+     */
+    private val network = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(n: Network) = settle()
+        override fun onLinkPropertiesChanged(n: Network, lp: LinkProperties) = settle()
+        override fun onLost(n: Network) = settle()
+
+        private fun settle() {
+            main.removeCallbacks(addressCheck)
+            main.postDelayed(addressCheck, NETWORK_SETTLE)
+        }
+    }
+
+    /**
+     * Keeps [Prefs.lastLanIp] and reopens [Mdns] on the new interface. When the address really
+     * changed (not offline: that is no new address) and the phone page is on, a banner says so:
+     * phones that kept the old address must use canvasos.local or scan again.
+     */
+    private val addressCheck = Runnable {
+        val ip = Net.lanAddress(this) ?: return@Runnable
+        val last = prefs.lastLanIp
+        if (ip != last) {
+            prefs.lastLanIp = ip
+            if (last.isNotEmpty() && prefs.phoneServer) Banners.notice(this, "Page téléphone : nouvelle adresse",
+                "Le téléviseur a changé d'adresse ($ip). canvasos.local marche toujours ; " +
+                    "sinon rescannez le QR code dans Réglages de l'accueil → Page téléphone.")
+        }
+        worker.execute { Mdns.restart(applicationContext) }
+    }
+
     override fun onCreate() {
         super.onCreate()
         prefs = Prefs(this)
@@ -77,6 +112,8 @@ class KeeperService : Service() {
             .build())
         registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
         contentResolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ADB_ENABLED), false, adbObserver)
+        // Reports the current network at once, which records the first address seen.
+        runCatching { getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(network) }
         Guard.ensure(this)
         schedule()
         scheduleUpdateCheck()
@@ -121,6 +158,8 @@ class KeeperService : Service() {
         contentResolver.unregisterContentObserver(adbObserver)
         main.removeCallbacks(periodic)
         main.removeCallbacks(updateCheck)
+        main.removeCallbacks(addressCheck)
+        runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(network) }
         worker.shutdown()
         super.onDestroy()
     }
@@ -132,6 +171,8 @@ class KeeperService : Service() {
         const val ACTION_RESCHEDULE = "reschedule"
         private const val UPDATE_EVERY = 24 * 3_600_000L
         private const val OFFLINE_RETRY = 30 * 60_000L
+        /** How long the network must stay quiet before its address counts. */
+        private const val NETWORK_SETTLE = 5_000L
 
         fun start(ctx: Context, action: String? = null) {
             ctx.startForegroundService(Intent(ctx, KeeperService::class.java).setAction(action))

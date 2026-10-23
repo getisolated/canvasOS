@@ -410,12 +410,15 @@ class ConfigReceiver : BroadcastReceiver() {
         if (i.hasExtra("clock_24")) prefs.clock24 = i.getBooleanExtra("clock_24", false)
         if (i.hasExtra("dock_recents")) prefs.dockRecents = i.getBooleanExtra("dock_recents", true)
         i.getStringExtra("intro")?.let { prefs.intro = it; prefs.introBoot = Intro.bootStamp(c) }
-        i.getStringExtra("intro_source")?.let { prefs.introSource = it }
+        i.getStringExtra("intro_source")?.takeIf { it in Prefs.INTRO_SOURCES }?.let { prefs.introSource = it }
+        i.getStringExtra("brand")?.takeIf { it in Brand.ALL }?.let { prefs.brand = it }
+        i.getStringExtra("settings_icon")?.takeIf { it in Prefs.ICON_SOURCES }?.let { prefs.settingsIcon = it }
         i.getStringExtra("background")?.takeIf { it in Wallpapers.SOURCES || it in Backgrounds.THEMES }?.let {
             prefs.background = it
             Wallpapers.trimExcept(c, it)
         }
-        if (i.hasExtra("own_icon")) prefs.ownIcon = i.getBooleanExtra("own_icon", true)
+        // The former switch for the settings icon: true the imported picture, false the gear.
+        if (i.hasExtra("own_icon")) prefs.settingsIcon = if (i.getBooleanExtra("own_icon", true)) Prefs.ICON_OWN else Prefs.ICON_GEAR
         if (i.hasExtra("intro_sound")) prefs.introSound = i.getBooleanExtra("intro_sound", true)
         if (i.hasExtra("wake_delay")) prefs.wakeDelay = i.getIntExtra("wake_delay", 5000)
         // The Top Shelf's TMDB key; an empty string removes it. Never echoed back, only whether there is one.
@@ -431,7 +434,7 @@ class ConfigReceiver : BroadcastReceiver() {
         Guard.ensure(c)
         resultData = "guard=${prefs.guard} keep_adb=${prefs.keepAdb} secure_settings=${Guard.hasSecureSettings(c)} " +
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
-            "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} own_icon=${prefs.ownIcon} low_end=${Device.isLowEnd(c)} " +
+            "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} brand=${prefs.brand} settings_icon=${prefs.settingsIcon} low_end=${Device.isLowEnd(c)} " +
             "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents} " +
             "tmdb_key=${if (prefs.tmdbKey.isNotEmpty()) "set" else "unset"} shelf=${prefs.shelfMode} unsplash_key=${if (prefs.unsplashKey.isNotEmpty()) "set" else "unset"}"
         // Lecture en cours and banners (Réglages → Lecture et notifications); both need the listener.

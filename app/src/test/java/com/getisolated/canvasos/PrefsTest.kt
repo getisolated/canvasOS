@@ -36,7 +36,8 @@ class PrefsTest {
         assertTrue(p.dockRecents)
         assertTrue(p.weather)
         assertTrue(p.introSound)
-        assertTrue(p.ownIcon)
+        assertEquals(Brand.CANVASOS, p.brand)
+        assertEquals(Prefs.ICON_BRAND, p.settingsIcon)
         assertEquals(4, p.cleanIntervalHours)
         assertEquals("daily", p.background)
         assertEquals(30, p.wallMinutes)
@@ -45,7 +46,7 @@ class PrefsTest {
         assertEquals(Prefs.CLOCK_CORNER, p.clockStyle)
         assertEquals(Prefs.AUTO, p.ccStyle)
         assertEquals(Prefs.AUTO, p.focusStyle)
-        assertEquals(Prefs.INTRO_VIDEO, p.introSource)
+        assertEquals(Prefs.INTRO_BRAND, p.introSource)
         assertEquals(5000, p.wakeDelay)
         assertEquals(0L, p.sleepAt)
         assertEquals(0L, p.updateCheckedAt)
@@ -257,7 +258,34 @@ class PrefsTest {
         assertEquals(3, setOf(Prefs.AUTO, Prefs.CC_GLASS, Prefs.CC_PANEL).size)
         assertEquals(3, setOf(Prefs.AUTO, Prefs.FOCUS_TVOS, Prefs.FOCUS_SIMPLE).size)
         assertEquals(3, setOf(Prefs.INTRO_OFF, Prefs.INTRO_BOOT, Prefs.INTRO_WAKE).size)
-        assertEquals(2, setOf(Prefs.INTRO_VIDEO, Prefs.INTRO_WORDMARK).size)
+        assertEquals(3, Prefs.INTRO_SOURCES.toSet().size)
+        assertEquals(3, Prefs.ICON_SOURCES.toSet().size)
+        assertEquals(2, Brand.ALL.toSet().size)
+    }
+
+    /** The brand, the icon and the intro source only ever hold a known value; unknown ones fall back. */
+    @Test fun brandIconAndIntroSourceRejectUnknownValues() {
+        val p = prefs()
+        p.brand = Brand.TVOS
+        assertEquals(Brand.TVOS, p.brand)
+        p.brand = "webos"
+        assertEquals(Brand.CANVASOS, p.brand)
+        p.settingsIcon = Prefs.ICON_GEAR
+        assertEquals(Prefs.ICON_GEAR, p.settingsIcon)
+        p.settingsIcon = "photo"
+        assertEquals(Prefs.ICON_BRAND, p.settingsIcon)
+        p.introSource = Prefs.INTRO_WORDMARK
+        assertEquals(Prefs.INTRO_WORDMARK, p.introSource)
+        p.introSource = "gif"
+        assertEquals(Prefs.INTRO_BRAND, p.introSource)
+    }
+
+    /** Settings saved before the brand existed: a stored intro source stays, the old own_icon switch alone no longer picks a picture that is not there. */
+    @Test fun settingsFromBeforeTheBrandKeepTheirMeaning() {
+        ctx.store.edit().putString("intro_source", Prefs.INTRO_VIDEO).putBoolean("own_icon", false).apply()
+        val p = prefs()
+        assertEquals(Prefs.INTRO_VIDEO, p.introSource)
+        assertEquals(Prefs.ICON_BRAND, p.settingsIcon)
         assertEquals(2, setOf(Prefs.SAVER_PHOTOS, Prefs.SAVER_AERIAL).size)
     }
 }

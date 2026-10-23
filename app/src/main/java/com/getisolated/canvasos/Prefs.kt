@@ -178,15 +178,33 @@ class Prefs(ctx: Context) {
         get() = sp.getString("intro", INTRO_OFF)!!
         set(v) = sp.edit().putString("intro", v).apply()
 
-    /** What plays: the uploaded video ([INTRO_VIDEO], the wordmark when there is none) or the canvasOS wordmark ([INTRO_WORDMARK]). */
-    var introSource: String
-        get() = sp.getString("intro_source", INTRO_VIDEO)!!
-        set(v) = sp.edit().putString("intro_source", v).apply()
+    /**
+     * The look shipped in the APK ([Brand.CANVASOS] or [Brand.TVOS]): its title card is the settings icon
+     * and its film the boot animation, unless [settingsIcon] or [introSource] says otherwise.
+     */
+    var brand: String
+        get() = sp.getString("brand", Brand.CANVASOS)!!.takeIf { it in Brand.ALL } ?: Brand.CANVASOS
+        set(v) = sp.edit().putString("brand", v.takeIf { it in Brand.ALL } ?: Brand.CANVASOS).apply()
 
-    /** The settings icon: the user's own picture when there is one (true), or the built-in gear. */
-    var ownIcon: Boolean
-        get() = sp.getBoolean("own_icon", true)
-        set(v) = sp.edit().putBoolean("own_icon", v).apply()
+    /**
+     * What plays: the chosen brand's film ([INTRO_BRAND]), the uploaded video ([INTRO_VIDEO], the
+     * brand's film when there is none) or the canvasOS wordmark ([INTRO_WORDMARK]). Unset, it is the
+     * uploaded video when one was imported before this choice existed, else the brand's film.
+     */
+    var introSource: String
+        get() = sp.getString("intro_source", null)?.takeIf { it in INTRO_SOURCES }
+            ?: if (runCatching { Intro.videoFile(appCtx) }.getOrNull() != null) INTRO_VIDEO else INTRO_BRAND
+        set(v) = sp.edit().putString("intro_source", v.takeIf { it in INTRO_SOURCES } ?: INTRO_BRAND).apply()
+
+    /**
+     * The settings icon: the chosen brand's title card ([ICON_BRAND]), the user's own picture
+     * ([ICON_OWN], the title card when there is none) or the built-in gear ([ICON_GEAR]). Unset, a
+     * picture imported before this choice existed stays in use (the former own_icon switch).
+     */
+    var settingsIcon: String
+        get() = sp.getString("settings_icon", null)?.takeIf { it in ICON_SOURCES }
+            ?: if (sp.getBoolean("own_icon", true) && runCatching { SettingsActivity.iconFile(appCtx) }.getOrNull() != null) ICON_OWN else ICON_BRAND
+        set(v) = sp.edit().putString("settings_icon", v.takeIf { it in ICON_SOURCES } ?: ICON_BRAND).apply()
 
     /**
      * How long the screen stays black on wake before the intro starts. Many panels (OLED especially)
@@ -220,6 +238,14 @@ class Prefs(ctx: Context) {
     var phoneServer: Boolean
         get() = sp.getBoolean("phone_server", true)
         set(v) = sp.edit().putBoolean("phone_server", v).apply()
+
+    /**
+     * The TV's LAN IPv4 last seen by [KeeperService] ("" = none yet), kept whether the phone page is on
+     * or not, so a change shows a banner: phones that bookmarked the old address must scan again.
+     */
+    var lastLanIp: String
+        get() = sp.getString("last_lan_ip", "")!!
+        set(v) = sp.edit().putString("last_lan_ip", v).apply()
 
     /**
      * "Récents": an app that opens successfully moves to the front of the grid (the default, as in
@@ -471,8 +497,14 @@ class Prefs(ctx: Context) {
         const val INTRO_OFF = "off"
         const val INTRO_BOOT = "boot"
         const val INTRO_WAKE = "wake"
+        const val INTRO_BRAND = "brand"
         const val INTRO_VIDEO = "video"
         const val INTRO_WORDMARK = "wordmark"
+        val INTRO_SOURCES = listOf(INTRO_BRAND, INTRO_VIDEO, INTRO_WORDMARK)
+        const val ICON_BRAND = "brand"
+        const val ICON_OWN = "own"
+        const val ICON_GEAR = "gear"
+        val ICON_SOURCES = listOf(ICON_BRAND, ICON_OWN, ICON_GEAR)
 
         /**
          * Apps that serve in the background, so memory cleanup must not stop them. Adding one here is
