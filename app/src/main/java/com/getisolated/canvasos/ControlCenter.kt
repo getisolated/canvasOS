@@ -426,6 +426,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
     }
 
+    fun backgroundChanging(durationMs: Long, finalScene: (Canvas) -> Unit) { refreshGlass() }
+
     /**
      * Captures the home screen behind the controls at a quarter of its size and blurs it, on the
      * UI thread: a few milliseconds, once per opening at most.

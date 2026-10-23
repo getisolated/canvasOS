@@ -14,9 +14,7 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.Shader
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.TransitionDrawable
 import android.graphics.Rect
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -110,7 +108,11 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private var scrollY = 0
     private var shownBackground: String? = null
     @Volatile private var refreshing = false
-    private var bgPhoto: android.graphics.drawable.Drawable? = null
+    /** The wallpaper the background shows, or is fading to. */
+    private var bgShown: Bitmap? = null
+    /** The background's fade, while one may be under way; [drawFinalScene] draws it at its end. */
+    private var bgFade: FadeDrawable? = null
+    private val bgTween = Tween()
     private var sw = 0
     private var sh = 0
 
@@ -120,12 +122,18 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private var dockRadius = 0f
     /** The glass baked over the home picture, kept for when the shelf goes away. */
     @Volatile private var homeDock: Bitmap? = null
-    private var dockShown: Drawable? = null
+    /** The glass the dock shows, or is fading to. */
+    private var dockShown: Bitmap? = null
+    private var dockFade: FadeDrawable? = null
+    private val dockTween = Tween()
 
     /** Top Shelf: content of the focused dock app filling the screen above the dock. */
     private lateinit var shelf: FrameLayout
     private lateinit var shelfPics: FrameLayout
     private var shelfFront: ImageView? = null
+    /** The dock's glass over [shelfFront]'s picture, baked before the picture shows. */
+    private var shelfGlass: Bitmap? = null
+    private val shelfTween = Tween()
     private lateinit var shelfSource: TextView
     private lateinit var shelfTitle: TextView
     private lateinit var shelfMeta: TextView
@@ -140,6 +148,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private var shelfIndex = 0
     private var shelfShown = false
     private val shelfShow = Runnable { pendingShelf?.let { showShelf(it) } }
+    /** How the shelf comes and goes (a ViewPropertyAnimator's default curve, as it had). */
+    private val shelfCurve = android.view.animation.AccelerateDecelerateInterpolator()
     private val shelfAdvance = object : Runnable {
         override fun run() {
             if (!shelfShown || shelfItems.size < 2) return
@@ -157,9 +167,11 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                 }
                 val pic = b
                 val at = next
+                // Baked before the picture moves, so the dock's glass changes with it, not after it.
+                val glass = pic?.let { bakeDock(it) }
                 main.post {
                     if (shelfPkg == pkg && shelfShown && !control.isOpen && shelfItems === items) {
-                        if (pic != null) showShelfItem(at, pic)
+                        if (pic != null && glass != null) showShelfItem(at, pic, glass)
                         main.postDelayed(this, SHELF_SECONDS * 1000L)
                     }
                 }
@@ -502,39 +514,79 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         shownBackground = key
         io.execute {
             val bmp = photo?.let { Wallpapers(this, Wallpapers.sourceFor(theme)).forHome(it) } ?: Backgrounds.render(if (Wallpapers.isPhoto(theme)) "green" else theme)
-            val glass = LiquidGlass.bake(bmp, sw, sh, dockRect, dockRadius).also { it.prepareToDraw() }
+            // Baked before anything moves: the dock's glass changes with the picture, not after it.
+            val glass = bakeDock(bmp)
             homeDock = glass
             main.post {
-                if (!shelfShown) setDock(glass, 1200)
-                val old = bgPhoto
-                val next = android.graphics.drawable.BitmapDrawable(resources, bmp)
-                if (old == null) {
-                    bg.setImageDrawable(next)
-                    bg.alpha = 0f
-                    bg.animate().alpha(1f).setDuration(300).start()
-                } else {
-                    val fade = android.graphics.drawable.TransitionDrawable(arrayOf(old, next))
-                    fade.isCrossFadeEnabled = true
-                    bg.setImageDrawable(fade)
-                    fade.startTransition(1200)
-                }
-                bgPhoto = next
-                root.postDelayed({ if (!isDestroyed) control.refreshGlass() }, 1250)
+                if (isDestroyed) return@post
+                // The first picture rises from black; the next ones cross-fade over 1.2 s.
+                val first = bgShown == null
+                val ms = if (first) 300L else 1200L
+                val curve = if (first) android.view.animation.AccelerateDecelerateInterpolator() else android.view.animation.LinearInterpolator()
+                val pic = FadeDrawable(bgShown, bmp).also { bg.setImageDrawable(it) }
+                bgFade = pic
+                bgShown = bmp
+                // Under the shelf the dock refracts the shelf's picture: homeDock waits for the shelf to go.
+                val glassFade = if (shelfShown) null else stageDock(glass)
+                if (!shelfShown) control.backgroundChanging(ms) { drawFinalScene(it) }
+                runFade(bgTween, pic, ms, curve)
+                glassFade?.let { runFade(dockTween, it, ms, curve) }
             }
         }
     }
 
-    private fun setDock(b: Bitmap, fadeMs: Int) {
-        val next = BitmapDrawable(resources, b)
-        val old = dockShown
-        if (old == null) {
-            dock.setImageDrawable(next)
-        } else {
-            val fade = TransitionDrawable(arrayOf(old, next)).apply { isCrossFadeEnabled = true }
-            dock.setImageDrawable(fade)
-            fade.startTransition(fadeMs)
-        }
-        dockShown = next
+    /** The dock's glass over [picture] (shown centre-cropped, full screen); blocking, off the main thread. */
+    private fun bakeDock(picture: Bitmap): Bitmap =
+        LiquidGlass.bake(picture, sw, sh, dockRect, dockRadius).also { it.prepareToDraw() }
+
+    /**
+     * Puts [glass] in the dock over the glass it shows, not drawn yet: nothing changes until
+     * [runFade] starts it, in the same frame and on the same curve as the picture it refracts.
+     */
+    private fun stageDock(glass: Bitmap): FadeDrawable =
+        FadeDrawable(dockShown, glass).also { dock.setImageDrawable(it); dockFade = it; dockShown = glass }
+
+    private fun runFade(t: Tween, f: FadeDrawable, ms: Long, curve: android.animation.TimeInterpolator) =
+        t.start(ms, curve, end = { f.from = null }) { f.progress = it }
+
+    /**
+     * Draws the home scene into [canvas] as [prepare] leaves it, then undoes it with [restore]:
+     * one call on the UI thread, so no frame on screen ever shows the change.
+     */
+    private fun drawScene(canvas: Canvas, prepare: () -> Unit, restore: () -> Unit) {
+        prepare()
+        try { scene.draw(canvas) } finally { restore() }
+    }
+
+    /**
+     * The home scene as the transitions under way will leave it: the background and the dock at
+     * the end of their fades, the shelf shown with its front picture settled, or gone. The Control
+     * Center's glass takes it as its target ([ControlCenter.backgroundChanging]), so it changes
+     * with the background instead of after it. Read when called: a later transition's end wins.
+     */
+    private fun drawFinalScene(canvas: Canvas) {
+        val undo = ArrayList<() -> Unit>()
+        fun alpha(v: View, a: Float) { val o = v.alpha; if (o != a) { v.alpha = a; undo += { v.alpha = o } } }
+        drawScene(canvas, prepare = {
+            // Settled without an invalidate: the views on screen are not redrawn for this.
+            listOfNotNull(bgFade, dockFade).forEach { f -> if (!f.settled) { f.settled = true; undo += { f.settled = false } } }
+            if (shelfShown) {
+                alpha(shelf, 1f)
+                alpha(bigClock, 0f)
+                val front = shelfFront
+                for (k in 0 until shelfPics.childCount) shelfPics.getChildAt(k).let { alpha(it, if (it === front) 1f else 0f) }
+                front?.let { v ->
+                    val sx = v.scaleX; val sy = v.scaleY
+                    if (sx != 1f || sy != 1f) { v.scaleX = 1f; v.scaleY = 1f; undo += { v.scaleX = sx; v.scaleY = sy } }
+                }
+                alpha(shelfInfo, 1f)
+                val ty = shelfInfo.translationY
+                if (ty != 0f) { shelfInfo.translationY = 0f; undo += { shelfInfo.translationY = ty } }
+            } else {
+                alpha(shelf, 0f)
+                alpha(bigClock, dock.alpha)
+            }
+        }, restore = { undo.asReversed().forEach { it() } })
     }
 
     // ------------------------------------------------------------------- shelf
@@ -588,10 +640,12 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             }
             val pic = first
             val at = start
+            // Baked before the shelf appears, so the dock's glass comes with it, not after it.
+            val glass = pic?.let { bakeDock(it) }
             main.post {
                 if (shelfLoading != pkg || control.isOpen) return@post
                 shelfLoading = null
-                if (content == null || pic == null) {
+                if (content == null || pic == null || glass == null) {
                     // The focused app has nothing to show: the previous app's shelf fades out now.
                     if (adapter.apps.getOrNull(focusedPos)?.pkg == pkg) hideShelf()
                     return@post
@@ -604,7 +658,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                     shelfDots.addView(View(this).apply { background = rounded(Color.WHITE, dp(4).toFloat()) },
                         LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginStart = dp(7) })
                 }
-                showShelfItem(at, pic)
+                showShelfItem(at, pic, glass)
                 setShelfVisible(true)
                 main.removeCallbacks(shelfAdvance)
                 main.postDelayed(shelfAdvance, SHELF_SECONDS * 1000L)
@@ -612,21 +666,25 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         }
     }
 
-    private fun showShelfItem(i: Int, b: Bitmap) {
+    /**
+     * Shows item [i] with its picture [b] and [glass], the dock's glass over it. While the shelf is
+     * shown, the dock's glass and the Control Center's follow the picture on the same frames; while
+     * it is appearing, [setShelfVisible] brings the glass along with the shelf.
+     */
+    private fun showShelfItem(i: Int, b: Bitmap, glass: Bitmap) {
         val item = shelfItems.getOrNull(i) ?: return
         shelfIndex = i
         // The new picture fades in over the old one, settling from a slight zoom.
         val old = shelfFront
-        val pic = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setImageBitmap(b) }
+        val pic = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setImageBitmap(b)
+            alpha = 0f
+            scaleX = 1.04f; scaleY = 1.04f
+        }
         shelfPics.addView(pic, FrameLayout.LayoutParams(-1, -1))
         shelfFront = pic
-        pic.alpha = 0f
-        pic.scaleX = 1.04f; pic.scaleY = 1.04f
-        pic.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(if (old == null) 0 else 700).setInterpolator(Motion.ease)
-            .withEndAction {
-                if (old != null) shelfPics.removeView(old)
-                if (old != null) control.refreshGlass()
-            }.start()
+        shelfGlass = glass
         shelfInfo.animate().cancel()
         shelfInfo.alpha = 0f
         shelfInfo.translationY = dp(10).toFloat()
@@ -634,13 +692,16 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         shelfMeta.text = item.meta
         shelfInfo.animate().alpha(1f).translationY(0f).setDuration(450).setStartDelay(150).start()
         for (k in 0 until shelfDots.childCount) shelfDots.getChildAt(k).alpha = if (k == i) 1f else 0.35f
-        // The dock refracts the new picture.
-        val pkg = shelfPkg
-        io.execute {
-            // The picture already carries the scrim (see Shelf.darken).
-            val glass = LiquidGlass.bake(b, sw, sh, dockRect, dockRadius).also { it.prepareToDraw() }
-            main.post { if (shelfShown && shelfPkg == pkg && shelfIndex == i) setDock(glass, 600) }
+        val ms = if (old == null) 0L else 700L
+        // The dock refracts the new picture: staged now, moved with it.
+        val glassFade = if (shelfShown) stageDock(glass) else null
+        if (shelfShown) control.backgroundChanging(ms) { drawFinalScene(it) }
+        // One Tween per picture: a newer one starting does not cut this one short.
+        Tween().start(ms, Motion.ease, end = { if (old != null) shelfPics.removeView(old) }) { p ->
+            pic.alpha = p
+            pic.scaleX = lerp(1.04f, 1f, p); pic.scaleY = pic.scaleX
         }
+        glassFade?.let { runFade(dockTween, it, ms, Motion.ease) }
         // Fetch the next picture ahead of time.
         shelfItems.getOrNull((i + 1) % shelfItems.size)?.let { n -> net.execute { Shelf.image(this, n.image) } }
     }
@@ -649,21 +710,26 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (v == shelfShown) return
         shelfShown = v
         if (v) shelf.visibility = View.VISIBLE else bg.visibility = View.VISIBLE
-        shelf.animate().cancel()
         // The large clock gives way to the shelf.
         bigClock.animate().alpha(if (v) 0f else dock.alpha).setDuration(350).start()
-        shelf.animate().alpha(if (v) 1f else 0f).setDuration(if (v) 500 else 350)
-            .withEndAction {
-                // The shelf covers the whole screen: stop drawing the photo underneath it.
-                if (shelfShown) bg.visibility = View.INVISIBLE
-                if (!shelfShown) {
-                    shelf.visibility = View.INVISIBLE
-                    shelfPics.removeAllViews()
-                    shelfFront = null
-                }
-                if (!isDestroyed) control.refreshGlass()
-            }.start()
-        if (!v) homeDock?.let { setDock(it, 450) }
+        // The shelf, the dock's glass and the Control Center's glass change together: staged, then
+        // started in the same frame with the same duration and curve.
+        val ms = if (v) 500L else 350L
+        val curve = shelfCurve
+        val glassFade = (if (v) shelfGlass else homeDock)?.let { stageDock(it) }
+        control.backgroundChanging(ms) { drawFinalScene(it) }
+        val a0 = shelf.alpha
+        val a1 = if (v) 1f else 0f
+        shelfTween.start(ms, curve, end = {
+            // The shelf covers the whole screen: stop drawing the photo underneath it.
+            if (shelfShown) bg.visibility = View.INVISIBLE
+            else {
+                shelf.visibility = View.INVISIBLE
+                shelfPics.removeAllViews()
+                shelfFront = null
+            }
+        }) { shelf.alpha = lerp(a0, a1, it) }
+        glassFade?.let { runFade(dockTween, it, ms, curve) }
     }
 
     private fun hideShelf() {
@@ -1406,6 +1472,42 @@ class ShelfScrim : Drawable() {
         c.drawRect(0f, 0f, w, h, p)
         p.shader = LinearGradient(0f, 0f, 0f, h * 0.2f, Color.argb(90, 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, p)
+    }
+
+    override fun setAlpha(alpha: Int) {}
+    override fun setColorFilter(cf: ColorFilter?) {}
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity() = PixelFormat.TRANSLUCENT
+}
+
+/**
+ * [to] fading in over [from] as [progress] goes from 0 to 1, each centre-cropped to the bounds.
+ * Drawn over rather than cross-faded: two opaque pictures never dip darker half-way, and a
+ * picture fading in over another (the shelf) blends the same way, so the dock's glass, the
+ * picture it refracts and the Control Center's glass stay identical on every frame.
+ */
+class FadeDrawable(var from: Bitmap?, private val to: Bitmap) : Drawable() {
+    var progress = 0f
+        set(v) { field = v; invalidateSelf() }
+    /** Draws the end of the fade, without invalidating: for a scene drawn off screen. */
+    var settled = false
+    private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+    private val m = android.graphics.Matrix()
+
+    override fun draw(c: Canvas) {
+        val p = if (settled) 1f else progress
+        val f = from
+        if (p < 1f && f != null) cover(c, f, 255)
+        if (p > 0f) cover(c, to, (p * 255).toInt().coerceIn(0, 255))
+    }
+
+    private fun cover(c: Canvas, b: Bitmap, alpha: Int) {
+        val r = bounds
+        val s = maxOf(r.width() / b.width.toFloat(), r.height() / b.height.toFloat())
+        m.setScale(s, s)
+        m.postTranslate(r.left + (r.width() - b.width * s) / 2, r.top + (r.height() - b.height * s) / 2)
+        paint.alpha = alpha
+        c.drawBitmap(b, m, paint)
     }
 
     override fun setAlpha(alpha: Int) {}

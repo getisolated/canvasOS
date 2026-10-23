@@ -331,8 +331,9 @@ class AppRepo(private val ctx: Context) {
 
     /**
      * A folder: its first four apps' own tiles in a 2×2 mosaic on nothing at all (the owner's
-     * choice: no card, no rim). Places left empty stay transparent. Builds the members' tiles it
-     * needs (and caches them for when the folder opens); off the main thread.
+     * choice: no card, no rim). Places left empty show a faint well, so a folder of one or two apps
+     * still reads as a folder. Builds the members' tiles it needs (and caches them for when the
+     * folder opens); off the main thread.
      */
     private fun drawFolderTile(c: Canvas, members: List<AppEntry>) {
         val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -343,17 +344,22 @@ class AppRepo(private val ctx: Context) {
         val w = h * 16f / 9f
         val left = (TILE_W - w * 2 - gap) / 2
         val r = 11f
+        // Only a hint of depth: with nothing behind the mosaic the shadow falls straight on the
+        // wallpaper, where anything darker reads as a black smudge in the gaps.
         val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(110, 0, 0, 0)
-            maskFilter = android.graphics.BlurMaskFilter(7f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+            color = Color.argb(38, 0, 0, 0)
+            maskFilter = android.graphics.BlurMaskFilter(4f, android.graphics.BlurMaskFilter.Blur.NORMAL)
         }
+        // Its own paint: the tiles' paint alpha would also fade the bitmap shader.
+        val well = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(30, 255, 255, 255) }
         val m = android.graphics.Matrix()
         for (k in 0 until MOSAIC) {
             val x = left + (k % 2) * (w + gap)
             val y = padY + (k / 2) * (h + gap)
             val dst = RectF(x, y, x + w, y + h)
-            val app = members.getOrNull(k) ?: continue
-            c.drawRoundRect(RectF(dst).apply { offset(0f, 3f) }, r, r, shadow)
+            val app = members.getOrNull(k)
+            if (app == null) { c.drawRoundRect(dst, r, r, well); continue }
+            c.drawRoundRect(RectF(dst).apply { offset(0f, 1.5f) }, r, r, shadow)
             val src = tile(app)
             // A shader rather than a clip: Canvas clips are not anti-aliased, the rounded rect is.
             p.shader = android.graphics.BitmapShader(src, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP).apply {
