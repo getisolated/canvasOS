@@ -415,7 +415,6 @@ class ConfigReceiver : BroadcastReceiver() {
             prefs.background = it
             Wallpapers.trimExcept(c, it)
         }
-        if (i.hasExtra("settings_bg")) prefs.settingsBg = i.getBooleanExtra("settings_bg", true)
         if (i.hasExtra("own_icon")) prefs.ownIcon = i.getBooleanExtra("own_icon", true)
         if (i.hasExtra("intro_sound")) prefs.introSound = i.getBooleanExtra("intro_sound", true)
         if (i.hasExtra("wake_delay")) prefs.wakeDelay = i.getIntExtra("wake_delay", 5000)
@@ -432,7 +431,7 @@ class ConfigReceiver : BroadcastReceiver() {
         Guard.ensure(c)
         resultData = "guard=${prefs.guard} keep_adb=${prefs.keepAdb} secure_settings=${Guard.hasSecureSettings(c)} " +
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
-            "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} own_icon=${prefs.ownIcon} settings_bg=${prefs.settingsBg} low_end=${Device.isLowEnd(c)} " +
+            "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} own_icon=${prefs.ownIcon} low_end=${Device.isLowEnd(c)} " +
             "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents} " +
             "tmdb_key=${if (prefs.tmdbKey.isNotEmpty()) "set" else "unset"} shelf=${prefs.shelfMode} unsplash_key=${if (prefs.unsplashKey.isNotEmpty()) "set" else "unset"}"
         // Lecture en cours and banners (Réglages → Lecture et notifications); both need the listener.

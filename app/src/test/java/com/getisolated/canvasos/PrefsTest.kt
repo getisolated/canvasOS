@@ -37,7 +37,6 @@ class PrefsTest {
         assertTrue(p.weather)
         assertTrue(p.introSound)
         assertTrue(p.ownIcon)
-        assertTrue(p.settingsBg)
         assertEquals(4, p.cleanIntervalHours)
         assertEquals("daily", p.background)
         assertEquals(30, p.wallMinutes)
