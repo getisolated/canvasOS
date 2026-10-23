@@ -18,10 +18,11 @@ import android.widget.Toast
 import com.getisolated.canvasos.tv.TvControls
 
 /**
- * tvOS-style settings: the title centred on top, a large icon on the left with a
- * description of the focused row under it, and rows on the right under small uppercase headers.
- * The top level lists the groups ([Page.title]); each opens a page of rows, and the list pages
- * (keep list, hidden apps…) sit one level below their group. All reuse the same list.
+ * tvOS-style settings, laid out on Apple TV's settings page (1080p measures / 2, see [u]): the
+ * title centred on top, the icon card on the left with a description of the focused row low in
+ * that column, and rows on the right under small uppercase headers, all over the home wallpaper
+ * blurred and darkened. The top level lists the groups ([Page.title]); each opens a page of rows,
+ * and the list pages (keep list, hidden apps…) sit one level below their group. All reuse the same list.
  */
 class SettingsActivity : Activity() {
     companion object {
@@ -30,15 +31,6 @@ class SettingsActivity : Activity() {
         /** Opens the settings on a sub-page rather than the main one: [PAGE_PROFILES]. */
         const val EXTRA_PAGE = "com.getisolated.canvasos.PAGE"
         const val PAGE_PROFILES = "profiles"
-        const val BACKDROP_FILE = "settings_bg.jpg"
-
-        /**
-         * A picture of the user's own behind the whole settings page (Apple TV's, a TV on a blue haze,
-         * say), with the TV where the big icon would be; uploaded from the phone page or pushed over adb.
-         */
-        fun backdropFile(ctx: android.content.Context): java.io.File? =
-            listOfNotNull(java.io.File(ctx.filesDir, BACKDROP_FILE), ctx.getExternalFilesDir(null)?.let { java.io.File(it, BACKDROP_FILE) })
-                .firstOrNull { it.isFile && it.length() > 0 }
 
         /**
          * A picture of the user's own for the settings icon (Apple TV's, say), uploaded from the phone
@@ -61,15 +53,44 @@ class SettingsActivity : Activity() {
             return android.graphics.BitmapFactory.decodeFile(f.path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
         }
 
-        /** A profile's avatar at the start of its row, and as the big icon of the profiles page. */
+        /** A profile's avatar at the start of its row (drawn at this size, shown at [ROW_AVATAR]), and as the big icon of the profiles page. */
         private const val ROW_AVATAR_DP = 36
-        private const val BIG_AVATAR_DP = 120
-        private val IDLE_TEXT = Color.argb(235, 255, 255, 255)
-        private val IDLE_VALUE = Color.argb(140, 255, 255, 255)
-        private val FOCUS_VALUE = Color.argb(140, 0, 0, 0)
-        /** A row at rest: a light translucent pill over the dark page or the picture behind it. */
-        private val IDLE_ROW = Color.argb(28, 255, 255, 255)
-        private val HEADER = Color.argb(130, 255, 255, 255)
+        private const val ROW_AVATAR = 22f
+        private const val BIG_AVATAR = 110f
+
+        // Measured on Apple TV's settings page (white at these alphas over its dark teal background).
+        private val TITLE = Color.argb(85, 255, 255, 255)
+        private val IDLE_TEXT = Color.WHITE
+        private val IDLE_VALUE = Color.argb(95, 255, 255, 255)
+        private val FOCUS_VALUE = Color.argb(125, 0, 0, 0)
+        /** A row at rest: a light translucent fill over the blurred wallpaper. */
+        private val IDLE_ROW = Color.argb(25, 255, 255, 255)
+        private val HEADER = Color.argb(95, 255, 255, 255)
+        private val DESCRIPTION = Color.argb(158, 255, 255, 255)
+        /** Behind everything until the blurred wallpaper is ready, and when there is none. */
+        private val BASE = Color.rgb(22, 27, 36)
+        /** The wallpaper's brightest allowed luminance once blurred: Apple TV's page never goes past about this. */
+        private const val MAX_LUMA = 62f
+
+        // The layout, in units of the 960-wide design (a 1080p screenshot's pixels / 2).
+        private const val TITLE_TOP = 29f
+        private const val LIST_WIDTH = 390f
+        private const val LIST_END = 40f
+        /** Where the scrolling list starts: rows slide up under a short fade below the title. */
+        private const val LIST_TOP = 70f
+        private const val CARD_W = 200f
+        private const val CARD_H = 120f
+        private const val CARD_TOP = 193f
+        private const val ABOUT_TOP = 416f
+        private const val ABOUT_W = 440f
+        private const val ROW_H = 33f
+        private const val ROW_GAP = 7f
+        private const val ROW_RADIUS = 13f
+        private const val ROW_PAD = 16f
+        private const val HEADER_ABOVE = 16f
+        private const val HEADER_BELOW = 8f
+        private const val HEADER_SIZE = 13.5f
+        private const val HEADER_TAG = "header"
         private const val LISTENER_NEEDED = "Écouteur requis (étape 4)"
         private const val PROFILES_ABOUT = "Chaque profil a son propre accueil : l'ordre des apps, les apps masquées, les dossiers, les noms des apps, " +
             "les entrées épinglées et le fond d'écran. Les autres réglages valent pour tous. Un profil enfant demande le code PIN pour changer de profil, " +
@@ -79,12 +100,17 @@ class SettingsActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var repo: AppRepo
     private lateinit var root: FrameLayout
-    private lateinit var body: LinearLayout
+    private lateinit var body: FrameLayout
     private lateinit var list: LinearLayout
     private lateinit var heading: TextView
     private lateinit var about: TextView
     private lateinit var icon: ImageView
+    /** The home wallpaper, blurred and darkened ([loadBackdrop]). */
     private lateinit var backdrop: ImageView
+    /** What [backdrop] shows ("source:file"), so a return from the wallpaper picker redoes it only if it changed. */
+    @Volatile private var backdropKey: String? = null
+    /** Pixels per unit of the 960-wide design: the screen's width / 960, whatever its density. */
+    private var unit = 2f
     private lateinit var scroll: ScrollView
     private var page = Page.MAIN
     /** For each page, the row of its parent page that opened it, focused again on the way back. */
@@ -147,47 +173,58 @@ class SettingsActivity : Activity() {
         prefs = Prefs(this)
         repo = AppRepo(this)
 
-        root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(28, 28, 30)) }
-        backdrop = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.MATRIX
-            addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> placeBackdrop(v as ImageView) }
-        }
+        val m = resources.displayMetrics
+        unit = maxOf(m.widthPixels, m.heightPixels) / 960f
+        root = FrameLayout(this).apply { setBackgroundColor(BASE) }
+        backdrop = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
         root.addView(backdrop, FrameLayout.LayoutParams(-1, -1))
-        heading = text(28f, weight = 600).apply { gravity = Gravity.CENTER }
-        root.addView(heading, FrameLayout.LayoutParams(-1, -2, Gravity.TOP).apply { topMargin = dp(40) })
+        heading = label(28f, TITLE, 600).apply { gravity = Gravity.CENTER }
+        root.addView(heading, FrameLayout.LayoutParams(-1, -2, Gravity.TOP).apply { topMargin = u(TITLE_TOP) })
 
-        body = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val left = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(48), dp(84), dp(32), 0)
-        }
+        // The left column is everything left of the list; the card and the description are centred in it.
+        val column = 960f - LIST_END - LIST_WIDTH
+        body = FrameLayout(this)
         icon = ImageView(this).apply {
             showIcon(this)
             scaleType = ImageView.ScaleType.CENTER_CROP
-            clipRounded(dp(18).toFloat())
-            clipToOutline = true
+            clipRounded(u(17).toFloat())
         }
-        left.addView(icon, LinearLayout.LayoutParams(-1, dp(207)))
-        about = text(15f, Color.argb(150, 255, 255, 255)).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            setLineSpacing(0f, 1.3f)
+        body.addView(icon, FrameLayout.LayoutParams(u(CARD_W), u(CARD_H), Gravity.TOP or Gravity.START).apply {
+            leftMargin = u((column - CARD_W) / 2); topMargin = u(CARD_TOP)
+        })
+        about = label(15f, DESCRIPTION).apply { gravity = Gravity.CENTER_HORIZONTAL }
+        // Low in the column as on tvOS; a description too long for the space left rises towards the card.
+        about.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            val over = v.bottom - (root.height - u(24))
+            v.translationY = -minOf(maxOf(over, 0), maxOf(v.top - u(CARD_TOP + CARD_H + 18), 0)).toFloat()
         }
-        left.addView(about, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(26) })
-        showBackdrop()
-        body.addView(left, LinearLayout.LayoutParams(0, -1, 1f))
+        body.addView(about, FrameLayout.LayoutParams(u(ABOUT_W), -2, Gravity.TOP or Gravity.START).apply {
+            leftMargin = u((column - ABOUT_W) / 2); topMargin = u(ABOUT_TOP)
+        })
 
-        // Not clipped, so a focused row can grow past the list's edges.
-        list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false }
+        // Not clipped, so a focused row can grow past the list's edges; the top padding (set per page in
+        // [show]) lines the first row up with the card, and the rows scroll up under a fade below the title.
+        list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            setPadding(u(10), 0, u(10), u(48))
+        }
         scroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
             clipToPadding = false
             clipChildren = false
-            setPadding(dp(12), dp(16), dp(12), dp(60))
+            // A fading edge redraws through an offscreen layer while scrolling: not on weak TVs.
+            if (!Device.isLowEnd(this@SettingsActivity)) {
+                isVerticalFadingEdgeEnabled = true
+                setFadingEdgeLength(u(26))
+            }
             addView(list)
         }
-        body.addView(scroll, LinearLayout.LayoutParams(0, -1, 1.05f).apply { marginEnd = dp(52) })
-        root.addView(body, FrameLayout.LayoutParams(-1, -1).apply { topMargin = dp(84) })
+        body.addView(scroll, FrameLayout.LayoutParams(u(LIST_WIDTH + 20), -1, Gravity.TOP or Gravity.END).apply {
+            rightMargin = u(LIST_END - 10); topMargin = u(LIST_TOP)
+        })
+        root.addView(body, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
         entry = if (intent.getStringExtra(EXTRA_PAGE) == PAGE_PROFILES) Page.PROFILES else Page.MAIN
         // A restricted profile reaches the settings only with the PIN, whichever way they were opened
@@ -252,6 +289,10 @@ class SettingsActivity : Activity() {
             Page.FOLDERS -> foldersPage()
             Page.PROFILES -> profilesPage()
         }
+        // The first row level with the card's top; a header first sits just above it.
+        val first = list.getChildAt(0)
+        val top = CARD_TOP - LIST_TOP - if (first?.tag == HEADER_TAG) HEADER_SIZE * 1.21f + HEADER_BELOW else 0f
+        list.setPadding(list.paddingLeft, u(top), list.paddingRight, list.paddingBottom)
         p.title?.let {
             heading.text = it
             // Under the icon until a row with a description of its own is focused.
@@ -265,34 +306,71 @@ class SettingsActivity : Activity() {
         }
     }
 
-    /** The uploaded background, whose TV stands in for the big icon; or the plain dark page. RGB_565: half the memory. */
-    private fun showBackdrop() {
-        val bmp = (if (prefs.settingsBg) backdropFile(this) else null)?.let {
-            android.graphics.BitmapFactory.decodeFile(it.path, android.graphics.BitmapFactory.Options().apply {
-                inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
-            })
-        }
-        backdrop.setImageBitmap(bmp)
-        placeBackdrop(backdrop)
-        icon.visibility = if (bmp != null) android.view.View.INVISIBLE else android.view.View.VISIBLE
-        // Below the TV in the picture, which reaches a little lower than the icon would.
-        (about.layoutParams as LinearLayout.LayoutParams).topMargin = dp(if (bmp != null) 62 else 26)
-        about.requestLayout()
+    override fun onResume() {
+        super.onResume()
+        loadBackdrop()
     }
 
     /**
-     * Fills the screen, 8% larger than needed and against the right edge: a subject in the left
-     * third of a 16:9 picture (where the icon would be) then sits over the description column.
+     * The home screen's wallpaper behind the page, as Apple TV's settings sit on a blurred, darkened
+     * haze of the home screen: the current picture of the current source decoded small, blurred twice
+     * over, darkened, and its highlights held down so white text stays legible on a bright photo.
+     * A gradient theme is blurred the same way; no picture yet leaves the plain dark page. Done off
+     * the main thread, again on return only if the wallpaper changed meanwhile.
      */
-    private fun placeBackdrop(v: ImageView) {
-        val d = v.drawable ?: return
-        if (v.width == 0 || d.intrinsicWidth <= 0) return
-        val s = maxOf(v.width / d.intrinsicWidth.toFloat(), v.height / d.intrinsicHeight.toFloat()) * 1.08f
-        v.imageMatrix = android.graphics.Matrix().apply {
-            setScale(s, s)
-            postTranslate(v.width - d.intrinsicWidth * s, (v.height - d.intrinsicHeight * s) / 2)
-        }
+    private fun loadBackdrop() {
+        val theme = prefs.background
+        Thread {
+            // An earlier version let the phone page upload a settings background; it is no longer used.
+            listOfNotNull(filesDir, getExternalFilesDir(null)).forEach { java.io.File(it, "settings_bg.jpg").delete() }
+            val photo = if (Wallpapers.isPhoto(theme)) Wallpapers(applicationContext, Wallpapers.sourceFor(theme)).current() else null
+            val key = "$theme:${photo?.name}"
+            if (key == backdropKey) return@Thread
+            val src = runCatching {
+                when {
+                    photo != null -> decodeIcon(photo, 192)
+                    Wallpapers.isPhoto(theme) -> null
+                    else -> Backgrounds.render(theme)
+                }
+            }.getOrNull()
+            val bmp = src?.let { settle(Wallpapers.blurred(Wallpapers.blurred(it, 0f), 0.55f)) }
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                val first = backdropKey == null
+                backdropKey = key
+                backdrop.setImageBitmap(bmp)
+                if (first && bmp != null) {
+                    backdrop.alpha = 0f
+                    backdrop.animate().alpha(1f).setDuration(220).start()
+                }
+            }
+        }.start()
     }
+
+    /** Scales down every pixel brighter than [MAX_LUMA], keeping its hue: a white sky turns the deep grey-blue of tvOS's page. */
+    private fun settle(b: android.graphics.Bitmap): android.graphics.Bitmap {
+        val w = b.width
+        val h = b.height
+        val px = IntArray(w * h)
+        b.getPixels(px, 0, w, 0, 0, w, h)
+        for (i in px.indices) {
+            val c = px[i]
+            val r = Color.red(c); val g = Color.green(c); val bl = Color.blue(c)
+            val luma = 0.299f * r + 0.587f * g + 0.114f * bl
+            if (luma <= MAX_LUMA) continue
+            val k = MAX_LUMA / luma
+            px[i] = Color.rgb((r * k).toInt(), (g * k).toInt(), (bl * k).toInt())
+        }
+        b.setPixels(px, 0, w, 0, 0, w, h)
+        return b
+    }
+
+    /** [v] units of the 960-wide design in pixels. */
+    private fun u(v: Number): Int = (v.toFloat() * unit + 0.5f).toInt()
+
+    /** A text sized in design units rather than sp, so the page keeps Apple TV's proportions at any density. */
+    private fun label(size: Float, color: Int, weight: Int = 400): TextView =
+        text(size, color, weight = weight).apply { setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size * unit) }
 
     /** Whether the big icon shows the current profile's avatar ([pageIcon]) rather than the settings icon. */
     private var iconAvatar = false
@@ -300,7 +378,7 @@ class SettingsActivity : Activity() {
     /** On the profiles page the big icon is the current profile's avatar, as on tvOS's account screens; elsewhere the settings icon. */
     private fun pageIcon(p: Page) {
         if (p == Page.PROFILES) {
-            icon.setImageDrawable(ProfileAvatar.drawable(this, prefs.current(), BIG_AVATAR_DP))
+            icon.setImageDrawable(ProfileAvatar.drawable(this, prefs.current(), (u(BIG_AVATAR) / resources.displayMetrics.density).toInt()))
             icon.scaleType = ImageView.ScaleType.CENTER
             iconAvatar = true
         } else if (iconAvatar) {
@@ -317,7 +395,7 @@ class SettingsActivity : Activity() {
     }
 
     private fun showIcon(v: ImageView) {
-        val own = customIcon(this)?.let { decodeIcon(it, dp(380)) }
+        val own = customIcon(this)?.let { decodeIcon(it, u(CARD_W * 2)) }
         if (own != null) v.setImageBitmap(own) else v.setImageResource(R.drawable.banner_settings)
     }
 
@@ -365,13 +443,7 @@ class SettingsActivity : Activity() {
             prefs.ccStyle = next(prefs.ccStyle, Prefs.CC_GLASS, Prefs.CC_PANEL)
         }
         // Only once a picture of the user's own was uploaded for this page.
-        if (backdropFile(this) != null || iconFile(this) != null) section("Cette page")
-        if (backdropFile(this) != null) row("Fond des réglages", "Le fond de cette page : l'image importée, ou le fond sombre standard.", {
-            if (prefs.settingsBg) "Image" else "Standard"
-        }) {
-            prefs.settingsBg = !prefs.settingsBg
-            showBackdrop()
-        }
+        if (iconFile(this) != null) section("Cette page")
         if (iconFile(this) != null) row("Icône des réglages", "L'icône de ces réglages : votre image importée, ou l'engrenage intégré.", {
             if (prefs.ownIcon) "Image importée" else "Engrenage"
         }) {
@@ -890,13 +962,13 @@ class SettingsActivity : Activity() {
             "Le code dans l'adresse est la seule protection : régénérez-le si un téléphone qui a ouvert la page est perdu ; " +
             "les téléphones qui connaissaient l'ancien devront scanner à nouveau."
         val qr = ImageView(this).apply {
-            background = rounded(Color.WHITE, dp(14).toFloat())
-            setPadding(dp(14), dp(14), dp(14), dp(14))
+            background = rounded(Color.WHITE, u(ROW_RADIUS).toFloat())
+            setPadding(u(12), u(12), u(12), u(12))
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
-        val address = text(15f, Color.argb(170, 255, 255, 255)).apply { gravity = Gravity.CENTER_HORIZONTAL }
-        list.addView(qr, LinearLayout.LayoutParams(dp(250), dp(250)).apply { gravity = Gravity.CENTER_HORIZONTAL })
-        list.addView(address, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14); bottomMargin = dp(18) })
+        val address = label(15f, DESCRIPTION).apply { gravity = Gravity.CENTER_HORIZONTAL }
+        list.addView(qr, LinearLayout.LayoutParams(u(210), u(210)).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        list.addView(address, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(12); bottomMargin = u(16) })
         fun load() {
             address.text = "Démarrage…"
             Thread {
@@ -948,12 +1020,13 @@ class SettingsActivity : Activity() {
     /** A small grey uppercase title above a run of rows, as tvOS splits a settings page ("AUTO-PLAY", "HOME SCREEN"). */
     private fun section(title: String) {
         val first = list.childCount == 0
-        list.addView(text(13f, HEADER, weight = 600).apply {
+        list.addView(label(HEADER_SIZE, HEADER, 600).apply {
             text = title.uppercase(java.util.Locale.FRENCH)
             letterSpacing = 0.02f
+            tag = HEADER_TAG
         }, LinearLayout.LayoutParams(-2, -2).apply {
-            // Lined up with the rows' labels.
-            marginStart = dp(20); topMargin = if (first) 0 else dp(22); bottomMargin = dp(8)
+            // Lined up with the rows' labels; the row above already keeps its gap below it.
+            marginStart = u(ROW_PAD); topMargin = if (first) 0 else u(HEADER_ABOVE); bottomMargin = u(HEADER_BELOW)
         })
     }
 
@@ -967,29 +1040,33 @@ class SettingsActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             isFocusable = true
             isClickable = true
-            setPadding(dp(20), 0, dp(if (chevron) 14 else 20), 0)
+            setPadding(u(ROW_PAD), 0, u(if (chevron) ROW_PAD + 2 else ROW_PAD), 0)
         }
-        val l = text(17f, IDLE_TEXT, weight = 500).apply {
+        val l = label(18.5f, IDLE_TEXT, 500).apply {
             text = label
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
         }
-        val v = text(16f, IDLE_VALUE).apply { text = value() }
-        picture?.let { d -> r.addView(ImageView(this).apply { setImageDrawable(d) }, LinearLayout.LayoutParams(dp(ROW_AVATAR_DP), dp(ROW_AVATAR_DP)).apply { marginEnd = dp(14) }) }
+        val v = label(18.5f, IDLE_VALUE).apply {
+            text = value()
+            maxLines = 1
+        }
+        picture?.let { d -> r.addView(ImageView(this).apply { setImageDrawable(d) }, LinearLayout.LayoutParams(u(ROW_AVATAR), u(ROW_AVATAR)).apply { marginEnd = u(10) }) }
         r.addView(l, LinearLayout.LayoutParams(0, -2, 1f))
-        r.addView(v, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(12) })
-        val arrow = if (chevron) text(24f, IDLE_VALUE, weight = 300).apply { text = "›" } else null
-        arrow?.let { r.addView(it, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(10); bottomMargin = dp(2) }) }
-        val idle = rounded(IDLE_ROW, dp(14).toFloat())
-        val focus = rounded(Color.WHITE, dp(14).toFloat())
+        r.addView(v, LinearLayout.LayoutParams(-2, -2).apply { marginStart = u(12) })
+        val arrow = if (chevron) Chevron(IDLE_VALUE, maxOf(1.6f * unit, 1.5f)) else null
+        arrow?.let { r.addView(android.view.View(this).apply { background = it }, LinearLayout.LayoutParams(u(8), u(15)).apply { marginStart = u(12) }) }
+        val idle = rounded(IDLE_ROW, u(ROW_RADIUS).toFloat())
+        val focus = rounded(Color.WHITE, u(ROW_RADIUS).toFloat())
         r.background = idle
         r.setOnFocusChangeListener { _, f ->
             r.background = if (f) focus else idle
             l.setTextColor(if (f) Color.BLACK else IDLE_TEXT)
             v.setTextColor(if (f) FOCUS_VALUE else IDLE_VALUE)
-            arrow?.setTextColor(if (f) FOCUS_VALUE else IDLE_VALUE)
+            arrow?.color = if (f) FOCUS_VALUE else IDLE_VALUE
             if (f && desc != null) about.text = desc
-            r.tweenScale(if (f) 1.03f else 1f, 160)
+            // A slight lift with a soft shadow under it, as the focused row on tvOS.
+            r.tweenScale(if (f) 1.02f else 1f, 160, z = if (f) u(6).toFloat() else 0f)
         }
         r.setOnClickListener {
             val from = page
@@ -997,7 +1074,35 @@ class SettingsActivity : Activity() {
             // On a group page the value shows what the press changed; list pages set their own.
             if (page == from && from.title != null && !v.text.endsWith("…")) v.text = value()
         }
-        list.addView(r, LinearLayout.LayoutParams(-1, dp(52)).apply { bottomMargin = dp(8) })
+        list.addView(r, LinearLayout.LayoutParams(-1, u(ROW_H)).apply { bottomMargin = u(ROW_GAP) })
+    }
+
+    /** tvOS's thin chevron at the end of a row that opens a page: two strokes with round ends. */
+    private class Chevron(color: Int, stroke: Float) : android.graphics.drawable.Drawable() {
+        private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = stroke
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeJoin = android.graphics.Paint.Join.ROUND
+            this.color = color
+        }
+        var color: Int
+            get() = paint.color
+            set(v) { paint.color = v; invalidateSelf() }
+
+        override fun draw(c: android.graphics.Canvas) {
+            val b = bounds
+            val i = paint.strokeWidth / 2
+            c.drawPath(android.graphics.Path().apply {
+                moveTo(b.left + i, b.top + i)
+                lineTo(b.right - i, b.exactCenterY())
+                lineTo(b.left + i, b.bottom - i)
+            }, paint)
+        }
+        override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+        override fun setColorFilter(cf: android.graphics.ColorFilter?) { paint.colorFilter = cf }
+        @Suppress("OVERRIDE_DEPRECATION")
+        override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
     }
 
     private fun onOff(b: Boolean) = if (b) "Activé" else "Désactivé"

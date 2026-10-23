@@ -188,11 +188,6 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("own_icon", true)
         set(v) = sp.edit().putBoolean("own_icon", v).apply()
 
-    /** The settings page on its uploaded picture ([SettingsActivity.backdropFile]) rather than plain dark. */
-    var settingsBg: Boolean
-        get() = sp.getBoolean("settings_bg", true)
-        set(v) = sp.edit().putBoolean("settings_bg", v).apply()
-
     /**
      * How long the screen stays black on wake before the intro starts. Many panels (OLED especially)
      * light up seconds after Android reports the screen on, and nothing tells the app when.

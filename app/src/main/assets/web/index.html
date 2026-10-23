@@ -250,10 +250,6 @@
   <button data-source="wordmark">Logo canvasOS</button>
 </div>
 
-<h2>Fond des réglages</h2>
-<label class="primary" id="pickBackdrop">Importer un fond pour les réglages<input type="file" id="backdropFile" accept="image/*" hidden></label>
-<p class="hint" id="backdropHint"></p>
-
 <h2>Icône des réglages</h2>
 <label class="primary" id="pickIcon">Importer une icône<input type="file" id="iconFile" accept="image/*" hidden></label>
 <p class="hint" id="iconHint"></p>
@@ -449,12 +445,6 @@ function render(s) {
     b.setAttribute('aria-pressed', s.introSource === b.dataset.source);
     b.onclick = () => post('api/intro/source', { source: b.dataset.source }).then(() => toast('Contenu de l\'animation : ' + b.textContent));
   });
-  if (s.backdrop) {
-    $('backdropHint').innerHTML = 'Les réglages utilisent cette image ; sur le téléviseur, vous pouvez revenir au fond standard dans les réglages. <a href="#" id="backdropDel">Supprimer cette image</a>';
-    $('backdropDel').onclick = e => { e.preventDefault(); post('api/backdrop/delete', {}).then(() => toast('Supprimée')); };
-  } else {
-    $('backdropHint').textContent = 'Le fond de toute la page des réglages : une image 16:9 en paysage, avec le sujet (par exemple un téléviseur) à gauche et la droite libre pour les réglages.';
-  }
   if (s.icon) {
     $('iconHint').innerHTML = 'L\'accueil et les réglages utilisent cette image. <a href="#" id="iconDel">Revenir à l\'engrenage</a>';
     $('iconDel').onclick = e => { e.preventDefault(); post('api/icon/delete', {}).then(() => toast('Icône par défaut rétablie')); };
@@ -513,16 +503,6 @@ $('introFile').onchange = async e => {
     toast(s.ok ? 'Importée : prévisualisez-la dans les réglages du téléviseur' : 'Le téléviseur ne peut pas lire ce fichier');
   } catch (err) { toast('Échec de l\'importation : ' + err.message); }
   pick.firstChild.textContent = 'Importer une vidéo d\'animation'; e.target.value = '';
-};
-
-$('backdropFile').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  try {
-    const fd = new FormData(); fd.append('backdrop', f, f.name);
-    const s = await (await fetch(base + 'api/backdrop/upload', { method: 'POST', body: fd })).json(); render(s);
-    toast(s.ok ? 'C\'est fait : visible en ouvrant les réglages' : 'Image inutilisable');
-  } catch (err) { toast('Échec de l\'importation : ' + err.message); }
-  e.target.value = '';
 };
 
 $('iconFile').onchange = async e => {

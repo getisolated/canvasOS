@@ -105,12 +105,6 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                 }
                 post && path == "/api/intro/upload" -> uploadIntro(session)
                 post && path == "/api/icon/upload" -> uploadIcon(session)
-                post && path == "/api/backdrop/upload" -> uploadBackdrop(session)
-                post && path == "/api/backdrop/delete" -> {
-                    session.parseBody(HashMap())
-                    backdropFiles().forEach { it.delete() }
-                    json(state())
-                }
                 post && path == "/api/icon/delete" -> {
                     session.parseBody(HashMap())
                     iconFiles().forEach { it.delete() }
@@ -213,7 +207,6 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("introVideo", Intro.videoFile(ctx)?.length() ?: 0L)
         .put("introSource", prefs.introSource)
         .put("icon", SettingsActivity.iconFile(ctx) != null)
-        .put("backdrop", SettingsActivity.backdropFile(ctx) != null)
         .put("mine", names(Wallpapers.MINE))
         .put("custom", names(Wallpapers.CUSTOM))
         .put("adb", prefs.adbAuthorized)
@@ -422,21 +415,6 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         return json(state().put("ok", true))
     }
 
-    /** The settings page background: any picture, kept as JPEG at most 1920 px wide. */
-    private fun uploadBackdrop(session: IHTTPSession): Response {
-        val files = HashMap<String, String>()
-        session.parseBody(files)
-        val src = files.values.map { File(it) }.firstOrNull { it.exists() && it.length() in 1..MAX_UPLOAD }
-            ?.let { decodeAtMost(it, 1920) } ?: return json(state().put("ok", false))
-        val bmp = if (src.width > 1920) Bitmap.createScaledBitmap(src, 1920, src.height * 1920 / src.width, true) else src
-        val tmp = File(ctx.filesDir, SettingsActivity.BACKDROP_FILE + ".part")
-        tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 92, it) }
-        backdropFiles().forEach { it.delete() }
-        tmp.renameTo(File(ctx.filesDir, SettingsActivity.BACKDROP_FILE))
-        prefs.settingsBg = true
-        return json(state().put("ok", true))
-    }
-
     /** Presses a key or types text on the TV through local adb; "adb" means local debugging was never authorized. */
     private fun remote(item: String): JSONObject = when {
         !prefs.adbAuthorized -> JSONObject().put("ok", false).put("reason", "adb")
@@ -500,9 +478,6 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
             left -= n
         }
     }
-
-    private fun backdropFiles() = listOfNotNull(File(ctx.filesDir, SettingsActivity.BACKDROP_FILE),
-        ctx.getExternalFilesDir(null)?.let { File(it, SettingsActivity.BACKDROP_FILE) })
 
     private fun iconFiles() = listOfNotNull(File(ctx.filesDir, SettingsActivity.ICON_FILE),
         ctx.getExternalFilesDir(null)?.let { File(it, SettingsActivity.ICON_FILE) })
