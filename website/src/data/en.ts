@@ -131,7 +131,7 @@ export const en = {
       {
         title: "Content",
         cards: [
-          { title: "Top Shelf fed by Android TV", body: "“Continue watching” and recommendations that Netflix, YouTube, Prime… publish for the Android TV home screen: canvasOS reads them on the TV (READ_TV_LISTINGS grant) and shows them above the dock, nothing else. Without the grant, nothing is read." },
+          { title: "Top Shelf fed by Android TV", body: "The “Continue watching” row that Netflix, YouTube, Prime… publish for the Android TV home screen: canvasOS reads it on the TV (READ_TV_LISTINGS grant) and shows it above the dock, nothing else; the apps’ personalised recommendations are not used. Without the grant, nothing is read. Can be switched off in the settings." },
           { title: "Popular titles from TMDB", body: "For Netflix, Prime Video, Disney+, Apple TV, Max, Paramount+, Canal+ and Crunchyroll: this week's popular titles in France according to TMDB. TMDB asks each user for a free API key, which you paste from the phone page; it stays on the TV." },
           { title: "Weather", body: "The temperature next to the clock and a five-day forecast in the Control Center, from Open-Meteo (no key). On by default; until you pick a city, the TV guesses the place once from its public IP address. Can be turned off." },
         ],
@@ -139,8 +139,8 @@ export const en = {
       {
         title: "Control Center",
         cards: [
-          { title: "Now playing", body: "Off by default. Under “Source”, the title, artist and cover of what an app is playing; OK plays or pauses, Left and Right skip tracks. Only media-session metadata is read, no notification." },
-          { title: "Notification banners", body: "Off by default. Notifications from only the apps you tick (doorbell, smart home…) show for 6 seconds at the top right, on the home screen and over the app you are watching. Title and text are read for that, nothing is stored." },
+          { title: "Now playing", body: "On by default. Under “Source”, the title, artist and cover of what an app is playing, with play/pause, skip and a timeline; a long press on OK opens the large player. Only media-session metadata is read, no notification." },
+          { title: "Notification banners", body: "On by default. Notifications from your apps (doorbell, smart home, messages…) show for 6 seconds at the top right, on the home screen and over the app you are watching; exclude any app you like. Title and text are read for that, nothing is stored." },
           { title: "Bluetooth", body: "A button under Weather: it shows the connected device, with its battery when it reports one, and lists the devices already paired. One press connects or disconnects a headset or speaker; pairing happens in the TV's own Bluetooth settings." },
           { title: "Sleep timer", body: "From the standby button: now, or in 15 min, 30 min, 1 h, 1 h 30, with a warning a minute before if the home screen is showing. It needs on-device debugging and does not survive a restart." },
           { title: "Smarter memory cleanup", body: "Apps in use are spared: those playing audio or video, those running a foreground service (screen casting, Plex, Jellyfin, VPN), and active accessibility services and keyboards. Settings → Dernier nettoyage lists what was closed." },
@@ -385,7 +385,7 @@ export const en = {
     head: ["Feature", "Any Android TV", "On-device debugging", "Sony BRAVIA only"],
     rows: [
       { feature: "Home screen, dock, glass, shadows, folders, profiles", any: "Yes", debug: "—", sony: "—" },
-      { feature: "Top Shelf: “Continue watching” and app recommendations", any: "Yes, with the READ_TV_LISTINGS grant (given through adb) and a TvProvider on the TV", debug: "—", sony: "—" },
+      { feature: "Top Shelf: the apps’ “Continue watching” row", any: "Yes, with the READ_TV_LISTINGS grant (given through adb) and a TvProvider on the TV", debug: "—", sony: "—" },
       { feature: "Top Shelf: TMDB titles, Bilibili, Douyu", any: "Yes, needs internet; TMDB needs your free API key", debug: "—", sony: "—" },
       { feature: "Wallpapers (Bing, Wikimedia, NASA, the Met…), photo frame", any: "Yes", debug: "—", sony: "—" },
       { feature: "Weather", any: "Yes, needs internet (Open-Meteo)", debug: "—", sony: "—" },
@@ -522,8 +522,8 @@ export const en = {
         q: "Does canvasOS read my screen or my notifications?",
         a: [
           "Not by default. The home guard watches window changes only, to notice when the stock launcher comes forward, and never reads the screen. With READ_TV_LISTINGS, the Top Shelf only reads the rows that apps publish for the Android TV home screen.",
-          "The notification listener restarts canvasOS after it is killed and at boot, and lets memory cleanup spare apps that are playing something: only the package name and playback state are read. No notification is read.",
-          "Two options, both off by default (Home settings → Lecture et notifications), widen what is read, and only if you turn them on. “Lecture en cours” reads media-session metadata: title, artist, cover. The banners read the title and text of notifications from only the apps you tick, to show them for 6 seconds; nothing is stored.",
+          "The notification listener restarts canvasOS after it is killed and at boot, and lets memory cleanup spare apps that are playing something: only the package name and playback state are read for that.",
+          "Two options, on by default and switchable off in Home settings → Lecture et notifications, widen what is read. “Lecture en cours” reads media-session metadata: title, artist, cover, position. The banners read the title and text of notifications from every app except the ones you exclude, to show them for 6 seconds; nothing is stored or sent anywhere.",
         ],
       },
       {

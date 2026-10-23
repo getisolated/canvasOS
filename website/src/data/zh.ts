@@ -138,7 +138,7 @@ export const zh = {
         {
           title: "Contenu",
           cards: [
-            { title: "Top Shelf alimenté par Android TV", body: "« Continuer à regarder » et recommandations que Netflix, YouTube, Prime… publient pour l'accueil d'Android TV : canvasOS les lit sur la TV (autorisation READ_TV_LISTINGS) et les affiche au-dessus du Dock, rien d'autre. Sans l'autorisation, rien n'est lu." },
+            { title: "Top Shelf alimenté par Android TV", body: "La ligne « Continuer à regarder » que Netflix, YouTube, Prime… publient pour l'accueil d'Android TV : canvasOS la lit sur la TV (autorisation READ_TV_LISTINGS) et l'affiche au-dessus du Dock, rien d'autre ; les recommandations personnalisées des apps ne sont pas utilisées. Sans l'autorisation, rien n'est lu. Désactivable dans les réglages." },
             { title: "Titres populaires TMDB", body: "Pour Netflix, Prime Video, Disney+, Apple TV, Max, Paramount+, Canal+ et Crunchyroll : les titres populaires de la semaine en France d'après TMDB. TMDB demande une clé d'API gratuite, que vous collez depuis la page téléphone ; elle reste sur la TV." },
             { title: "Météo", body: "La température à gauche de l'horloge et les prévisions sur cinq jours dans le Centre de contrôle, d'après Open-Meteo (sans clé). Activée par défaut ; tant qu'aucune ville n'est choisie, la TV devine le lieu une fois d'après son adresse IP publique. Désactivable." },
           ],
@@ -147,7 +147,7 @@ export const zh = {
           title: "Centre de contrôle",
           cards: [
             { title: "Lecture en cours", body: "Désactivée par défaut. Sous « Source », le titre, l'artiste et la pochette de ce que lit une app ; OK met en lecture ou en pause, Gauche et Droite changent de piste. Seules les métadonnées des sessions média sont lues, aucune notification." },
-            { title: "Bannières de notifications", body: "Désactivées par défaut. Les notifications des seules apps que vous cochez (sonnette, domotique…) s'affichent 6 secondes en haut à droite, sur l'accueil et par-dessus l'app regardée. Titre et texte sont lus pour cela, rien n'est enregistré." },
+            { title: "Bannières de notifications", body: "Activées par défaut. Les notifications de vos apps (sonnette, domotique, messages…) s'affichent 6 secondes en haut à droite, sur l'accueil et par-dessus l'app regardée ; vous excluez les apps que vous voulez. Titre et texte sont lus pour cela, rien n'est enregistré." },
             { title: "Bluetooth", body: "Un bouton sous la Météo : il indique l'appareil connecté, avec sa batterie quand il la communique, et liste les appareils déjà associés. Une pression connecte ou déconnecte un casque ou une enceinte ; l'association se fait dans les réglages Bluetooth de la TV." },
             { title: "Minuteur de veille", body: "Depuis le bouton Veille : maintenant, ou dans 15 min, 30 min, 1 h, 1 h 30, avec un avertissement une minute avant si l'accueil est affiché. Il demande le débogage local et ne survit pas à un redémarrage." },
             { title: "Nettoyage de la mémoire plus fin", body: "Les apps en cours d'utilisation sont épargnées : celles qui lisent du son ou de la vidéo, celles qui font tourner un service au premier plan (diffusion d'écran, Plex, Jellyfin, VPN), les services d'accessibilité et le clavier actifs. Réglages → Dernier nettoyage liste ce qui a été fermé." },
@@ -411,7 +411,7 @@ export const zh = {
           },
           {
             name: "Écoute des notifications (RevivalListener)",
-            use: "Relancer canvasOS environ une demi-seconde après un arrêt forcé par le système ou au démarrage, et laisser le nettoyage de la mémoire épargner les apps qui lisent quelque chose (nom du paquet et état de lecture seulement). Aucune notification n'est lue, sauf si vous activez les bannières, désactivées par défaut",
+            use: "Relancer canvasOS environ une demi-seconde après un arrêt forcé par le système ou au démarrage, et laisser le nettoyage de la mémoire épargner les apps qui lisent quelque chose (nom du paquet et état de lecture seulement). Les bannières, activées par défaut, lisent le titre et le texte des notifications des apps non exclues ; désactivées, aucune notification n'est lue",
           },
           {
             name: "SYSTEM_ALERT_WINDOW",
@@ -419,7 +419,7 @@ export const zh = {
           },
           {
             name: "READ_TV_LISTINGS",
-            use: "Top Shelf : lire les lignes « Continuer à regarder » et recommandations que les apps publient pour l'accueil d'Android TV, affichées au-dessus du Dock, rien d'autre ; sans elle, rien n'est lu",
+            use: "Top Shelf : lire la ligne « Continuer à regarder » que les apps publient pour l'accueil d'Android TV, affichée au-dessus du Dock, rien d'autre ; sans elle, rien n'est lu",
           },
           {
             name: "TCL APP_AUTO_START / APP_ASSOC_START",
@@ -446,14 +446,14 @@ export const zh = {
       head: ["Fonction", "Toute Android TV", "Avec débogage local autorisé", "Sony BRAVIA uniquement"],
       rows: [
         { feature: "Accueil, Dock, effets de verre, ombres, dossiers, profils", any: "Oui", debug: "—", sony: "—" },
-        { feature: "Top Shelf : « Continuer à regarder » et recommandations des apps", any: "Oui, avec l'autorisation READ_TV_LISTINGS (accordée par adb) et un TvProvider sur la TV", debug: "—", sony: "—" },
+        { feature: "Top Shelf : « Continuer à regarder » des apps", any: "Oui, avec l'autorisation READ_TV_LISTINGS (accordée par adb) et un TvProvider sur la TV", debug: "—", sony: "—" },
         { feature: "Top Shelf : titres TMDB, Bilibili, Douyu", any: "Oui, connexion requise ; TMDB demande votre clé d'API gratuite", debug: "—", sony: "—" },
         { feature: "Fonds d'écran (Bing, Wikimedia, NASA, Met…), Cadre photo", any: "Oui", debug: "—", sony: "—" },
         { feature: "Météo", any: "Oui, connexion requise (Open-Meteo)", debug: "—", sony: "—" },
         { feature: "Économiseur d'écran aérien Apple TV", any: "Oui, connexion requise", debug: "—", sony: "—" },
         { feature: "Centre de contrôle, horloge, adresse IP à l'écran", any: "Oui", debug: "—", sony: "—" },
         { feature: "Bluetooth", any: "Si la TV a du Bluetooth ; Android 12+ : autorisation BLUETOOTH_CONNECT", debug: "—", sony: "—" },
-        { feature: "Lecture en cours, bannières de notifications (désactivées par défaut)", any: "Avec l'écouteur de notifications, si vous les activez", debug: "—", sony: "—" },
+        { feature: "Lecture en cours, bannières de notifications (activées par défaut)", any: "Avec l'écouteur de notifications ; désactivables dans les réglages", debug: "—", sony: "—" },
         { feature: "Page téléphone : fond d'écran, photos, noms et vignettes des apps", any: "Oui, depuis un téléphone sur le même Wi-Fi", debug: "—", sony: "—" },
         { feature: "Page téléphone : télécommande, clavier, installer des APK", any: "—", debug: "Oui", sony: "—" },
         { feature: "Libérer la mémoire", any: "Vide le cache", debug: "Ferme complètement les apps en arrière-plan, sauf celles qui lisent ou diffusent", sony: "—" },
@@ -602,8 +602,8 @@ export const zh = {
           q: "canvasOS lit-il mon écran ou mes notifications ?",
           a: [
             "Par défaut, non. La Protection de l'accueil n'observe que les changements de fenêtre, pour savoir si le lanceur d'origine est passé au premier plan, sans lire le contenu de l'écran. Le Top Shelf ne lit, avec READ_TV_LISTINGS, que les lignes que les apps publient pour l'accueil d'Android TV.",
-            "L'écoute des notifications sert à relancer canvasOS après un arrêt forcé et au démarrage, et à épargner pendant le nettoyage de la mémoire les apps qui lisent quelque chose : seuls le nom du paquet et l'état de lecture sont lus. Aucune notification n'est lue.",
-            "Deux options, désactivées par défaut (Réglages de l'accueil → Lecture et notifications), élargissent ce qui est lu, et seulement si vous les activez. « Lecture en cours » lit les métadonnées des sessions média : titre, artiste, pochette. Les bannières lisent le titre et le texte des notifications des seules apps que vous cochez, pour les afficher 6 secondes ; rien n'est enregistré.",
+            "L'écoute des notifications sert à relancer canvasOS après un arrêt forcé et au démarrage, et à épargner pendant le nettoyage de la mémoire les apps qui lisent quelque chose : seuls le nom du paquet et l'état de lecture sont lus pour cela.",
+            "Deux options, activées par défaut et désactivables dans Réglages de l'accueil → Lecture et notifications, élargissent ce qui est lu. « Lecture en cours » lit les métadonnées des sessions média : titre, artiste, pochette, position. Les bannières lisent le titre et le texte des notifications de toutes les apps sauf celles que vous excluez, pour les afficher 6 secondes ; rien n'est enregistré ni envoyé.",
           ],
         },
         {

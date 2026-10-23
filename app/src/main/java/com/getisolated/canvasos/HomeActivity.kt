@@ -552,7 +552,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         }.also(shadow)
         shelfMeta = text(17f, Color.argb(210, 255, 255, 255), weight = 500).apply {
             maxLines = 1
-            // Apps' own descriptions (Watch Next, preview channels) run long.
+            // Apps' own descriptions (Watch Next) run long.
             ellipsize = android.text.TextUtils.TruncateAt.END
         }.also(shadow)
         shelfInfo = LinearLayout(this).apply {
@@ -576,7 +576,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         pendingShelf = null
         shelfLoading = pkg
         net.execute {
-            // Watch Next, the app's channel, TMDB or the web, whichever has something (Shelf.load).
+            // Watch Next, TMDB or the web, whichever has something (Shelf.load).
             val content = Shelf.load(this, pkg)
             val items = content?.items.orEmpty()
             // Start on the first item whose picture loads; art that is missing or too small is skipped.
