@@ -313,8 +313,8 @@ class SettingsActivity : Activity() {
         }) {
             prefs.focusStyle = next(prefs.focusStyle, Prefs.FOCUS_TVOS, Prefs.FOCUS_SIMPLE)
         }
-        row("Style du Centre de contrôle", "Verre : du verre dépoli qui laisse voir l'image derrière ; le bouton sélectionné éclaire ses voisins. Panneau : l'ancien panneau sombre, plus léger." +
-            "\nAuto choisit Panneau sur les téléviseurs peu puissants.", {
+        row("Style du Centre de contrôle", "Verre : du verre dépoli qui laisse voir l'image derrière ; le bouton sélectionné devient blanc. Panneau : l'ancien panneau sombre." +
+            "\nAuto choisit Verre sur tous les téléviseurs.", {
             auto(prefs.ccStyle, prefs.ccGlass(this), "Verre", "Panneau")
         }) {
             prefs.ccStyle = next(prefs.ccStyle, Prefs.CC_GLASS, Prefs.CC_PANEL)
@@ -483,6 +483,11 @@ class SettingsActivity : Activity() {
                 if (ok) prefs.nowPlaying = true
                 runOnUiThread { v.text = if (ok) onOff(true) else LISTENER_NEEDED }
             }.start()
+        }
+        row("Lecteur", "Le lecteur du Centre de contrôle. Une ligne : pochette, titre et lecture/pause. Deux lignes : une carte avec les commandes et la progression ; " +
+            "Gauche et Droite changent de piste, maintenues elles reculent ou avancent de 10 s. Dans les deux cas, un appui long sur OK ouvre le grand lecteur.",
+            { if (prefs.playerStyle == Prefs.PLAYER_ONE) "Une ligne" else "Deux lignes" }) {
+            prefs.playerStyle = if (prefs.playerStyle == Prefs.PLAYER_ONE) Prefs.PLAYER_TWO else Prefs.PLAYER_ONE
         }
         row("Bannières de notifications", "Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). " +
             "Le titre et le texte des notifications de toutes les apps, sauf celles exclues, sont lus, affichés 6 secondes et jamais enregistrés. " +

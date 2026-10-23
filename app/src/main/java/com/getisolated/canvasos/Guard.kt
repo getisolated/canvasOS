@@ -467,6 +467,7 @@ class ConfigReceiver : BroadcastReceiver() {
         // The Top Shelf's "Continuer à regarder" source (Watch Next rows apps publish for Android TV).
         if (i.hasExtra("watch_next")) prefs.watchNext = i.getBooleanExtra("watch_next", true)
         resultData += " watch_next=${prefs.watchNext}"
+        i.getStringExtra("player_style")?.takeIf { it == Prefs.PLAYER_ONE || it == Prefs.PLAYER_TWO }?.let { prefs.playerStyle = it }; resultData += " player_style=${prefs.playerStyle}"
         // Must stay last: a weather_city is looked up over the network, so this may call goAsync(),
         // after which resultData can only be set through the pending result (Weather.config does).
         Weather.config(this, c, i)

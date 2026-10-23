@@ -1284,7 +1284,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                 sheets.isNotEmpty() -> sheets.last().dismiss()
                 // Before the Control Center: Back from an open folder returns to the grid.
                 folderView != null -> closeFolder()
-                control.isOpen -> control.close()
+                // The large player first: its cursor, then itself, before the panel closes.
+                control.isOpen -> control.back()
                 moving >= 0 -> endMove()
                 header.hasFocus() -> focusAt(focusedPos)
                 else -> control.open()
