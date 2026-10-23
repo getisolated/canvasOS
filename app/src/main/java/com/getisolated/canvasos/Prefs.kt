@@ -416,7 +416,16 @@ class Prefs(ctx: Context) {
         }
         set(v) = sp.edit().putBoolean("setup_done", v).apply()
 
+    /** What the Top Shelf may use: [SHELF_ALL] (Android TV rows, then TMDB and web), [SHELF_TV] (Android TV rows only) or [SHELF_OFF]. */
+    var shelfMode: String
+        get() = sp.getString("shelf_mode", SHELF_ALL)!!.takeIf { it in SHELF_MODES } ?: SHELF_ALL
+        set(v) = sp.edit().putString("shelf_mode", v).apply()
+
     companion object {
+        const val SHELF_ALL = "all"
+        const val SHELF_TV = "tv"
+        const val SHELF_OFF = "off"
+        val SHELF_MODES = listOf(SHELF_ALL, SHELF_TV, SHELF_OFF)
         const val SAVER_PHOTOS = "photos"
         const val SAVER_AERIAL = "aerial"
 

@@ -92,11 +92,16 @@ object Shelf {
      * no source applies or each one already answered "nothing" a moment ago. [load] gives the answer.
      */
     fun has(ctx: Context, pkg: String): Boolean {
+        val prefs = Prefs(ctx)
+        val mode = prefs.shelfMode
+        if (mode == Prefs.SHELF_OFF) return false
         val tv = fresh(tvCache, pkg)
-        val remote = fresh(remoteCache, pkg)
+        // TMDB and the web sources only count while the setting allows them (Réglages → Top Shelf).
+        val remote = if (mode == Prefs.SHELF_ALL) fresh(remoteCache, pkg) else null
         if (tv?.content != null || remote?.content != null) return true
         val tvMaybe = tv == null && canReadTv(ctx)
-        val remoteMaybe = remote == null && (pkg in web || (pkg in ShelfFeeds.SERVICES && Prefs(ctx).tmdbKey.isNotEmpty()))
+        val remoteMaybe = mode == Prefs.SHELF_ALL && remote == null &&
+            (pkg in web || (pkg in ShelfFeeds.SERVICES && prefs.tmdbKey.isNotEmpty()))
         return tvMaybe || remoteMaybe
     }
 
@@ -106,8 +111,11 @@ object Shelf {
 
     /** What the shelf shows for [pkg], or null when no source has anything. Blocking: network and TvProvider. */
     fun load(ctx: Context, pkg: String): Content? {
+        val mode = Prefs(ctx).shelfMode
+        if (mode == Prefs.SHELF_OFF) return null
         val local = fresh(tvCache, pkg) ?: Cached(0, tv(ctx, pkg)).also { keep(tvCache, pkg, it.content, SHORT_TTL) }
         local.content?.let { return it }
+        if (mode != Prefs.SHELF_ALL) return null
         fresh(remoteCache, pkg)?.let { return it.content }
         val remote = try {
             tmdb(ctx, pkg) ?: web[pkg]?.let { w -> w.fetch().takeIf { it.isNotEmpty() }?.let { Content(w.name, it) } }

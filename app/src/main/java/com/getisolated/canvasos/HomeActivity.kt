@@ -134,6 +134,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private val net = Executors.newFixedThreadPool(2)
     private var shelfPkg: String? = null
     private var pendingShelf: String? = null
+    /** The app whose content is being fetched for the shelf; an answer for any other app is dropped. */
+    private var shelfLoading: String? = null
     private var shelfItems: List<Shelf.Item> = emptyList()
     private var shelfIndex = 0
     private var shelfShown = false
@@ -552,7 +554,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     }
 
     private fun showShelf(pkg: String) {
-        shelfPkg = pkg
+        pendingShelf = null
+        shelfLoading = pkg
         net.execute {
             // Watch Next, the app's channel, TMDB or the web, whichever has something (Shelf.load).
             val content = Shelf.load(this, pkg)
@@ -567,7 +570,14 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             val pic = first
             val at = start
             main.post {
-                if (shelfPkg != pkg || content == null || pic == null || control.isOpen) return@post
+                if (shelfLoading != pkg || control.isOpen) return@post
+                shelfLoading = null
+                if (content == null || pic == null) {
+                    // The focused app has nothing to show: the previous app's shelf fades out now.
+                    if (adapter.apps.getOrNull(focusedPos)?.pkg == pkg) hideShelf()
+                    return@post
+                }
+                shelfPkg = pkg
                 shelfItems = items
                 shelfSource.text = content.source
                 shelfDots.removeAllViews()
@@ -641,6 +651,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         main.removeCallbacks(shelfShow)
         main.removeCallbacks(shelfAdvance)
         pendingShelf = null
+        shelfLoading = null
         shelfPkg = null
         setShelfVisible(false)
     }
@@ -791,8 +802,11 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         // Shelf.has is cheap; what there is to show is found off the main thread (showShelf). Inputs and folders have none.
         if (pos < cols && pkg != null && app.input == null && app.folder == null && pkg != packageName && moving < 0 && Shelf.has(this, pkg)) {
             if (pkg != shelfPkg || !shelfShown) {
-                if (shelfShown) hideShelf()
+                // The shelf of the previous app stays up while the next one loads: when it arrives the
+                // pictures cross-fade; when there is nothing, the shelf fades out then (showShelf).
                 pendingShelf = pkg
+                shelfLoading = null
+                main.removeCallbacks(shelfAdvance)
                 // Wait for focus to settle so sliding along the dock does not flicker.
                 main.postDelayed(shelfShow, 300)
             }
