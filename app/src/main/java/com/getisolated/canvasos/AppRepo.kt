@@ -338,8 +338,8 @@ class AppRepo(private val ctx: Context) {
     private fun drawFolderTile(c: Canvas, members: List<AppEntry>) {
         val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         // 16:9 places as tall as the tile allows, centred.
-        val gap = 12f
-        val padY = 20f
+        val gap = 10f
+        val padY = 8f
         val h = (TILE_H - padY * 2 - gap) / 2
         val w = h * 16f / 9f
         val left = (TILE_W - w * 2 - gap) / 2
