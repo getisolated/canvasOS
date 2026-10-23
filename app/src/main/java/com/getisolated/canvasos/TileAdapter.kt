@@ -31,18 +31,7 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
     }
     /** The entry last bound here; a tile that finishes loading for an earlier one is not shown. */
     var entry: AppEntry? = null
-    /**
-     * A folder's cell: its mosaic leaves the wallpaper showing between and around the apps, so the
-     * focus shadow (a full card's) and the highlight would read as a dark or light slab there.
-     */
-    var hollow = false
     private var jiggle: ObjectAnimator? = null
-    /** Soft shadow under the card, only visible while it is lifted (focused). */
-    private val shadow = ImageView(ctx).apply {
-        setImageBitmap(shadowFor(ctx, tileW, tileH))
-        alpha = 0f
-    }
-    private val shadowPad = dp(SHADOW_PAD)
     private val focusTween = Tween()
     /** The light glancing off a focused tile; only drawn while focused. */
     private val sheen = View(ctx).apply {
@@ -62,9 +51,6 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
         isFocusable = true
         isClickable = true
         isLongClickable = true
-        addView(shadow, LayoutParams(tileW + shadowPad * 2, tileH + shadowPad * 2))
-        shadow.translationX = -shadowPad.toFloat()
-        shadow.translationY = -shadowPad.toFloat()
         card.addView(image, LayoutParams(tileW, tileH))
         card.addView(sheen, LayoutParams(tileW, tileH))
         card.clipRounded(dp(11).toFloat())
@@ -75,14 +61,14 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
     }
 
     /**
-     * tvOS focus: the tile lifts towards the viewer (larger, a deep shadow under it), tilting in
+     * tvOS focus: the tile lifts towards the viewer (larger, no shadow: it only grows), tilting in
      * from the direction of travel; with [tvos] a soft highlight glides across it as it settles,
      * light catching a glass surface. Driven by [Tween], so it plays even with animations off.
      */
     fun setFocusedLook(f: Boolean, fromDx: Int, fromDy: Int, showLabel: Boolean = true, tvos: Boolean = true) {
         val s0 = card.scaleX
         val s1 = if (f) FOCUS_SCALE else 1f
-        // Draw the lifted tile (and its shadow) above its neighbours.
+        // Draw the lifted tile above its neighbours.
         translationZ = if (f) 1f else 0f
         card.cameraDistance = tileW * 14f
         val tilt = f && tvos && (fromDx != 0 || fromDy != 0)
@@ -90,14 +76,10 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
         val ry0 = if (tilt) fromDx * 6f else card.rotationY
         val z1 = if (f) dp(4).toFloat() else 0f
         val z0 = card.translationZ
-        val sh0 = shadow.alpha
-        val sh1 = if (!f) 0f else if (hollow) 0.3f else 0.9f
-        val shy0 = shadow.translationY
-        val shy1 = -shadowPad + if (f) dp(18).toFloat() else 0f
         val l0 = label.alpha
         val l1 = if (f && showLabel) 1f else 0f
         val g0 = sheen.alpha
-        val g1 = if (!(f && tvos)) 0f else if (hollow) 0.5f else 1f
+        val g1 = if (f && tvos) 1f else 0f
         if (f && tvos) {
             // The highlight enters from the side the focus came from and comes to rest near the top.
             sheen.translationX = -fromDx * tileW * 0.45f
@@ -114,9 +96,6 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
             card.rotationX = lerp(rx0, 0f, e)
             card.rotationY = lerp(ry0, 0f, e)
             card.translationZ = lerp(z0, z1, e)
-            shadow.alpha = lerp(sh0, sh1, e)
-            shadow.scaleX = card.scaleX; shadow.scaleY = card.scaleX
-            shadow.translationY = lerp(shy0, shy1, e)
             label.alpha = lerp(l0, l1, e)
             sheen.alpha = lerp(g0, g1, e)
             if (f) { sheen.translationX = lerp(gx0, 0f, e); sheen.translationY = lerp(gy0, -tileH * 0.25f, e) }
@@ -124,15 +103,9 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
     }
 
     companion object {
-        const val SHADOW_PAD = 30
         /** What an app's tile shows until its picture is drawn. A folder's cell has none: its tile is transparent. */
         val PLACEHOLDER = Color.argb(60, 255, 255, 255)
         const val FOCUS_SCALE = 1.12f
-        private var shared: android.graphics.Bitmap? = null
-
-        /** One shadow bitmap serves every tile. */
-        fun shadowFor(ctx: Context, w: Int, h: Int) = shared ?: LiquidGlass.shadow(w, h, ctx.dp(11).toFloat(), ctx.dp(SHADOW_PAD))
-            .also { shared = it }
     }
 
     fun setJiggle(on: Boolean) {
@@ -172,7 +145,7 @@ class TileAdapter(
     /** Tiles in the dock (the first row) hide their name, which would sit on the glass edge. */
     var dockCount = 0
 
-    /** Tilt-in and gliding highlight on focus ([Prefs.focusTvos]); otherwise only the zoom and shadow. */
+    /** Tilt-in and gliding highlight on focus ([Prefs.focusTvos]); otherwise only the zoom. */
     var tvosFocus = true
 
     /** Direction of the last D-pad move, used for the tilt-in. */
@@ -238,8 +211,7 @@ class TileAdapter(
         cell.entry = app
         cell.setJiggle(app.pkg == movingPkg)
         // A folder's mosaic sits on nothing: the placeholder would show through its gaps.
-        cell.hollow = app.folder != null
-        cell.image.setBackgroundColor(if (cell.hollow) Color.TRANSPARENT else TileCell.PLACEHOLDER)
+        cell.image.setBackgroundColor(if (app.folder != null) Color.TRANSPARENT else TileCell.PLACEHOLDER)
         val cached = repo.cachedTile(app)
         if (cached != null) {
             cell.image.setImageBitmap(cached)

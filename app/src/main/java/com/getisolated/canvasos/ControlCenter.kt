@@ -1701,37 +1701,19 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     }
 
     /**
-     * The large player's artwork, focusable: a thin white rounded ring a little outside it while
-     * focused, and OK opens the app that plays. The ring is drawn past the view's edges, in the
-     * card's padding (the card does not clip its children to it).
+     * The large player's artwork, focusable: it only grows while focused (no ring, no border),
+     * and OK opens the app that plays.
      */
-    private inner class ArtButton(private val radius: Float) : ImageView(ctx) {
-        private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = ctx.dp(2).toFloat() }
-        private val gapPx = ctx.dp(5).toFloat()
-        private val rr = RectF()
-        private var level = 0f
-        private val tween = Tween()
-
+    private inner class ArtButton : ImageView(ctx) {
         init {
             id = View.generateViewId()
             isFocusable = true
             isClickable = true
             contentDescription = "Ouvrir l'app"
             setOnFocusChangeListener { _, on ->
-                val from = level
-                tween.start(if (on) 220 else 160) { f -> level = lerp(from, if (on) 1f else 0f, f); invalidate() }
-                tweenScale(if (on) 1.03f else 1f, if (on) 260 else 200, Motion.ease)
+                tweenScale(if (on) 1.06f else 1f, if (on) 260 else 200, if (on) Motion.spring else Motion.ease)
                 if (!on) hold.release(this)
             }
-        }
-
-        override fun onDraw(c: Canvas) {
-            super.onDraw(c)
-            if (level <= 0f) return
-            val g = gapPx + ring.strokeWidth / 2
-            rr.set(-g, -g, width + g, height + g)
-            ring.alpha = (240 * level).toInt()
-            c.drawRoundRect(rr, radius + g, radius + g, ring)
         }
     }
 
@@ -1778,7 +1760,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
      */
     private inner class PlayerBig : LinearLayout(ctx) {
         val glass = glassFor(this, ctx.dp(30).toFloat())
-        private val art = ArtButton(ctx.dp(16).toFloat())
+        private val art = ArtButton()
         private val title = ctx.text(15f, weight = 600).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
         private val artist = ctx.text(13f, SUB, weight = 500).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
         private val timeline = Bar(ctx.dp(5).toFloat(), ctx.dp(9).toFloat())
@@ -1793,7 +1775,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
 
         init {
             orientation = VERTICAL
-            // The artwork's focus ring is drawn in the padding round it.
+            // The focused artwork grows past its box, over the padding.
             clipChildren = false
             clipToPadding = false
             val pad = ctx.dp(18)

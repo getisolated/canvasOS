@@ -61,7 +61,7 @@ class FolderOverlay(
         gravity = Gravity.CENTER_HORIZONTAL
     }
 
-    // Room inside the grid's edges for a focused tile's zoom, shadow and name; the grid clips at its
+    // Room inside the grid's edges for a focused tile's zoom and name; the grid clips at its
     // own edges (its parent clips), so rows scrolled away do not draw over the title.
     private val padH = ctx.dp(40)
     private val padTop = ctx.dp(24)

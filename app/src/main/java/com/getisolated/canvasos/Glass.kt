@@ -1,7 +1,6 @@
 package com.getisolated.canvasos
 
 import android.graphics.Bitmap
-import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
@@ -147,21 +146,5 @@ object LiquidGlass {
                 sb += (add and 255) - (sub and 255)
             }
         }
-    }
-
-    /**
-     * A soft drop shadow for a rounded card of [w]×[h], padded by [pad] on every
-     * side so the blur has room. Drawn in software, where BlurMaskFilter works.
-     */
-    fun shadow(w: Int, h: Int, radius: Float, pad: Int): Bitmap {
-        val b = Bitmap.createBitmap(w + pad * 2, h + pad * 2, Bitmap.Config.ARGB_8888)
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(200, 0, 0, 0)
-            maskFilter = BlurMaskFilter(pad * 0.55f, BlurMaskFilter.Blur.NORMAL)
-        }
-        // A touch narrower than the card, so the shadow pools underneath rather than haloing.
-        val inset = pad * 0.18f
-        Canvas(b).drawRoundRect(RectF(pad + inset, pad.toFloat(), pad + w - inset, (pad + h).toFloat()), radius, radius, p)
-        return b
     }
 }
