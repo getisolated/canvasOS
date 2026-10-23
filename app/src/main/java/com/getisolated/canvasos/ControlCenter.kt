@@ -11,8 +11,6 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PixelFormat
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
@@ -20,6 +18,7 @@ import android.os.SystemClock
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -33,7 +32,8 @@ import kotlin.math.roundToInt
 
 /**
  * The Control Center, in one of two looks ([Prefs.ccGlass]): independent liquid-glass controls
- * floating over the home screen, or, on low-end TVs, the same controls on one plain dark panel.
+ * floating over the home screen (the default everywhere), or the same controls on one plain dark
+ * panel when chosen in settings. The focused control turns white; its neighbours are left alone.
  *
  * The glass is cheap to draw: the home screen behind the controls is captured once at a quarter
  * of its size and blurred when the Control Center opens (and again only if the screen behind
@@ -90,41 +90,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         alpha = 1f
     }
     private val panelCard = rounded(Color.argb(228, 30, 30, 34), ctx.dp(28).toFloat())
-
-    // ---- the light that follows focus, spilling onto neighbouring controls (glass only) ----
-    private var glowX = 0f
-    private var glowY = 0f
-    private var glowR = 0f
-    private var glowA = 0f
-    private val glowTween = Tween()
-    // Unit-radius light, moved and sized with a local matrix instead of a new shader per frame.
-    private val pool = android.graphics.RadialGradient(0f, 0f, 1f,
-        intArrayOf(Color.argb(60, 255, 255, 255), Color.argb(95, 255, 255, 255), Color.argb(40, 255, 255, 255), Color.TRANSPARENT),
-        floatArrayOf(0f, 0.32f, 0.6f, 1f), Shader.TileMode.CLAMP)
-    // Added rather than layered on: the glass glows brighter in its own colours instead of turning
-    // milky. PorterDuff ADD is the same blend as BlendMode.PLUS and exists on Android 9.
-    private val lightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.ADD) }
-    private val panelToHost = Matrix()
-
-    /** Glides the light to the newly focused control. */
-    private fun glowAt(v: View, strength: Float = if (v is Slider) 0.5f else 1f) {
-        if (!glassStyle) return
-        if (v.width == 0) { v.post { if (v.isFocused) glowAt(v) }; return }
-        val r = android.graphics.Rect(0, 0, v.width, v.height)
-        panel.offsetDescendantRectToMyCoords(v, r)
-        val tx = r.exactCenterX()
-        val ty = r.exactCenterY()
-        val tr = maxOf(v.width, v.height) * 0.5f + ctx.dp(110)
-        val fromX = glowX; val fromY = glowY; val fromR = glowR; val fromA = glowA
-        val fresh = fromA == 0f
-        glowTween.start(300) { f ->
-            glowX = if (fresh) tx else lerp(fromX, tx, f)
-            glowY = if (fresh) ty else lerp(fromY, ty, f)
-            glowR = if (fresh) tr else lerp(fromR, tr, f)
-            glowA = lerp(fromA, strength, f)
-            invalidateSurfaces()
-        }
-    }
+    private val bigCard = rounded(Color.argb(235, 30, 30, 34), ctx.dp(30).toFloat())
 
     private fun invalidateSurfaces() { for (s in surfaces) s.owner.invalidate() }
 
@@ -146,31 +112,36 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
     }
 
-    /** The rim's share of the focus light, per strength (cached in 16 steps). */
-    private val edges = arrayOfNulls<Shader>(17)
-
-    private fun edgeFor(a: Float): Shader {
-        val step = (a * 16).roundToInt().coerceIn(0, 16)
-        return edges[step] ?: android.graphics.RadialGradient(0f, 0f, 1f,
-            intArrayOf(Color.argb((230 * step / 16f).toInt(), 255, 255, 255), Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
-            .also { edges[step] = it }
-    }
-
     private val memButton: GlassButton
     private val brightness: Slider
-    private val volume: Slider
     private val inputModule: GlassButton
-    /** "Lecture" ([Prefs.nowPlaying]): what a media session plays; gone while nothing plays or is paused. */
-    private val nowModule: GlassButton
-    private val nowReader = NowPlaying.Reader(ctx, ctx.dp(40))
+    /** The player ([Prefs.nowPlaying]): what a media session plays; gone while nothing plays or is paused. */
     private var now: NowPlaying? = null
+    private val nowReader = NowPlaying.Reader(ctx, ctx.dp(84), ctx.dp(BIG_ART_DP))
     private var nowReading = false
+    /** When the user last pressed something on the player: a reading begun before it is out of date. */
+    private var actedAt = 0L
+    /** [Prefs.playerStyle] is [Prefs.PLAYER_ONE]: the panel shows [nowLine] rather than [nowCard]. */
+    private var playerOne = prefs.playerStyle == Prefs.PLAYER_ONE
+    /** State 1, one line: artwork, title and artist, play/pause. */
+    private val nowLine: GlassButton
+    /** State 2, two lines: artwork, title, artist, transport and progress. */
+    private val nowCard: PlayerCard
+    /** State 3, the large player, in place of the whole panel (a long press on OK). */
+    private val big: PlayerBig
+    /** Holds [big] above the panel; raised itself, so the glass card casts no platform shadow. */
+    private val bigHost = FrameLayout(ctx).apply {
+        translationZ = ctx.dp(102).toFloat()
+        outlineProvider = null
+        visibility = View.INVISIBLE
+    }
+    private var expanded = false
+    private val hold = Hold()
     private val networkModule: GlassButton
     private val sleepModule: GlassButton
     private val weatherModule: GlassButton
     private val bluetoothModule: GlassButton
     private var inputs: List<Input> = emptyList()
-    private var volumeTarget = "speaker"
     private val status = ctx.text(11f, Color.argb(190, 255, 255, 255))
     private val focusables = ArrayList<View>()
     private val io = Executors.newSingleThreadExecutor()
@@ -190,7 +161,6 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
 
     private val ticker = object : Runnable {
         override fun run() {
-            followVolume()
             updateSleep()
             updateNowPlaying()
             refreshBluetooth(force = false)
@@ -200,14 +170,6 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
 
     // Declared before init, which arms it.
     private val sleepWarning = Runnable { warnSleep() }
-
-    private fun followVolume() {
-        if (!isOpen) return
-        io.execute {
-            val v = tv.volume() ?: return@execute
-            host.post { if (isOpen && !volume.hasFocus()) volume.set(v) }
-        }
-    }
 
     var isOpen = false
         private set
@@ -253,28 +215,19 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
 
         brightness = Slider(R.drawable.ic_sun, "Luminosité") { v -> tv.setBrightness(v) }.also { focusables += it }
         panel.addView(brightness, LinearLayout.LayoutParams(-1, ctx.dp(38)).apply { topMargin = gap })
-        volume = Slider(R.drawable.ic_volume, "Volume", steps = 50) { v -> tv.setVolume(volumeTarget, v) }.also { focusables += it }
-        panel.addView(volume, LinearLayout.LayoutParams(-1, ctx.dp(38)).apply { topMargin = gap })
         inputModule = GlassButton("Source", R.drawable.ic_input, Shape.CAPSULE) { pickInput() }
         panel.addView(inputModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
-        // OK plays or pauses; left and right skip, handled here so they never move focus.
-        nowModule = GlassButton("Lecture", R.drawable.ic_music, Shape.CAPSULE) {
-            now?.let { n -> io.execute { n.playPause() } }
-            host.postDelayed({ updateNowPlaying() }, 500)
-        }
-        nowModule.visibility = View.GONE
-        nowModule.setOnKeyListener { _, code, e ->
-            if (code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) return@setOnKeyListener false
-            val n = now
-            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0 && n != null) {
-                val dir = if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1
-                Motion.bump(nowModule, dir, 0)
-                io.execute { if (dir > 0) n.next() else n.previous() }
-                host.postDelayed({ updateNowPlaying() }, 700)
-            }
-            true
-        }
-        panel.addView(nowModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
+        // The player, one of two looks ([Prefs.playerStyle]); its keys are handled by playerKey.
+        nowLine = GlassButton("Lecture", R.drawable.ic_music, Shape.CAPSULE) { togglePlay() }
+        nowLine.trailing(R.drawable.ic_pause)
+        nowLine.visibility = View.GONE
+        nowLine.onFocus = { on -> if (!on) hold.release(nowLine) }
+        nowLine.setOnKeyListener { v, code, e -> playerKey(v, code, e, skips = false) }
+        panel.addView(nowLine, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
+        nowCard = PlayerCard()
+        nowCard.visibility = View.GONE
+        nowCard.setOnKeyListener { v, code, e -> playerKey(v, code, e, skips = true) }
+        panel.addView(nowCard, LinearLayout.LayoutParams(-1, -2).apply { topMargin = gap })
         weatherModule = GlassButton("Météo", R.drawable.ic_wx_partly_cloudy, Shape.CAPSULE) { weatherSheet() }
         panel.addView(weatherModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
         // Hidden until the first refresh finds a Bluetooth adapter: a TV without one never shows it.
@@ -291,24 +244,40 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         panel.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
             if (l != oldL || t != oldT || r != oldR || b != oldB) refreshGlass()
         }
+        big = PlayerBig()
+        bigHost.addView(big, FrameLayout.LayoutParams(-2, -2))
+        host.addView(bigHost, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
+            topMargin = ctx.dp(66); marginEnd = ctx.dp(32)
+        })
+        bigHost.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
+            if (l != oldL || t != oldT || r != oldR || b != oldB) refreshGlass()
+        }
         panel.post { refresh() }
         // A timer started before this screen was recreated still owes its one-minute warning.
         armSleepWarning()
-        host.viewTreeObserver.addOnGlobalFocusChangeListener { _, now ->
-            if (isOpen && now != null && focusables.contains(now)) glowAt(now)
-        }
         // Report cleanup without expanding the button and moving every control below it.
         status.setShadowLayer(ctx.dp(3).toFloat(), 0f, 0f, Color.BLACK)
         applyStyle()
     }
 
-    /** Picks up a change of [Prefs.ccStyle] made in settings. */
+    /** Picks up a change of [Prefs.ccStyle] or [Prefs.playerStyle] made in settings. */
     fun applyStyle() {
+        val one = prefs.playerStyle == Prefs.PLAYER_ONE
+        if (one != playerOne) {
+            playerOne = one
+            // Shown again from scratch in the other look.
+            val n = now
+            now = null
+            nowLine.visibility = View.GONE
+            nowCard.visibility = View.GONE
+            showNow(n)
+        }
         val glass = prefs.ccGlass(ctx)
         if (glass == glassStyle && panel.tag != null) return
         panel.tag = true
         glassStyle = glass
         panel.background = if (glass) null else panelCard
+        big.background = if (glass) big.glass else bigCard
         if (!glass) { blur = null; blurShader = null }
         blurDirty = true
         invalidateSurfaces()
@@ -403,55 +372,17 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
                 paint.alpha = (255 * lit).toInt()
                 c.drawRoundRect(rect, r, r, paint)
             }
-            // The focused control lights the glass around it: a pool of light spilling into its
-            // neighbours, and their rims catching it. Kept in panel coordinates, so it rides
-            // along with the panel's own motion; controls out of its reach skip it.
-            val glow = glowA > 0f && nearGlow()
-            if (glow) {
-                toHost(panel, panelToHost)
-                m.setScale(glowR, glowR)
-                m.postTranslate(glowX, glowY)
-                m.postConcat(panelToHost)
-                m.postConcat(hostToOwner)
-                pool.setLocalMatrix(m)
-                lightPaint.shader = pool
-                lightPaint.alpha = (255 * glowA).toInt()
-                c.drawRoundRect(rect, r, r, lightPaint)
-            }
-            // Rim: bright where it faces the light (top left), a softer reflection bottom right,
-            // and the focus light caught on it, all in one stroke.
-            val rimShader = rim
+            // Rim: bright where it faces the light (top left), a softer reflection bottom right.
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = ctx.dp(1f + 0.6f * lit).toFloat()
             paint.alpha = (150 + 105 * lit).toInt()
-            paint.shader = rimShader
-            if (glow && rimShader != null) {
-                val e = edgeFor(glowA)
-                m.setScale(glowR * 2.2f, glowR * 2.2f)
-                m.postTranslate(glowX, glowY)
-                m.postConcat(panelToHost)
-                m.postConcat(hostToOwner)
-                e.setLocalMatrix(m)
-                paint.shader = android.graphics.ComposeShader(rimShader, e, PorterDuff.Mode.ADD)
-            }
+            paint.shader = rim
             val inset = paint.strokeWidth / 2
             rect.inset(inset, inset)
             c.drawRoundRect(rect, r, r, paint)
             paint.shader = null
             paint.alpha = 255
             paint.style = Paint.Style.FILL
-        }
-
-        private val ownerRect = android.graphics.Rect()
-
-        /** Whether the focus light reaches this control at all (its rim light reaches 2.2x as far). */
-        private fun nearGlow(): Boolean {
-            ownerRect.set(0, 0, owner.width, owner.height)
-            try { panel.offsetDescendantRectToMyCoords(owner, ownerRect) } catch (e: IllegalArgumentException) { return true }
-            val reach = glowR * 2.2f
-            val dx = maxOf(ownerRect.left - glowX, 0f, glowX - ownerRect.right)
-            val dy = maxOf(ownerRect.top - glowY, 0f, glowY - ownerRect.bottom)
-            return dx * dx + dy * dy < reach * reach
         }
 
         /** The panel look: flat translucent controls that turn white when focused. */
@@ -502,10 +433,12 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private fun sampleBehind() {
         if (destroyed || !glassStyle || host.width == 0 || panel.width == 0) return
         val margin = ctx.dp(48)
-        val left = (panel.left - margin).coerceAtLeast(0)
-        val top = (panel.top - margin).coerceAtLeast(0)
-        val right = (panel.right + margin).coerceAtMost(host.width)
-        val bottom = (panel.bottom + margin).coerceAtMost(host.height)
+        // The large player too, which stands where the panel does but may reach further.
+        val hasBig = bigHost.width > 0
+        val left = (minOf(panel.left, if (hasBig) bigHost.left else panel.left) - margin).coerceAtLeast(0)
+        val top = (minOf(panel.top, if (hasBig) bigHost.top else panel.top) - margin).coerceAtLeast(0)
+        val right = (maxOf(panel.right, if (hasBig) bigHost.right else panel.right) + margin).coerceAtMost(host.width)
+        val bottom = (maxOf(panel.bottom, if (hasBig) bigHost.bottom else panel.bottom) + margin).coerceAtMost(host.height)
         val w = ((right - left) * sampleScale).roundToInt().coerceAtLeast(1)
         val h = ((bottom - top) * sampleScale).roundToInt().coerceAtLeast(1)
         val bmp = try {
@@ -559,6 +492,16 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
         /** A new glyph, such as the weather's; it keeps its colour. */
         fun setIcon(res: Int) = glyph.setImageResource(res)
+        /** A glyph at the far end (the one-line player's play/pause), white like the title. */
+        var trail: ImageView? = null
+            private set
+        /** Told when focus comes or goes, after the control has lit or dimmed. */
+        var onFocus: ((Boolean) -> Unit)? = null
+
+        fun trailing(res: Int): ImageView = (trail ?: ImageView(ctx).also {
+            trail = it
+            addView(it, LayoutParams(ctx.dp(20), ctx.dp(20)).apply { marginStart = ctx.dp(8) })
+        }).apply { setImageResource(res) }
 
         init {
             id = View.generateViewId()
@@ -590,6 +533,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
                 glyph.setColorFilter(if (on) ink else accent)
                 title.setTextColor(if (on) ink else Color.WHITE)
                 sub.setTextColor(if (on) Color.argb(170, 0, 0, 0) else Color.argb(205, 255, 255, 255))
+                trail?.setColorFilter(if (on) ink else Color.WHITE)
+                onFocus?.invoke(on)
             }
         }
     }
@@ -766,8 +711,6 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     fun open() {
         if (isOpen) return
         isOpen = true
-        glowTween.cancel()
-        glowA = 0f
         home.pauseShelfRotation()
         panel.animate().cancel()
         scrim.animate().cancel()
@@ -798,8 +741,15 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         if (!isOpen) return
         isOpen = false
         host.removeCallbacks(ticker)
+        host.removeCallbacks(progressTick)
+        hold.cancel()
+        if (expanded) {
+            expanded = false
+            big.cancelCursor()
+            bigHost.animate().alpha(0f).setDuration(180).setUpdateListener(null)
+                .withEndAction { if (!expanded) bigHost.visibility = View.INVISIBLE }.start()
+        }
         brightness.finishAnimation()
-        volume.finishAnimation()
         scrim.animate().alpha(0f).setDuration(180).start()
         panel.animate().alpha(0f).translationX(ctx.dp(24).toFloat()).scaleX(0.97f * restScale).scaleY(0.97f * restScale).setDuration(200)
             .setUpdateListener { if (glassStyle) invalidateSurfaces() }
@@ -819,7 +769,9 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         host.removeCallbacks(sleepWarning)
         panel.animate().cancel()
         scrim.animate().cancel()
-        glowTween.cancel()
+        bigHost.animate().cancel()
+        hold.cancel()
+        host.removeCallbacks(progressTick)
         blur = null
         blurShader = null
         io.shutdown()
@@ -827,7 +779,13 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     }
 
     fun refocus() {
+        if (expanded) { big.play.requestFocus(); return }
         (focusables.firstOrNull { it.isFocused } ?: memButton).requestFocus()
+    }
+
+    /** Back (or Menu) while open: the large player's cursor goes first, then the large player itself, then the panel. */
+    fun back() {
+        if (!expanded) close() else if (!big.cancelCursor()) collapse()
     }
 
     fun refresh() {
@@ -851,7 +809,6 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         refreshing = true
         io.execute {
             val b = tv.brightness()
-            val v = tv.volume()
             val list = tv.inputs()
             val cur = tv.currentInput()
             val summary = tv.inputSummary(list)
@@ -860,8 +817,6 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
                 if (destroyed) return@post
                 brightness.set(b)
                 brightness.visibility = if (b == null) View.GONE else View.VISIBLE
-                v?.target?.takeIf { it.isNotEmpty() }?.let { volumeTarget = it }
-                volume.set(v)
                 inputs = list
                 inputModule.sub.visibility = View.VISIBLE
                 inputModule.sub.text = list.firstOrNull { it.uri == cur }?.name ?: summary
@@ -945,11 +900,15 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         if (!prefs.nowPlaying) { showNow(null); return }
         if (nowReading) return
         nowReading = true
+        val started = SystemClock.elapsedRealtime()
         io.execute {
             val n = runCatching { nowReader.read() }.getOrNull()
             host.post {
                 nowReading = false
-                if (!destroyed) showNow(if (prefs.nowPlaying) n else null)
+                if (destroyed) return@post
+                // Begun before a press or just after it, it may not know of it yet: what the press showed stays until the next reading.
+                if (started < actedAt + ACT_GRACE_MS && n != null && n.pkg == now?.pkg) return@post
+                showNow(if (prefs.nowPlaying) n else null)
             }
         }
     }
@@ -1017,35 +976,540 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private fun showNow(n: NowPlaying?) {
         val old = now
         now = n
+        val shown: View = if (playerOne) nowLine else nowCard
         if (n == null) {
-            if (nowModule.visibility == View.GONE) return
-            // Focus must not vanish with the capsule.
-            if (nowModule.hasFocus()) inputModule.requestFocus()
-            nowModule.visibility = View.GONE
+            if (expanded) collapse()
+            host.removeCallbacks(progressTick)
+            if (nowLine.visibility == View.GONE && nowCard.visibility == View.GONE) return
+            // Focus must not vanish with the player.
+            if (nowLine.hasFocus() || nowCard.hasFocus()) inputModule.requestFocus()
+            nowLine.visibility = View.GONE
+            nowCard.visibility = View.GONE
             return
         }
-        if (n.sameAs(old) && nowModule.visibility == View.VISIBLE) return
-        nowModule.title.text = n.title
-        nowModule.contentDescription = n.title
-        nowModule.sub.text = n.sub
-        nowModule.sub.visibility = View.VISIBLE
-        if (old == null || old.art !== n.art || nowModule.visibility != View.VISIBLE) showArt(n.art)
-        nowModule.visibility = View.VISIBLE
+        // Text and artwork only when they changed: the 2 s poll must not relayout and redraw the glass.
+        if (!n.sameAs(old) || shown.visibility != View.VISIBLE) {
+            nowLine.title.text = n.title
+            nowLine.contentDescription = n.title
+            nowLine.sub.text = n.sub
+            nowLine.sub.visibility = View.VISIBLE
+            nowCard.bind(n)
+            big.bind(n)
+            if (old == null || old.art !== n.art || shown.visibility != View.VISIBLE) {
+                nowLine.glyph.setImageDrawable(NowPlaying.Cover(n.art, ctx.dp(8).toFloat(), note()))
+                val lp = nowLine.glyph.layoutParams as LinearLayout.LayoutParams
+                if (lp.width != ctx.dp(35)) {
+                    lp.width = ctx.dp(35)
+                    lp.height = ctx.dp(35)
+                    lp.marginEnd = ctx.dp(9)
+                    nowLine.glyph.layoutParams = lp
+                    // Concentric with the capsule's end: (47 - 35) / 2 = 6 dp all around.
+                    nowLine.setPadding(ctx.dp(6), 0, ctx.dp(14), 0)
+                }
+            }
+            shown.visibility = View.VISIBLE
+        }
+        showPlayback()
     }
 
-    /** The artwork as a disc set in the capsule's rounded end, or the note glyph without one. */
-    private fun showArt(art: Bitmap?) {
-        val glyph = nowModule.glyph
-        if (art != null) glyph.setImageDrawable(NowPlaying.Disc(art)) else glyph.setImageResource(R.drawable.ic_music)
-        val size = ctx.dp(if (art != null) 35 else 20)
-        val lp = glyph.layoutParams as LinearLayout.LayoutParams
-        if (lp.width != size) {
-            lp.width = size
-            lp.height = size
-            lp.marginEnd = ctx.dp(if (art != null) 8 else 9)
-            glyph.layoutParams = lp
-            // Concentric with the capsule's end: (47 - 35) / 2 = 6 dp all around.
-            nowModule.setPadding(ctx.dp(if (art != null) 6 else 13), 0, ctx.dp(10), 0)
+    private fun note() = ctx.getDrawable(R.drawable.ic_music)
+
+    /** The play/pause glyphs and the progress, from [now]; then again in a second while a bar is on screen. */
+    private fun showPlayback() {
+        val n = now ?: return
+        val glyph = if (n.playing) R.drawable.ic_pause else R.drawable.ic_play
+        for (v in listOf(nowLine.trail, nowCard.play, big.play.glyph)) {
+            if (v != null && v.tag != glyph) { v.setImageResource(glyph); v.tag = glyph }
+        }
+        showProgress()
+    }
+
+    private val progressTick = Runnable { showProgress() }
+
+    private fun showProgress() {
+        host.removeCallbacks(progressTick)
+        val n = now ?: return
+        val pos = n.positionNow()
+        val card = !playerOne && nowCard.visibility == View.VISIBLE
+        if (card) nowCard.progress(n, pos)
+        if (expanded) big.progress(n, pos)
+        // Next when the elapsed second changes, not on a clock of its own: the time never lags.
+        if (isOpen && (card || expanded) && n.hasDuration && pos >= 0) {
+            val wait = if (n.speed > 0f) ((1000 - pos % 1000) / n.speed).toLong() + 20 else 1000L
+            host.postDelayed(progressTick, wait.coerceIn(100L, 1000L))
+        }
+    }
+
+    // ---- the player's keys and actions ---------------------------------------------------------
+
+    /**
+     * Keys on the one-line and two-line players. OK plays or pauses; held, it opens the large
+     * player. On the two-line one ([skips]), Left goes back (to the start of the track, or the
+     * previous track within its first 3 s) and Right to the next track; held, they seek 10 s at a
+     * time. A press and a hold are told apart by time, not by repeat events, which some remotes
+     * never send. Up and Down move through the panel as usual.
+     */
+    private fun playerKey(v: View, code: Int, e: KeyEvent, skips: Boolean): Boolean {
+        val dir = when (code) { KeyEvent.KEYCODE_DPAD_LEFT -> -1; KeyEvent.KEYCODE_DPAD_RIGHT -> 1; else -> 0 }
+        if (dir == 0 && !isConfirm(code)) return false
+        if (dir != 0 && !skips) return false
+        if (e.action == KeyEvent.ACTION_DOWN) {
+            if (e.repeatCount == 0) {
+                if (dir == 0) hold.down(v, code, ViewConfiguration.getLongPressTimeout().toLong()) { expand() }
+                else hold.down(v, code, SEEK_HOLD_MS, SEEK_EVERY_MS) { seekBy(dir) }
+            }
+        } else if (e.action == KeyEvent.ACTION_UP && hold.up(v, code)) {
+            when {
+                dir == 0 -> togglePlay()
+                else -> {
+                    Motion.bump(v, dir, 0)
+                    if (dir < 0) back(now) else skipNext()
+                }
+            }
+        }
+        return true
+    }
+
+    /** Sends [call] to the session off the UI thread, shows [change] at once, and reads the session again after [readAfter] ms. */
+    private fun act(change: ((NowPlaying) -> NowPlaying)?, readAfter: Long, call: (NowPlaying) -> Unit) {
+        val n = now ?: return
+        actedAt = SystemClock.elapsedRealtime()
+        if (change != null) { now = change(n); showPlayback() }
+        io.execute { call(n) }
+        host.postDelayed({ updateNowPlaying() }, readAfter)
+    }
+
+    private fun togglePlay() = act({ it.toggled() }, 500) { it.playPause() }
+
+    private fun skipNext() = act(null, 700) { it.next() }
+
+    /** « Back »: to the start of the track, or to the previous track when it has only just begun. */
+    private fun back(n: NowPlaying?) {
+        if (n == null) return
+        if (NowPlaying.restartsOnBack(n.positionNow())) seekTo(0L) else act(null, 700) { it.previous() }
+    }
+
+    /** One step of 10 s from where playback is now (or was last sent: steps add up while a key is held). */
+    private fun seekBy(dir: Int) {
+        val n = now ?: return
+        val from = n.positionNow()
+        if (from < 0) return
+        seekTo(NowPlaying.step(from, dir, n.duration))
+    }
+
+    private fun seekTo(ms: Long) = act({ it.seeked(ms) }, 900) { it.seekTo(ms) }
+
+    /** State 3: the panel fades out and the large player takes its place, focus on play/pause. */
+    private fun expand() {
+        val n = now ?: return
+        if (expanded || !isOpen) return
+        expanded = true
+        big.bind(n)
+        if (glassStyle && (blurDirty || blur == null)) sampleBehind()
+        bigHost.animate().cancel()
+        bigHost.visibility = View.VISIBLE
+        bigHost.alpha = 0f
+        val s = bigScale()
+        bigHost.pivotX = bigHost.width.toFloat()
+        bigHost.pivotY = 0f
+        bigHost.scaleX = 0.96f * s
+        bigHost.scaleY = 0.96f * s
+        big.play.requestFocus()
+        showPlayback()
+        bigHost.animate().alpha(1f).scaleX(s).scaleY(s).setDuration(280).setInterpolator(Motion.ease)
+            .setUpdateListener { if (glassStyle) big.invalidate() }.start()
+        panel.animate().alpha(0f).setDuration(180).setUpdateListener(null)
+            .withEndAction { if (expanded) panel.visibility = View.INVISIBLE }.start()
+    }
+
+    /** Back from state 3: the panel fades in again, focus on its player. */
+    private fun collapse() {
+        if (!expanded) return
+        expanded = false
+        big.cancelCursor()
+        hold.cancel()
+        panel.visibility = View.VISIBLE
+        panel.animate().alpha(1f).setDuration(240).setInterpolator(Motion.ease).setUpdateListener(null).start()
+        val player: View = if (playerOne) nowLine else nowCard
+        if (player.visibility == View.VISIBLE) player.requestFocus() else memButton.requestFocus()
+        bigHost.animate().alpha(0f).setDuration(180).setUpdateListener(null)
+            .withEndAction { if (!expanded) bigHost.visibility = View.INVISIBLE }.start()
+        showProgress()
+    }
+
+    /** As [fitScale], for the large player: it shrinks from its top right corner to fit a short screen. */
+    private fun bigScale(): Float {
+        if (host.height <= 0 || bigHost.height <= 0) return 1f
+        val room = host.height - ctx.dp(16) - bigHost.top
+        return if (bigHost.height <= room || room <= 0) 1f else (room.toFloat() / bigHost.height).coerceIn(0.6f, 1f)
+    }
+
+    /**
+     * One key held at a time: after [down], an action may run once held long enough, then again
+     * at intervals; [up] says whether it was a short press on the same control. A key that went
+     * down elsewhere (the OK that opened the large player) is not a press here.
+     */
+    private inner class Hold {
+        private var code = 0
+        private var owner: View? = null
+        private var steps = 0
+        private var every = 0L
+        private var action: (() -> Unit)? = null
+        private val tick = object : Runnable {
+            override fun run() {
+                steps++
+                action?.invoke()
+                if (every > 0 && code != 0) host.postDelayed(this, every)
+            }
+        }
+
+        /** [code] went down on [v]: [action] runs after [after] ms held, then every [every] ms (0: once); none, nothing runs while held. */
+        fun down(v: View, code: Int, after: Long = 0L, every: Long = 0L, action: (() -> Unit)? = null) {
+            cancel()
+            owner = v
+            this.code = code
+            this.every = every
+            this.action = action
+            if (action != null) host.postDelayed(tick, after)
+        }
+
+        /** [code] came up on [v]: true for a short press there (down on [v] too, and nothing ran while held). */
+        fun up(v: View, code: Int): Boolean {
+            val short = owner === v && this.code == code && steps == 0
+            cancel()
+            return short
+        }
+
+        /** [v] lost focus: whatever it was holding stops. */
+        fun release(v: View) { if (owner === v) cancel() }
+
+        fun cancel() {
+            host.removeCallbacks(tick)
+            code = 0
+            owner = null
+            steps = 0
+            action = null
+        }
+    }
+
+    /** The two times under a progress bar: elapsed at the left, what is left at the right. */
+    private inner class Times(size: Float) : LinearLayout(ctx) {
+        // Not wrap_content: new text in a view of fixed width redraws it without a relayout.
+        val elapsed = ctx.text(size, SUB, weight = 500).apply { gravity = Gravity.START; maxLines = 1 }
+        val left = ctx.text(size, SUB, weight = 500).apply { gravity = Gravity.END; maxLines = 1 }
+
+        init {
+            orientation = HORIZONTAL
+            addView(elapsed, LayoutParams(0, -2, 1f))
+            addView(left, LayoutParams(0, -2, 1f))
+        }
+
+        fun show(at: Long, duration: Long) {
+            elapsed.put(NowPlaying.clock(at))
+            left.put(NowPlaying.remaining(at, duration))
+        }
+
+        fun ink(on: Boolean) {
+            val c = if (on) INK_SUB else SUB
+            elapsed.setTextColor(c)
+            left.setTextColor(c)
+        }
+    }
+
+    private fun TextView.put(t: String) { if (text.toString() != t) text = t }
+
+    /** A progress bar: what has played over a dim track; the large player's cursor as a knob and a bright stretch. */
+    private inner class Bar(private val rest: Float, private val lit: Float) : View(ctx) {
+        private var fraction = 0f
+        /** Where the cursor stands (0 to 1), or below 0 without one. */
+        private var cursor = -1f
+        /** Dark, on a lit (white) control. */
+        var ink = false
+            set(v) { if (field != v) { field = v; invalidate() } }
+        private var thick = rest
+        private val thickTween = Tween()
+        private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val r = RectF()
+
+        fun set(f: Float, c: Float = -1f) {
+            val nf = f.coerceIn(0f, 1f)
+            // Within half a pixel nothing would move: no redraw.
+            if (c == cursor && kotlin.math.abs(nf - fraction) * width < 0.5f) return
+            fraction = nf
+            cursor = c
+            invalidate()
+        }
+
+        /** The large player's timeline thickens while focused. */
+        fun light(on: Boolean) {
+            val from = thick
+            thickTween.start(180) { f -> thick = lerp(from, if (on) lit else rest, f); invalidate() }
+        }
+
+        override fun onDraw(c: Canvas) {
+            val w = width.toFloat()
+            val h = thick
+            val top = (height - h) / 2f
+            val v = if (ink) 0 else 255
+            p.color = Color.argb(if (ink) 45 else 70, v, v, v)
+            r.set(0f, top, w, top + h)
+            c.drawRoundRect(r, h / 2, h / 2, p)
+            val played = w * fraction
+            p.color = Color.argb(if (ink) 200 else if (cursor >= 0f) 150 else 225, v, v, v)
+            if (fraction > 0f) {
+                r.set(0f, top, maxOf(played, h), top + h)
+                c.drawRoundRect(r, h / 2, h / 2, p)
+            }
+            if (cursor >= 0f) {
+                val x = w * cursor.coerceIn(0f, 1f)
+                p.color = Color.argb(255, v, v, v)
+                r.set(minOf(x, played), top, maxOf(x, played), top + h)
+                c.drawRect(r, p)
+                c.drawCircle(x, height / 2f, h / 2 + ctx.dp(4), p)
+            }
+        }
+    }
+
+    /** State 2, the two-line player: one focusable glass card. */
+    private inner class PlayerCard : LinearLayout(ctx) {
+        private val glass = glassFor(this, ctx.dp(22).toFloat())
+        private val art = ImageView(ctx)
+        private val title = ctx.text(12.5f, weight = 600).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+        private val artist = ctx.text(11f, SUB, weight = 500).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+        private val rew = ImageView(ctx).apply { setImageResource(R.drawable.ic_fast_rewind) }
+        val play = ImageView(ctx).apply { setImageResource(R.drawable.ic_pause) }
+        private val fwd = ImageView(ctx).apply { setImageResource(R.drawable.ic_fast_forward) }
+        private val bar = Bar(ctx.dp(4).toFloat(), ctx.dp(4).toFloat())
+        private val times = Times(9.5f)
+        private var shownArt: Bitmap? = null
+        private var artSet = false
+
+        init {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isFocusable = true
+            isClickable = true
+            contentDescription = "Lecture"
+            focusables += this
+            val pad = ctx.dp(10)
+            setPadding(pad, pad, ctx.dp(12), pad)
+            addView(art, LayoutParams(ctx.dp(84), ctx.dp(84)))
+            val col = LinearLayout(ctx).apply { orientation = VERTICAL }
+            col.addView(title)
+            col.addView(artist, LayoutParams(-1, -2).apply { topMargin = ctx.dp(2) })
+            val row = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
+            row.addView(rew, LayoutParams(ctx.dp(18), ctx.dp(18)))
+            row.addView(play, LayoutParams(ctx.dp(21), ctx.dp(21)).apply { marginStart = ctx.dp(14); marginEnd = ctx.dp(14) })
+            row.addView(fwd, LayoutParams(ctx.dp(18), ctx.dp(18)))
+            col.addView(row, LayoutParams(-1, ctx.dp(22)).apply { topMargin = ctx.dp(5) })
+            col.addView(bar, LayoutParams(-1, ctx.dp(6)).apply { topMargin = ctx.dp(5) })
+            col.addView(times, LayoutParams(-1, -2).apply { topMargin = ctx.dp(2) })
+            addView(col, LayoutParams(0, -2, 1f).apply { marginStart = ctx.dp(11) })
+            setOnClickListener { togglePlay() }
+            setOnFocusChangeListener { _, on ->
+                focus(this, glass, on, 1.04f)
+                // Lit glass is bright: dark text and glyphs, as on the other controls.
+                title.setTextColor(if (on) INK else Color.WHITE)
+                artist.setTextColor(if (on) INK_SUB else SUB)
+                for (g in listOf(rew, play, fwd)) g.setColorFilter(if (on) INK else Color.WHITE)
+                bar.ink = on
+                times.ink(on)
+                if (!on) hold.release(this)
+            }
+        }
+
+        fun bind(n: NowPlaying) {
+            title.text = n.title
+            artist.text = n.sub
+            contentDescription = n.title
+            if (!artSet || shownArt !== n.art) {
+                artSet = true
+                shownArt = n.art
+                art.setImageDrawable(NowPlaying.Cover(n.art, ctx.dp(12).toFloat(), note()))
+            }
+        }
+
+        fun progress(n: NowPlaying, pos: Long) {
+            val known = n.hasDuration && pos >= 0
+            val vis = if (known) View.VISIBLE else View.INVISIBLE
+            if (bar.visibility != vis) { bar.visibility = vis; times.visibility = vis }
+            if (!known) return
+            bar.set(pos.toFloat() / n.duration)
+            times.show(pos, n.duration)
+        }
+    }
+
+    /** A round control of the large player: its glyph on a white disc while focused. */
+    private inner class RoundGlyph(icon: Int, glyphDp: Int, label: String) : FrameLayout(ctx) {
+        val glyph = ImageView(ctx).apply { setImageResource(icon) }
+        private val disc = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(Color.WHITE)
+            alpha = 0
+        }
+        private val tween = Tween()
+
+        init {
+            id = View.generateViewId()
+            isFocusable = true
+            isClickable = true
+            contentDescription = label
+            background = disc
+            addView(glyph, LayoutParams(ctx.dp(glyphDp), ctx.dp(glyphDp), Gravity.CENTER))
+            setOnFocusChangeListener { _, on ->
+                val from = disc.alpha
+                tween.start(if (on) 220 else 160) { f -> disc.alpha = lerp(from.toFloat(), if (on) 255f else 0f, f).toInt() }
+                tweenScale(if (on) 1.1f else 1f, if (on) 260 else 200, if (on) Motion.spring else Motion.ease)
+                glyph.setColorFilter(if (on) INK else Color.WHITE)
+                if (!on) hold.release(this)
+            }
+        }
+    }
+
+    /**
+     * State 3, the large player: artwork, title and artist, the timeline and the three controls,
+     * in place of the panel. Focus moves one element at a time. On the timeline, Left and Right
+     * move a cursor 10 s at a time without touching playback, OK seeks there and Back drops it.
+     */
+    private inner class PlayerBig : LinearLayout(ctx) {
+        val glass = glassFor(this, ctx.dp(30).toFloat())
+        private val art = ImageView(ctx)
+        private val title = ctx.text(15f, weight = 600).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+        private val artist = ctx.text(13f, SUB, weight = 500).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+        private val timeline = Bar(ctx.dp(5).toFloat(), ctx.dp(9).toFloat())
+        private val times = Times(11f)
+        private val rew = RoundGlyph(R.drawable.ic_fast_rewind, 28, "Retour")
+        val play = RoundGlyph(R.drawable.ic_pause, 32, "Lecture ou pause")
+        private val fwd = RoundGlyph(R.drawable.ic_fast_forward, 28, "Suivant")
+        /** Where OK on the timeline would seek to, in ms; below 0 without a cursor. */
+        private var cursor = -1L
+        private var shownArt: Bitmap? = null
+        private var artSet = false
+
+        init {
+            orientation = VERTICAL
+            val pad = ctx.dp(18)
+            setPadding(pad, pad, pad, ctx.dp(14))
+            addView(art, LayoutParams(ctx.dp(BIG_ART_DP), ctx.dp(BIG_ART_DP)))
+            addView(title, LayoutParams(ctx.dp(BIG_ART_DP), -2).apply { topMargin = ctx.dp(14) })
+            addView(artist, LayoutParams(ctx.dp(BIG_ART_DP), -2).apply { topMargin = ctx.dp(3) })
+            timeline.id = View.generateViewId()
+            timeline.isFocusable = true
+            timeline.contentDescription = "Position"
+            addView(timeline, LayoutParams(ctx.dp(BIG_ART_DP), ctx.dp(20)).apply { topMargin = ctx.dp(10) })
+            addView(times, LayoutParams(ctx.dp(BIG_ART_DP), -2))
+            val row = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
+            row.addView(rew, LayoutParams(ctx.dp(54), ctx.dp(54)))
+            row.addView(play, LayoutParams(ctx.dp(58), ctx.dp(58)).apply { marginStart = ctx.dp(18); marginEnd = ctx.dp(18) })
+            row.addView(fwd, LayoutParams(ctx.dp(54), ctx.dp(54)))
+            addView(row, LayoutParams(ctx.dp(BIG_ART_DP), -2).apply { topMargin = ctx.dp(8) })
+            rew.nextFocusRightId = play.id
+            play.nextFocusLeftId = rew.id
+            play.nextFocusRightId = fwd.id
+            fwd.nextFocusLeftId = play.id
+            timeline.nextFocusDownId = play.id
+            for (c in listOf(rew, play, fwd)) {
+                c.nextFocusUpId = timeline.id
+                c.setOnKeyListener { v, code, e -> controlKey(v, code, e) }
+            }
+            timeline.setOnKeyListener { v, code, e -> timelineKey(v, code, e) }
+            timeline.setOnFocusChangeListener { _, on ->
+                timeline.light(on)
+                if (!on) { hold.release(timeline); cancelCursor() }
+            }
+        }
+
+        fun bind(n: NowPlaying) {
+            title.text = n.title
+            artist.text = n.sub
+            if (!artSet || shownArt !== n.artLarge) {
+                artSet = true
+                shownArt = n.artLarge
+                art.setImageDrawable(NowPlaying.Cover(n.artLarge, ctx.dp(16).toFloat(), note()))
+            }
+        }
+
+        fun progress(n: NowPlaying, pos: Long) {
+            val known = n.hasDuration && pos >= 0
+            val vis = if (known) View.VISIBLE else View.GONE
+            if (timeline.visibility != vis) {
+                if (!known && timeline.hasFocus()) play.requestFocus()
+                timeline.visibility = vis
+                times.visibility = vis
+            }
+            if (!known) return
+            val at = if (cursor >= 0) cursor else pos
+            timeline.set(pos.toFloat() / n.duration, if (cursor >= 0) cursor.toFloat() / n.duration else -1f)
+            times.show(at, n.duration)
+        }
+
+        /** Drops the timeline's cursor; false when there was none. */
+        fun cancelCursor(): Boolean {
+            if (cursor < 0) return false
+            cursor = -1L
+            showProgress()
+            return true
+        }
+
+        private fun stepCursor(dir: Int, bump: Boolean) {
+            val n = now ?: return
+            if (!n.hasDuration) return
+            val from = if (cursor >= 0) cursor else n.positionNow().coerceAtLeast(0L)
+            val to = NowPlaying.step(from, dir, n.duration)
+            if (to == cursor && bump) Motion.bump(timeline, dir, 0)
+            cursor = to
+            showProgress()
+        }
+
+        private fun timelineKey(v: View, code: Int, e: KeyEvent): Boolean {
+            val down = e.action == KeyEvent.ACTION_DOWN
+            val dir = when (code) { KeyEvent.KEYCODE_DPAD_LEFT -> -1; KeyEvent.KEYCODE_DPAD_RIGHT -> 1; else -> 0 }
+            when {
+                dir != 0 -> {
+                    if (down && e.repeatCount == 0) {
+                        stepCursor(dir, bump = true)
+                        hold.down(v, code, CURSOR_HOLD_MS, CURSOR_EVERY_MS) { stepCursor(dir, bump = false) }
+                    } else if (!down) hold.up(v, code)
+                }
+                isConfirm(code) -> {
+                    if (down && e.repeatCount == 0) hold.down(v, code)
+                    else if (!down && hold.up(v, code) && cursor >= 0) {
+                        val to = cursor
+                        cursor = -1L
+                        seekTo(to)
+                    }
+                }
+                code == KeyEvent.KEYCODE_DPAD_UP -> if (down && e.repeatCount == 0) Motion.bump(v, 0, -1)
+                else -> return false
+            }
+            return true
+        }
+
+        private fun controlKey(v: View, code: Int, e: KeyEvent): Boolean {
+            val down = e.action == KeyEvent.ACTION_DOWN
+            // The row's ends and its bottom: nothing further in the large player, and nothing behind it may take focus.
+            val edge = when (code) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> v === rew
+                KeyEvent.KEYCODE_DPAD_RIGHT -> v === fwd
+                KeyEvent.KEYCODE_DPAD_DOWN -> true
+                KeyEvent.KEYCODE_DPAD_UP -> timeline.visibility != View.VISIBLE
+                else -> false
+            }
+            if (edge) {
+                if (down && e.repeatCount == 0) Motion.bump(v,
+                    if (code == KeyEvent.KEYCODE_DPAD_LEFT) -1 else if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else 0,
+                    if (code == KeyEvent.KEYCODE_DPAD_UP) -1 else if (code == KeyEvent.KEYCODE_DPAD_DOWN) 1 else 0)
+                return true
+            }
+            if (!isConfirm(code)) return false
+            if (down) {
+                if (e.repeatCount == 0) hold.down(v, code)
+            } else if (hold.up(v, code)) when (v) {
+                rew -> back(now)
+                fwd -> skipNext()
+                else -> togglePlay()
+            }
+            return true
         }
     }
 
@@ -1251,6 +1715,23 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     }
 
     private companion object {
+        /** The large player's artwork, and the width of everything under it. */
+        const val BIG_ART_DP = 220
+        /** Left or Right held this long on the two-line player starts seeking, then one step this often. */
+        const val SEEK_HOLD_MS = 450L
+        const val SEEK_EVERY_MS = 400L
+        /** Left or Right held on the large player's timeline: the cursor runs on after this, one step this often. */
+        const val CURSOR_HOLD_MS = 400L
+        const val CURSOR_EVERY_MS = 200L
+        /** A reading begun less than this after a press may not show it yet (a seek held down sends one every 400 ms). */
+        const val ACT_GRACE_MS = 400L
+        val SUB = Color.argb(170, 255, 255, 255)
+        val INK = Color.argb(225, 0, 0, 0)
+        val INK_SUB = Color.argb(150, 0, 0, 0)
+
+        /** OK on a remote, or Enter on a keyboard (View's own confirm keys). */
+        fun isConfirm(code: Int) = code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER
+
         /** The profile services are not cheap: the panel's 2 s ticker reads them this often at most. */
         const val BT_REFRESH_MS = 10_000L
         /** Devices listed in the sheet; it does not scroll. */

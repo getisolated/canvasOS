@@ -159,8 +159,12 @@ class Prefs(ctx: Context) {
         get() = sp.getString("cc_style", AUTO)!!
         set(v) = sp.edit().putString("cc_style", v).apply()
 
-    /** The Control Center uses floating glass controls rather than one plain panel. */
-    fun ccGlass(ctx: Context) = when (ccStyle) { CC_GLASS -> true; CC_PANEL -> false; else -> !Device.isLowEnd(ctx) }
+    /**
+     * The Control Center uses floating glass controls rather than one plain panel: everywhere unless
+     * the panel is chosen, as the glass costs no more per frame than the panel since its focus light went.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun ccGlass(ctx: Context) = ccStyle != CC_PANEL
 
     /** [AUTO], [FOCUS_TVOS] (tilt and a gliding highlight) or [FOCUS_SIMPLE] (scale and shadow only). */
     var focusStyle: String
@@ -426,6 +430,11 @@ class Prefs(ctx: Context) {
         get() = sp.getString("shelf_mode", SHELF_ALL)!!.takeIf { it in SHELF_MODES } ?: SHELF_ALL
         set(v) = sp.edit().putString("shelf_mode", v).apply()
 
+    /** The Control Center's player: [PLAYER_ONE] (one line) or [PLAYER_TWO] (a card with controls and progress); a long press on OK opens the large one from either. */
+    var playerStyle: String
+        get() = sp.getString("player_style", PLAYER_TWO)!!.takeIf { it == PLAYER_ONE || it == PLAYER_TWO } ?: PLAYER_TWO
+        set(v) = sp.edit().putString("player_style", v).apply()
+
     companion object {
         const val SHELF_ALL = "all"
         const val SHELF_TV = "tv"
@@ -516,5 +525,7 @@ class Prefs(ctx: Context) {
             "com.limelight.qiin",
             "com.android.tv.settings",
         )
+        const val PLAYER_ONE = "one"
+        const val PLAYER_TWO = "two"
     }
 }

@@ -465,6 +465,7 @@ class ConfigReceiver : BroadcastReceiver() {
         resultData += " profile=\"${Profiles.displayName(prefs.current())}\" profile_id=${prefs.currentProfile} profiles=${prefs.profileList().size} pin=${if (prefs.hasPin) "set" else "unset"}"
         // Read only: the first-launch assistant is done on the TV, with the remote; nothing here skips it.
         resultData += " setup_done=${prefs.setupDone}"
+        i.getStringExtra("player_style")?.takeIf { it == Prefs.PLAYER_ONE || it == Prefs.PLAYER_TWO }?.let { prefs.playerStyle = it }; resultData += " player_style=${prefs.playerStyle}"
         // Must stay last: a weather_city is looked up over the network, so this may call goAsync(),
         // after which resultData can only be set through the pending result (Weather.config does).
         Weather.config(this, c, i)
