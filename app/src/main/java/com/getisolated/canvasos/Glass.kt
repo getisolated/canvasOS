@@ -1,13 +1,22 @@
 package com.getisolated.canvasos
 
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorFilter
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PixelFormat
+import android.graphics.RadialGradient
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.drawable.Drawable
+import android.view.View
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -144,6 +153,231 @@ object LiquidGlass {
                 sr += ((add shr 16) and 255) - ((sub shr 16) and 255)
                 sg += ((add shr 8) and 255) - ((sub shr 8) and 255)
                 sb += (add and 255) - (sub and 255)
+            }
+        }
+    }
+}
+
+/** A blurred picture of part of the home scene at [scale], and where it starts in the scene's coordinates. */
+class GlassSample(val bmp: Bitmap, val x: Float, val y: Float, val scale: Float)
+
+/**
+ * Samples the home scene behind a region, for [LiveGlass]: the scene drawn at a quarter of its
+ * size, with [hidden] views left out (the glass itself must not see itself), then blurred. On
+ * the UI thread, a few milliseconds for a corner of the screen.
+ */
+object SceneGlass {
+    const val SCALE = 0.25f
+
+    /** [draw] draws the scene; by default as it is, or as it will be at the end of a fade ([LiveGlass.follow]). */
+    fun sample(scene: View, region: Rect, hidden: List<View>, draw: (Canvas) -> Unit = { scene.draw(it) }): GlassSample? {
+        if (scene.width == 0 || region.isEmpty) return null
+        val w = (region.width() * SCALE).toInt().coerceAtLeast(1)
+        val h = (region.height() * SCALE).toInt().coerceAtLeast(1)
+        // Alpha, not visibility: hiding a view takes the focus from its descendants (the capsule's).
+        val was = hidden.map { it.alpha }
+        hidden.forEach { it.alpha = 0f }
+        val bmp = try {
+            Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+                Canvas(it).apply {
+                    drawColor(Color.BLACK)
+                    scale(SCALE, SCALE)
+                    translate(-region.left.toFloat(), -region.top.toFloat())
+                    draw(this)
+                }
+            }
+        } catch (e: RuntimeException) {
+            return null
+        } finally {
+            hidden.forEachIndexed { i, v -> v.alpha = was[i] }
+        }
+        val px = IntArray(w * h)
+        bmp.getPixels(px, 0, w, 0, 0, w, h)
+        repeat(3) { LiquidGlass.boxBlur(px, w, h, 7) }
+        bmp.setPixels(px, 0, w, 0, 0, w, h)
+        bmp.prepareToDraw()
+        return GlassSample(bmp, region.left.toFloat(), region.top.toFloat(), SCALE)
+    }
+}
+
+/**
+ * The Control Center's live glass for a view outside the panel: its share of a blurred sample of
+ * the scene ([SceneGlass]), toned and washed, a sheen across the top, a lit rim, and a pooled
+ * glow that swells in when focused ([light]). Without a sample yet, a flat translucent shape.
+ * The same drawing as the panel's controls, so the two read as one material.
+ */
+class LiveGlass(private val owner: View, private val root: View, var radius: Float, private val sample: () -> GlassSample?) : Drawable() {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val rect = RectF()
+    private val ownerToRoot = Matrix()
+    private val rootToOwner = Matrix()
+    private val m = Matrix()
+    private var sheen: Shader? = null
+    private var rim: Shader? = null
+    private var spot: Shader? = null
+    private var shader: BitmapShader? = null
+    private var shaderOf: Bitmap? = null
+    /** The sample before the current one, drawn under it while [mix] rises: a new picture fades in rather than snaps. */
+    private var prevShader: BitmapShader? = null
+    private var prevOf: GlassSample? = null
+    private var mix = 1f
+    private val mixTween = Tween()
+    /** How the next sample fades in: set by [follow] to match a fade of the screen, else [MIX_MS] and the ease. */
+    private var nextMs = MIX_MS
+    private var nextCurve: android.animation.TimeInterpolator = Motion.ease
+
+    /**
+     * The next sample is of the screen as it will be after a fade of [ms] on [curve] (the
+     * wallpaper's crossfade, the shelf's, the lyrics' shade): the glass fades to it in step.
+     */
+    fun follow(ms: Long, curve: android.animation.TimeInterpolator) {
+        nextMs = ms
+        nextCurve = curve
+    }
+    private val litTween = Tween()
+    /** 0 = resting, 1 = focused. */
+    var lit = 0f
+        set(value) { field = value; invalidateSelf() }
+    private val r get() = minOf(radius, bounds.width() / 2f, bounds.height() / 2f)
+
+    fun light(on: Boolean) {
+        val from = lit
+        litTween.start(if (on) 280 else 200) { f -> lit = lerp(from, if (on) 1f else 0f, f) }
+    }
+
+    override fun onBoundsChange(b: Rect) {
+        val w = b.width().toFloat()
+        val h = b.height().toFloat()
+        if (w <= 0f || h <= 0f) return
+        val x = b.left.toFloat()
+        val y = b.top.toFloat()
+        sheen = LinearGradient(x, y, x, y + h, intArrayOf(Color.argb(70, 255, 255, 255), Color.argb(0, 255, 255, 255)), floatArrayOf(0f, 0.55f), Shader.TileMode.CLAMP)
+        rim = LinearGradient(x, y, x + w, y + h,
+            intArrayOf(Color.WHITE, Color.argb(40, 255, 255, 255), Color.argb(40, 255, 255, 255), Color.argb(170, 255, 255, 255)),
+            floatArrayOf(0f, 0.35f, 0.65f, 1f), Shader.TileMode.CLAMP)
+        spot = RadialGradient(x + w * 0.3f, y + h * 0.1f, maxOf(w, h) * 0.95f, intArrayOf(Color.argb(120, 255, 255, 255), Color.argb(0, 255, 255, 255)), null, Shader.TileMode.CLAMP)
+    }
+
+    /** Maps the owner's own coordinates to the root's, through every scale and translation on the way. */
+    private fun toRoot(out: Matrix) {
+        out.reset()
+        var cur: View = owner
+        while (cur !== root) {
+            out.postConcat(cur.matrix)
+            val p = cur.parent as? View ?: break
+            out.postTranslate((cur.left - p.scrollX).toFloat(), (cur.top - p.scrollY).toFloat())
+            cur = p
+        }
+    }
+
+    override fun draw(c: Canvas) {
+        rect.set(bounds)
+        val r = r
+        val s = sample()
+        if (s != null) {
+            if (shaderOf !== s.bmp) {
+                // A new sample: the one on screen stays under it and fades out. One arriving while a
+                // fade still runs (the shelf's picture and the shelf itself, a moment apart) starts
+                // a fresh fade from the sample that was reaching full strength.
+                if (shaderOf != null) {
+                    mixTween.cancel()
+                    prevShader = shader
+                    prevOf = lastSample
+                    mix = 0f
+                    val from = 0f
+                    val ms = nextMs
+                    val curve = nextCurve
+                    nextMs = MIX_MS
+                    nextCurve = Motion.ease
+                    if (ms <= 0L) mix = 1f
+                    else mixTween.start(ms, curve) { f -> mix = lerp(from, 1f, f); invalidateSelf(); owner.invalidate() }
+                }
+                shaderOf = s.bmp
+                shader = BitmapShader(s.bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+            }
+            lastSample = s
+            toRoot(ownerToRoot)
+            ownerToRoot.invert(rootToOwner)
+            glassPaint.colorFilter = body(lit)
+            val p = prevOf
+            val ps = prevShader
+            if (p != null && ps != null && mix < 1f) {
+                drawSample(c, ps, p, r, 255)
+                drawSample(c, shader!!, s, r, (255 * mix).toInt().coerceIn(0, 255))
+            } else {
+                prevOf = null
+                prevShader = null
+                drawSample(c, shader!!, s, r, 255)
+            }
+        } else {
+            paint.shader = null
+            paint.color = Color.argb((90 + WASH * lit).toInt().coerceAtMost(255), 48, 52, 58)
+            c.drawRoundRect(rect, r, r, paint)
+        }
+        paint.color = Color.WHITE
+        paint.shader = sheen
+        paint.alpha = (110 + 145 * lit).toInt()
+        c.drawRoundRect(rect, r, r, paint)
+        if (lit > 0f) {
+            paint.shader = spot
+            paint.alpha = (255 * lit).toInt()
+            c.drawRoundRect(rect, r, r, paint)
+        }
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = owner.dp(1f + 0.6f * lit).toFloat()
+        paint.alpha = (150 + 105 * lit).toInt()
+        paint.shader = rim
+        val inset = paint.strokeWidth / 2
+        rect.inset(inset, inset)
+        c.drawRoundRect(rect, r, r, paint)
+        paint.shader = null
+        paint.alpha = 255
+        paint.style = Paint.Style.FILL
+    }
+
+    private var lastSample: GlassSample? = null
+
+    private fun drawSample(c: Canvas, sh: BitmapShader, s: GlassSample, r: Float, alpha: Int) {
+        m.setScale(1f / s.scale, 1f / s.scale)
+        m.postTranslate(s.x, s.y)
+        m.postConcat(rootToOwner)
+        sh.setLocalMatrix(m)
+        glassPaint.shader = sh
+        glassPaint.alpha = alpha
+        c.drawRoundRect(rect, r, r, glassPaint)
+        glassPaint.alpha = 255
+    }
+
+    override fun getOutline(outline: android.graphics.Outline) = outline.setRoundRect(bounds, r)
+    override fun setAlpha(alpha: Int) {}
+    override fun setColorFilter(cf: ColorFilter?) {}
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity() = PixelFormat.TRANSLUCENT
+
+    companion object {
+        /** How much white the focused glass takes on. */
+        private const val WASH = 140
+        /** A new sample fades in over this long. */
+        private const val MIX_MS = 320L
+        private val toneMatrix = ColorMatrix().apply {
+            setSaturation(1.5f)
+            postConcat(ColorMatrix(floatArrayOf(0.88f, 0f, 0f, 0f, 22f, 0f, 0.88f, 0f, 0f, 22f, 0f, 0f, 0.88f, 0f, 22f, 0f, 0f, 0f, 1f, 0f)))
+        }
+        private val bodies = HashMap<Int, ColorMatrixColorFilter>()
+
+        /** The blurred picture's tone: a black wash at rest, white as it lights up, in 17 steps. */
+        private fun body(lit: Float): ColorMatrixColorFilter {
+            val step = (lit * 16).toInt().coerceIn(0, 16)
+            return bodies.getOrPut(step) {
+                val l = step / 16f
+                val black = 34f * (1f - l) / 255f
+                val white = (10f + WASH * l) / 255f
+                val k = (1f - black) * (1f - white)
+                val o = 255f * white
+                ColorMatrixColorFilter(ColorMatrix(toneMatrix).apply {
+                    postConcat(ColorMatrix(floatArrayOf(k, 0f, 0f, 0f, o, 0f, k, 0f, 0f, o, 0f, 0f, k, 0f, o, 0f, 0f, 0f, 1f, 0f)))
+                })
             }
         }
     }

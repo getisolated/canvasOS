@@ -2406,50 +2406,18 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
     }
 
-    /**
-     * Focus on the large player's round controls, as on tvOS: a faint white disc barely larger
-     * than the glyph, edged with a thin white ring. The glyph stays white.
-     */
-    private class FocusRing(private val radius: Float, stroke: Float) : Drawable() {
-        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-        private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = stroke }
-        /** 0 = resting (nothing drawn), 1 = focused. */
-        var level = 0f
-            set(v) { field = v; invalidateSelf() }
-
-        override fun draw(c: Canvas) {
-            if (level <= 0f) return
-            val x = bounds.exactCenterX()
-            val y = bounds.exactCenterY()
-            fill.alpha = (40 * level).toInt()
-            c.drawCircle(x, y, radius, fill)
-            edge.alpha = (220 * level).toInt()
-            c.drawCircle(x, y, radius - edge.strokeWidth / 2, edge)
-        }
-
-        override fun setAlpha(alpha: Int) {}
-        override fun setColorFilter(cf: ColorFilter?) {}
-        @Deprecated("Deprecated in Java")
-        override fun getOpacity() = PixelFormat.TRANSLUCENT
-    }
-
-    /** A round control of the large player: its glyph in a thin white ring while focused. */
     private inner class RoundGlyph(icon: Int, glyphDp: Int, label: String) : FrameLayout(ctx) {
         val glyph = ImageView(ctx).apply { setImageResource(icon) }
-        private val ring = FocusRing(ctx.dp(glyphDp / 2 + 9).toFloat(), ctx.dp(1.5f).toFloat())
-        private val tween = Tween()
 
         init {
             id = View.generateViewId()
             isFocusable = true
             isClickable = true
             contentDescription = label
-            background = ring
             addView(glyph, LayoutParams(ctx.dp(glyphDp), ctx.dp(glyphDp), Gravity.CENTER))
+            // No ring or disc (the product owner's choice): the focused glyph only grows a little.
             setOnFocusChangeListener { _, on ->
-                val from = ring.level
-                tween.start(if (on) 220 else 160) { f -> ring.level = lerp(from, if (on) 1f else 0f, f) }
-                tweenScale(if (on) 1.06f else 1f, if (on) 260 else 200, if (on) Motion.spring else Motion.ease)
+                tweenScale(if (on) 1.18f else 1f, if (on) 260 else 200, if (on) Motion.spring else Motion.ease)
                 if (!on) hold.release(this)
             }
         }
@@ -2552,7 +2520,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             // Not clipped: a focused control's ring grows past its box.
             val row = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER; clipChildren = false; clipToPadding = false }
             row.addView(rew, LayoutParams(ctx.dp(44), ctx.dp(44)))
-            row.addView(play, LayoutParams(ctx.dp(48), ctx.dp(48)).apply { marginStart = ctx.dp(18); marginEnd = ctx.dp(18) })
+            row.addView(play, LayoutParams(ctx.dp(48), ctx.dp(48)).apply { marginStart = ctx.dp(10); marginEnd = ctx.dp(10) })
             row.addView(fwd, LayoutParams(ctx.dp(44), ctx.dp(44)))
             addView(row, LayoutParams(-1, 0, 1f))
             rew.nextFocusRightId = play.id
@@ -2883,6 +2851,12 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         // The sheet must not wait around for the next wake-up once the TV has gone to sleep.
         host.postDelayed({ sheet.dismiss() }, left)
     }
+
+    /** A remote shortcut ([KeyMap.SLEEP_TIMER]): the Veille choices, behind the local-adb check like the capsule. */
+    fun sleepTimer() = needAdb { sleepSheet() }
+
+    /** A remote shortcut ([KeyMap.CLEAN]): the memory cleanup, as the capsule's. */
+    fun cleanMemory() = cleanNow()
 
     private fun cleanNow() {
         toast("Libération de la mémoire…")

@@ -282,7 +282,8 @@ class NowPlaying private constructor(
      * How a cover sits in a capsule, in px: its side, the room between it and the capsule's edges
      * (the same before the text), and its corner radius. Measured on iOS 26's Now Playing capsule
      * (a 951 × 204 px screenshot): the cover is 144 px (0.706 of the height), 30 px from the edge
-     * (0.147), with 25 px corners (0.174 of its own side); the text starts another 30 px on. The
+     * (0.147, widened to 0.2 at the product owner's request), with 25 px corners (0.174 of its own
+     * side); the text starts another inset on. The
      * title's type is 0.19 of the height (a 28 px capital on 204), the artist's 0.147, with about
      * 0.04 of the height between the two lines.
      */
@@ -292,7 +293,7 @@ class NowPlaying private constructor(
         /** The cover's side, as a fraction of the capsule's height. */
         const val ART_RATIO = 0.706f
         /** The cover's distance from the capsule's edge, as a fraction of the capsule's height. */
-        const val ART_INSET_RATIO = 0.147f
+        const val ART_INSET_RATIO = 0.2f
         /** The cover's corner radius, as a fraction of its own side. */
         const val ART_CORNER_RATIO = 0.174f
         /** The title's type size, as a fraction of the capsule's height. */
@@ -303,9 +304,9 @@ class NowPlaying private constructor(
         const val LINE_GAP_RATIO = 0.04f
 
         /** The cover's and the text's geometry for a capsule [heightPx] tall ([CapsuleArt]); nothing for no height. */
-        fun capsuleArt(heightPx: Int): CapsuleArt {
+        fun capsuleArt(heightPx: Int, artRatio: Float = ART_RATIO): CapsuleArt {
             if (heightPx <= 0) return CapsuleArt(0, 0, 0, 0f, 0f, 0)
-            val size = (heightPx * ART_RATIO).roundToInt().coerceAtLeast(1)
+            val size = (heightPx * artRatio).roundToInt().coerceAtLeast(1)
             return CapsuleArt(size, (heightPx * ART_INSET_RATIO).roundToInt(), (size * ART_CORNER_RATIO).roundToInt(),
                 heightPx * TITLE_RATIO, heightPx * SUB_RATIO, (heightPx * LINE_GAP_RATIO).roundToInt())
         }

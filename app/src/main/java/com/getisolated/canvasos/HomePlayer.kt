@@ -1,15 +1,11 @@
 package com.getisolated.canvasos
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
-import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
 import android.text.TextUtils
 import android.util.TypedValue
@@ -24,36 +20,39 @@ import java.util.concurrent.Executor
 import kotlin.math.sin
 
 /**
- * The picture the home screen shows behind its header, for glass baked over it: the wallpaper,
- * or the Top Shelf's picture while the shelf is up. [root] is the view the home scene is drawn
- * in; [w] × [h] the screen.
+ * The home scene the glass stands on: [root] is drawn to sample what is behind the glass, with
+ * [hidden] (the header, which holds the glass itself) left out of the sample.
  */
-class SceneSource(val root: View, val w: Int, val h: Int, val picture: () -> Bitmap?)
+class SceneSource(val root: View, val hidden: () -> List<View>)
 
 /**
  * The home screen's small player, top left ([Prefs.homePlayer], with [Prefs.nowPlaying]): a glass
- * capsule with the track's cover, its title and artist, and three bars that move while it plays.
+ * capsule with the track's cover, its title and artist, and six bars that move while it plays.
  * No controls: OK opens the app that plays (the Control Center keeps play, pause and skip). It
  * reads the sessions as the Control Center's player does ([NowPlaying.Reader]), every [POLL_MS]
  * while [start]ed (the home screen in front), and stands aside, gone, while nothing plays or is
  * paused. A title or an artist too long for its line slides across it, faded at both ends, after
  * a pause at its start (Android's own marquee).
  *
- * The cover's size, inset and corners, and the type, follow iOS's capsule ([NowPlaying.capsuleArt]).
- * The glass is Liquid Glass baked over the home picture ([LiquidGlass.bake]), as the dock's, again
- * when the capsule's width or the picture changes.
+ * The cover's inset and corners, and the type, follow iOS's capsule ([NowPlaying.capsuleArt]); the
+ * cover is [ART_RATIO] of the height, a little smaller than iOS's. The glass is the Control
+ * Center's live glass ([LiveGlass]) over a blurred sample of the scene behind the header, taken
+ * again whenever the home picture changes ([refreshGlass]).
  *
- * Focused, a round Paroles button slides out from behind the capsule, to its right ([Prefs.lyrics]):
- * OK on it shows the lyrics ([LyricsView]).
+ * Focused, a round Paroles button slides out from behind the capsule, to its right ([Prefs.lyrics],
+ * and only when LRCLIB has lyrics for the track, [lyricsAvailable]): OK on it shows the lyrics over
+ * the home screen, OK again takes them away ([LyricsView]). It goes back in with the focus.
  */
 class HomePlayer(ctx: Context, private val io: Executor, private val scene: SceneSource, private val onOpen: (String) -> Unit) : LinearLayout(ctx) {
-    private val height = ctx.dp(HEIGHT_DP)
-    private val art = NowPlaying.capsuleArt(height)
+    private val capsuleH = ctx.dp(HEIGHT_DP)
+    private val art = NowPlaying.capsuleArt(capsuleH, ART_RATIO)
     private val reader = NowPlaying.Reader(ctx, art.size, art.size) { post { poll() } }
+    /** The blurred scene behind the header, shared by the capsule's and the button's glass. */
+    private var sample: GlassSample? = null
 
     /** The focusable capsule itself. */
     val capsule = Capsule()
-    /** The Paroles button, out only while the capsule or itself has focus. */
+    /** The Paroles button, out while the capsule or itself has focus and the track has lyrics. */
     val lyrics = RoundButton(R.drawable.ic_lyrics, "Paroles")
 
     /** What shows, or null while the capsule is gone. */
@@ -63,6 +62,18 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
     private var enabled = false
     /** Whether the Paroles button may come out ([Prefs.lyrics]). */
     var lyricsEnabled = true
+    /** The lyrics are on screen: the button reads as pressed. */
+    var lyricsOn = false
+        set(v) { field = v; lyrics.pressed(v) }
+    /** LRCLIB has lyrics for the track on screen ([LyricsView.onAvailability]); without, the button stays in. */
+    var lyricsAvailable = false
+        set(v) {
+            if (field == v) return
+            field = v
+            // Gone while it had focus: focus steps back onto the capsule.
+            if (!v && lyrics.hasFocus()) capsule.requestFocus()
+            focusChanged()
+        }
     private var started = false
     private var reading = false
     /** The capsule had focus as it went: the home screen puts focus back on its grid. */
@@ -90,8 +101,8 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
         alpha = 0f
         // The button is drawn under the capsule, so it slides out from behind it.
         isChildrenDrawingOrderEnabled = true
-        addView(capsule, LayoutParams(-2, height))
-        addView(lyrics, LayoutParams(height, height).apply { marginStart = ctx.dp(BUTTON_GAP_DP) })
+        addView(capsule, LayoutParams(-2, capsuleH))
+        addView(lyrics, LayoutParams(capsuleH, capsuleH).apply { marginStart = ctx.dp(BUTTON_GAP_DP) })
         lyrics.visibility = INVISIBLE
         lyrics.alpha = 0f
         lyrics.setOnClickListener { onLyrics?.invoke() }
@@ -122,6 +133,9 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
     /** Focus on the capsule, for the home screen's navigation. */
     fun focusCapsule() = capsule.requestFocus()
 
+    /** Whether the capsule or the button has focus. */
+    val hasHeaderFocus get() = capsule.hasFocus() || lyrics.hasFocus()
+
     /** The focused one of the two, or none: the button comes out or goes back accordingly, once focus has settled. */
     private fun focusChanged() {
         removeCallbacks(settle)
@@ -129,7 +143,7 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
     }
 
     private fun reveal() {
-        val out = lyricsEnabled && shown && (capsule.hasFocus() || lyrics.hasFocus())
+        val out = lyricsEnabled && lyricsAvailable && shown && hasHeaderFocus
         val hidden = -(lyrics.width + context.dp(BUTTON_GAP_DP)).toFloat()
         if (out) {
             if (lyrics.visibility != VISIBLE) { lyrics.visibility = VISIBLE; lyrics.translationX = hidden }
@@ -138,7 +152,7 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
         } else if (lyrics.visibility == VISIBLE) {
             lyrics.animate().cancel()
             lyrics.animate().translationX(hidden).alpha(0f).setDuration(200).setInterpolator(Motion.ease)
-                .withEndAction { if (!(capsule.hasFocus() || lyrics.hasFocus())) lyrics.visibility = INVISIBLE }.start()
+                .withEndAction { if (!hasHeaderFocus) lyrics.visibility = INVISIBLE }.start()
         }
     }
 
@@ -163,10 +177,48 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
         reader.shutdown()
     }
 
-    /** The picture behind changed (wallpaper, shelf): the glass is baked again. */
+    /**
+     * The picture behind changed (wallpaper, shelf, the lyrics' shade): the scene behind the
+     * header is sampled again and the glass drawn from it. UI thread, a few milliseconds.
+     */
     fun refreshGlass() {
-        capsule.glass.refresh()
-        lyrics.glass.refresh()
+        // A fade of the screen is being followed ([glassFollow]): the routine sample waits for its end.
+        if (SystemClock.uptimeMillis() < glassBusyUntil) return
+        resample { scene.root.draw(it) }
+    }
+
+    private var glassBusyUntil = 0L
+
+    /**
+     * The screen is about to fade over [ms] on [curve] (a new wallpaper, the shelf, the lyrics'
+     * shade): [finalScene] draws it as it will be at the end, and the glass fades to that in step
+     * with it, as the Control Center's does, rather than catching up afterwards.
+     */
+    fun glassFollow(ms: Long, curve: android.animation.TimeInterpolator, finalScene: (android.graphics.Canvas) -> Unit) {
+        if (!shown || width == 0) return
+        glassBusyUntil = SystemClock.uptimeMillis() + ms
+        capsule.glass.follow(ms, curve)
+        lyrics.glass.follow(ms, curve)
+        resample(finalScene)
+    }
+
+    private fun resample(draw: (android.graphics.Canvas) -> Unit) {
+        if (!shown || width == 0) { sample = null; return }
+        val margin = context.dp(48)
+        val r = layoutRect(this, scene.root)
+        val region = Rect((r.left - margin).coerceAtLeast(0), (r.top - margin).coerceAtLeast(0),
+            (r.right + margin).coerceAtMost(scene.root.width), (r.bottom + margin).coerceAtMost(scene.root.height))
+        sample = SceneGlass.sample(scene.root, region, scene.hidden(), draw)
+        // What the glass fades to, for the log (`adb logcat -s canvasOSGlass`): the sample's mean brightness. Fades only, not the routine readings.
+        sample?.takeIf { glassBusyUntil > SystemClock.uptimeMillis() }?.let { s ->
+            val px = IntArray(s.bmp.width * s.bmp.height)
+            s.bmp.getPixels(px, 0, s.bmp.width, 0, 0, s.bmp.width, s.bmp.height)
+            var sum = 0L
+            for (c in px) sum += ((c shr 16 and 255) * 299 + (c shr 8 and 255) * 587 + (c and 255) * 114) / 1000
+            android.util.Log.d("canvasOSGlass", "sample ${s.bmp.width}x${s.bmp.height} lum=${sum / px.size} busyFor=${(glassBusyUntil - SystemClock.uptimeMillis()).coerceAtLeast(0)}ms")
+        }
+        capsule.invalidate()
+        lyrics.invalidate()
     }
 
     /** A reading off the UI thread, then the capsule follows it; the next one in [POLL_MS]. */
@@ -200,37 +252,34 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
             capsule.bars.animating = false
             return
         }
-        capsule.bind(n, old, visibility != VISIBLE)
+        val fresh = visibility != VISIBLE
+        capsule.bind(n, old, fresh)
         // Gone, or still fading out (the session came back within 200 ms): it fades in from where it is.
-        if (visibility != VISIBLE || alpha < 1f) {
+        if (fresh || alpha < 1f) {
             visibility = VISIBLE
             animate().cancel()
             animate().alpha(1f).setDuration(250).start()
         }
-        refreshGlass()
+        // Laid out first, then sampled where it stands: every reading, so the glass never lags the picture behind.
+        post { refreshGlass() }
     }
 
-    /** The capsule: cover, two lines and the bars, on baked glass; white with dark ink when focused. */
+    /** The capsule: cover, two lines and the bars, on live glass; its glass lights and its ink darkens when focused. */
     inner class Capsule : LinearLayout(context) {
         private val cover = ImageView(context)
         private val title = context.text(13f, weight = 600).apply { marquee(this, art.titlePx) }
         private val artist = context.text(11.5f, SUB, weight = 500).apply { marquee(this, art.subPx) }
         val bars = Bars(context)
-        private val idle = GradientDrawable().apply {
-            setColor(Color.argb(150, 22, 22, 26))
-            cornerRadius = height / 2f
-            setStroke(context.dp(1), Color.argb(50, 255, 255, 255))
-        }
-        private val lit = rounded(Color.WHITE, height / 2f)
-        val glass = BakedGlass(this, io, scene, height / 2f) { if (!isFocused) background = it }
+        val glass = LiveGlass(this, scene.root, capsuleH / 2f) { sample }
 
         init {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             isFocusable = true
             isClickable = true
-            background = idle
-            clipRounded(height / 2f)
+            background = glass
+            outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+            clipToOutline = true
             contentDescription = "Lecture"
             setPadding(art.inset, 0, context.dp(14), 0)
             addView(cover, LayoutParams(art.size, art.size).apply { marginEnd = art.inset })
@@ -240,21 +289,22 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
                 addView(artist, LayoutParams(-2, -2).apply { topMargin = art.gapPx })
             }
             addView(column, LayoutParams(-2, -2))
-            addView(bars, LayoutParams(context.dp(14), context.dp(14)).apply { marginStart = context.dp(12) })
+            addView(bars, LayoutParams(context.dp(BARS_DP), context.dp(14)).apply { marginStart = context.dp(12) })
             setOnClickListener { now?.let { onOpen(it.pkg) } }
             setOnFocusChangeListener { _, on ->
-                background = if (on) lit else glass.drawable ?: idle
+                glass.light(on)
                 title.setTextColor(if (on) INK else Color.WHITE)
                 artist.setTextColor(if (on) INK_SUB else SUB)
                 bars.ink = on
-                tweenScale(if (on) 1.05f else 1f, if (on) 260 else 200, if (on) Motion.spring else Motion.ease)
+                tweenScale(if (on) 1.05f else 1f, if (on) 260 else 200, if (on) Motion.spring else Motion.ease) { invalidate() }
                 focusChanged()
             }
         }
 
         override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
             super.onSizeChanged(w, h, oldw, oldh)
-            glass.refresh()
+            // A wider capsule (a longer title) reaches further over the scene: sampled again where it now stands.
+            post { refreshGlass() }
         }
 
         fun bind(n: NowPlaying, old: NowPlaying?, fresh: Boolean) {
@@ -291,47 +341,46 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
         }
     }
 
-    /** A round glass button beside the capsule (Paroles): a glyph, white with dark ink when focused. */
+    /** A round glass button beside the capsule (Paroles): a glyph; lit glass and dark ink when focused, half lit while pressed on. */
     inner class RoundButton(icon: Int, label: String) : FrameLayout(context) {
         private val img = ImageView(context).apply { setImageResource(icon); setColorFilter(Color.WHITE) }
-        private val idle = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.argb(150, 22, 22, 26))
-            setStroke(context.dp(1), Color.argb(50, 255, 255, 255))
-        }
-        private val lit = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE) }
-        val glass = BakedGlass(this, io, scene, height / 2f) { if (!isFocused) background = it }
+        val glass = LiveGlass(this, scene.root, capsuleH / 2f) { sample }
+        private var on = false
 
         init {
             isFocusable = true
             isClickable = true
-            background = idle
-            clipRounded(height / 2f)
+            background = glass
+            outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+            clipToOutline = true
             contentDescription = label
             addView(img, LayoutParams(context.dp(20), context.dp(20), Gravity.CENTER))
-            setOnFocusChangeListener { _, on ->
-                background = if (on) lit else glass.drawable ?: idle
-                img.setColorFilter(if (on) INK else Color.WHITE)
-                tweenScale(if (on) 1.1f else 1f, if (on) 260 else 200, if (on) Motion.spring else Motion.ease)
+            setOnFocusChangeListener { _, f ->
+                glass.light(f)
+                img.setColorFilter(if (f) INK else Color.WHITE)
+                tweenScale(if (f) 1.1f else 1f, if (f) 260 else 200, if (f) Motion.spring else Motion.ease) { invalidate() }
                 focusChanged()
             }
         }
 
-        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-            super.onSizeChanged(w, h, oldw, oldh)
-            glass.refresh()
+        /** Pressed on (the lyrics show): the glyph stays bright and the button reads as active even unfocused. */
+        fun pressed(v: Boolean) {
+            on = v
+            img.alpha = if (v || isFocused) 1f else 0.75f
+            contentDescription = if (v) "Paroles (affichées)" else "Paroles"
         }
     }
 
     /**
-     * Three bars, as beside the playing track in Apple Music: they rise and fall while the track
-     * plays, and rest low while it is paused. Drawn from a clock, not from the sound: canvasOS
-     * does not listen to the audio (no RECORD_AUDIO). About 20 frames a second, a 14 dp view.
+     * Six thin bars, mirrored about the middle: each grows up and down from the centre line while
+     * the track plays, and rests as a dot, so a paused track shows six dots in a row. Drawn from a
+     * clock, not from the sound: canvasOS does not listen to the audio (no RECORD_AUDIO). About 20
+     * frames a second, a small view.
      */
     class Bars(ctx: Context) : View(ctx) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
         private val rect = RectF()
-        private val w = ctx.dp(3).toFloat()
+        private val w = ctx.dp(2).toFloat()
         private val gap = ctx.dp(2).toFloat()
         private val frame = Runnable { invalidate() }
 
@@ -348,11 +397,14 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
 
         override fun onDraw(c: Canvas) {
             val h = height.toFloat()
+            val mid = h / 2f
             val t = SystemClock.uptimeMillis() / 1000.0
-            for (i in 0 until 3) {
-                val level = if (animating) levelAt(t, i) else REST
-                val x = (width - (3 * w + 2 * gap)) / 2f + i * (w + gap)
-                rect.set(x, h - h * level, x + w, h)
+            val x0 = (width - (COUNT * w + (COUNT - 1) * gap)) / 2f
+            for (i in 0 until COUNT) {
+                // At rest a dot: the bar is as tall as it is wide.
+                val half = if (animating) maxOf(h * levelAt(t, i) / 2f, w / 2f) else w / 2f
+                val x = x0 + i * (w + gap)
+                rect.set(x, mid - half, x + w, mid + half)
                 c.drawRoundRect(rect, w / 2f, w / 2f, paint)
             }
             if (animating && isShown) postDelayed(frame, 50)
@@ -364,54 +416,41 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
         }
 
         private companion object {
-            const val REST = 0.3f
+            const val COUNT = 6
         }
     }
 
-    /**
-     * Liquid Glass baked for one view over the home picture ([LiquidGlass.bake]), as the dock's:
-     * again, off the UI thread, whenever the view's size or the picture changes; [onReady] gets
-     * each slab as a drawable. The view's place is read from its layout, not from its transforms
-     * (a focused view is scaled).
-     */
-    class BakedGlass(private val view: View, private val io: Executor, private val scene: SceneSource, private val radius: Float, private val onReady: (Drawable) -> Unit) {
-        /** The last slab baked, to put back when focus leaves. */
-        var drawable: Drawable? = null
-            private set
-        private var key: String? = null
-        private var baking = false
-        private var again = false
+    companion object {
+        /** The capsule's height, in dp: the corner buttons' row is centred on it. */
+        const val HEIGHT_DP = 44
+        /** The cover's side as a fraction of the capsule's height: a little smaller than iOS's 0.706. */
+        const val ART_RATIO = 0.62f
+        /** Between the capsule and the Paroles button. */
+        const val BUTTON_GAP_DP = 8
+        /** The title and the artist slide once wider than this. */
+        const val TEXT_MAX_DP = 220
+        /** The bars' width: six 2 dp bars with 2 dp between. */
+        const val BARS_DP = 22
+        const val POLL_MS = 2_000L
+        // Literals, not Color.argb: the unit tests load this companion without Android.
+        private const val SUB = 0xCDFFFFFF.toInt()
+        private const val INK = 0xE1000000.toInt()
+        private const val INK_SUB = 0x96000000.toInt()
 
-        fun refresh() {
-            val w = view.width
-            val h = view.height
-            val pic = scene.picture()
-            if (w <= 0 || h <= 0 || pic == null || pic.isRecycled) return
-            val rect = layoutRect(view, scene.root)
-            val k = "${System.identityHashCode(pic)}|$rect"
-            if (k == key) return
-            key = k
-            if (baking) { again = true; return }
-            bake(pic, rect, k)
+        /**
+         * The height of bar [i] (0 to 1) at [seconds], a sum of two sines at speeds of their own
+         * per bar, so the bars never move together, between about 0.2 and 1. Mirrored pairs
+         * (bars 0 and 5, 1 and 4, 2 and 3) move alike, as a spectrum would.
+         */
+        fun levelAt(seconds: Double, i: Int): Float {
+            val k = if (i < 3) i else 5 - i
+            val a = sin(seconds * (5.1 + k * 1.3) + k * 2.1)
+            val b = sin(seconds * (2.3 + k * 0.7) + k * 0.8)
+            return (0.6 + 0.4 * (a * 0.6 + b * 0.4)).toFloat().coerceIn(0.2f, 1f)
         }
 
-        private fun bake(pic: Bitmap, rect: Rect, k: String) {
-            baking = true
-            io.execute {
-                val bmp = runCatching { LiquidGlass.bake(pic, scene.w, scene.h, rect, radius).also { it.prepareToDraw() } }.getOrNull()
-                view.post {
-                    baking = false
-                    if (bmp != null && k == key) {
-                        drawable = BitmapDrawable(view.resources, bmp)
-                        onReady(drawable!!)
-                    }
-                    if (again) { again = false; key = null; refresh() }
-                }
-            }
-        }
-
-        /** [v]'s rectangle in [root]'s coordinates, from the layout alone. */
-        private fun layoutRect(v: View, root: View): Rect {
+        /** [v]'s rectangle in [root]'s coordinates, from the layout alone (not its transforms: a focused view is scaled). */
+        fun layoutRect(v: View, root: View): Rect {
             var x = 0
             var y = 0
             var at: View? = v
@@ -421,30 +460,6 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
                 at = at.parent as? View
             }
             return Rect(x, y, x + v.width, y + v.height)
-        }
-    }
-
-    companion object {
-        /** The capsule's height, in dp: the corner buttons' row is centred on it. */
-        const val HEIGHT_DP = 44
-        /** Between the capsule and the Paroles button. */
-        const val BUTTON_GAP_DP = 8
-        /** The title and the artist slide once wider than this. */
-        const val TEXT_MAX_DP = 220
-        const val POLL_MS = 2_000L
-        // Literals, not Color.argb: the unit tests load this companion without Android.
-        private const val SUB = 0xCDFFFFFF.toInt()
-        private const val INK = 0xE1000000.toInt()
-        private const val INK_SUB = 0x96000000.toInt()
-
-        /**
-         * The height of bar [i] (0 to 1) at [seconds], a sum of two sines at speeds of their own
-         * per bar, so the three never move together, between about 0.2 and 1.
-         */
-        fun levelAt(seconds: Double, i: Int): Float {
-            val a = sin(seconds * (5.1 + i * 1.3) + i * 2.1)
-            val b = sin(seconds * (2.3 + i * 0.7) + i * 0.8)
-            return (0.6 + 0.4 * (a * 0.6 + b * 0.4)).toFloat().coerceIn(0.2f, 1f)
         }
     }
 }

@@ -10,16 +10,16 @@ import org.junit.Test
 class NowPlayingTest {
     /** The cover in a capsule, as measured on iOS's: 0.706 of the height, 0.147 from the edge, corners at 0.174 of its side. */
     @Test fun theCapsuleCoverFollowsIosProportions() {
-        // iOS's own capsule, 204 px tall: a 144 px cover, 30 px in, with 25 px corners.
+        // iOS's own capsule, 204 px tall: a 144 px cover, 41 px in (0.2, wider than iOS's 30), with 25 px corners.
         NowPlaying.capsuleArt(204).let {
-            assertEquals(144, it.size); assertEquals(30, it.inset); assertEquals(25, it.radius)
+            assertEquals(144, it.size); assertEquals(41, it.inset); assertEquals(25, it.radius)
             // A 39 px title (28 px capitals), a 30 px artist line, 8 px between them.
             assertEquals(38.8f, it.titlePx, 0.1f); assertEquals(30f, it.subPx, 0.1f); assertEquals(8, it.gapPx)
         }
-        // The Control Center's 4 × 1 player at 2 px/dp (47 dp): 66 px (33 dp), 14 px (7 dp) in, 11 px corners.
-        NowPlaying.capsuleArt(94).let { assertEquals(66, it.size); assertEquals(14, it.inset); assertEquals(11, it.radius) }
-        // Concentric: the cover and its inset on both sides fit the height.
-        for (h in listOf(44, 47, 88, 94, 204)) NowPlaying.capsuleArt(h).let { assertTrue(it.size + 2 * it.inset <= h) }
+        // The Control Center's 4 × 1 player at 2 px/dp (47 dp): 66 px (33 dp), 19 px (9.5 dp) in, 11 px corners.
+        NowPlaying.capsuleArt(94).let { assertEquals(66, it.size); assertEquals(19, it.inset); assertEquals(11, it.radius) }
+        // The cover always fits the height (the inset is horizontal only, so it may exceed the room above and below).
+        for (h in listOf(44, 47, 88, 94, 204)) NowPlaying.capsuleArt(h).let { assertTrue(it.size < h && it.inset > 0) }
         NowPlaying.capsuleArt(0).let { assertEquals(0, it.size); assertEquals(0, it.radius) }
     }
 

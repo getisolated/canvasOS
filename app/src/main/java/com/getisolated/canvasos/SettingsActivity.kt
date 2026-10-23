@@ -156,9 +156,11 @@ class SettingsActivity : Activity() {
         ACCOUNTS("Profils", "Un accueil par personne, avec ses apps, ses dossiers et son fond d'écran ; un profil enfant est protégé par un code PIN."),
         PHONE_GROUP("Page téléphone", "Une page web pour un téléphone sur le même Wi-Fi : télécommande avec clavier, photos et liens d'images, " +
             "installation d'apps. Son QR code et sa protection."),
+        REMOTE("Télécommande", "Des touches de la télécommande associées à des fonctions de canvasOS, sur l'accueil : " +
+            "appui simple ou appui long, la touche apprise en appuyant dessus."),
         SYSTEM("Système", "Le débogage local et ADB, l'adresse du téléviseur, la protection de l'accueil, les réglages d'origine du téléviseur, " +
             "la mise à jour de canvasOS et sa version."),
-        KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS, PROFILES;
+        KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS, PROFILES, REMOTE_ACTIONS, REMOTE_APPS, REMOTE_INPUTS;
 
         /** Where Back goes; null at the top level. */
         val parent: Page? get() = when (this) {
@@ -168,6 +170,8 @@ class SettingsActivity : Activity() {
             PHONE -> PHONE_GROUP
             BANNER_APPS -> PLAYBACK
             PROFILES -> ACCOUNTS
+            REMOTE_ACTIONS -> REMOTE
+            REMOTE_APPS, REMOTE_INPUTS -> REMOTE_ACTIONS
             else -> MAIN
         }
     }
@@ -297,6 +301,10 @@ class SettingsActivity : Activity() {
             Page.ACCOUNTS -> accountsGroup()
             Page.PHONE_GROUP -> phoneGroup()
             Page.SYSTEM -> systemGroup()
+            Page.REMOTE -> remoteGroup()
+            Page.REMOTE_ACTIONS -> remoteActions()
+            Page.REMOTE_APPS -> remoteApps()
+            Page.REMOTE_INPUTS -> remoteInputs()
             Page.KEEP -> appPicker("Apps à conserver", prefs.keep) { pkg, on ->
                 prefs.keep = if (on) prefs.keep + pkg else prefs.keep - pkg
             }
@@ -333,6 +341,9 @@ class SettingsActivity : Activity() {
     }
 
     override fun onPause() {
+        // A lesson left half way (the screen went away) must not keep every key of the TV.
+        KeyCapture.learning = null
+        learning = null
         Foreground.paused(this)
         super.onPause()
     }
@@ -613,6 +624,160 @@ class SettingsActivity : Activity() {
             { onOff(prefs.watchNext) }) { prefs.watchNext = !prefs.watchNext }
     }
 
+    // ---------------------------------------------------------------- Télécommande
+
+    /** The binding being changed (its key kept for a new function, its function for a new key); null for a new one. */
+    private var remoteEdit: KeyMap.Binding? = null
+    /** The key being learnt: the function it will do, the binding it replaces, and the sheet asking for it. */
+    private class Learning(val action: String, val replacing: KeyMap.Binding?, val sheet: Sheet)
+    private var learning: Learning? = null
+    private var learnCode = -1
+    private val tv by lazy { TvControls(this) }
+
+    private fun bindings() = KeyMap.parse(prefs.keyMap)
+
+    /** The name of an app or an input bound to a key, for the list. */
+    private fun boundName(action: String): String? = when {
+        action.startsWith(KeyMap.APP) -> repo.allApps().firstOrNull { it.pkg == action.removePrefix(KeyMap.APP) }?.label
+        action.startsWith(KeyMap.INPUT) -> InputTile.decode(action.removePrefix(KeyMap.INPUT))?.name
+        else -> null
+    }
+
+    /** Télécommande: the shortcuts, one row each, and a new one. */
+    private fun remoteGroup() {
+        val list = bindings()
+        section("Raccourcis")
+        if (list.isEmpty()) row("Aucun raccourci", "Choisissez « Ajouter un raccourci… », la fonction, puis appuyez sur la touche de la télécommande qui la fera.", { "" }) {}
+        for (b in list) {
+            row(KeyMap.keyName(b.code, b.long), "Appuyez pour changer la touche ou la fonction, ou supprimer ce raccourci. " +
+                "Les raccourcis agissent sur l'accueil, pas dans les autres apps.", { KeyMap.label(b.action, ::boundName) }) { bindingMenu(b) }
+        }
+        row("Ajouter un raccourci…", "La fonction d'abord, puis la touche : un appui bref l'associe à l'appui simple, un appui maintenu à l'appui long. " +
+            "Les touches du téléviseur (Accueil, Volume) et celles de l'accueil (flèches, OK, Retour en appui simple) sont refusées.",
+            { "" }, chevron = true) { remoteEdit = null; open(Page.REMOTE_ACTIONS) }
+        section("Touches du téléviseur")
+        row("Capter les touches du téléviseur", "Désactivé par défaut. Les touches Réglages et Profil de la télécommande (et quelques autres : Guide, Source, TV) " +
+            "sont prises par le téléviseur avant d'atteindre canvasOS. Activé, le service d'accessibilité de canvasOS (celui de la Protection de l'accueil) " +
+            "filtre les touches : il voit alors chaque touche pressée, dans toutes les apps, et ne retient que ces touches-là, seulement sur l'accueil et " +
+            "seulement si elles sont associées ; tout le reste passe tel quel. Rien n'est enregistré. Demande le débogage local une fois.",
+            { if (!prefs.captureKeys) "Désactivé" else if (HomeGuardService.isRunning) "Activé" else "Activé (service inactif)" }) { v ->
+            val on = !prefs.captureKeys
+            v.text = "Réglage…"
+            Thread {
+                val ok = (Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)) && Guard.setCaptureKeys(applicationContext, on)
+                runOnUiThread { v.text = if (!ok) "Débogage local requis" else if (on) "Activé" else "Désactivé" }
+            }.start()
+        }
+    }
+
+    private fun bindingMenu(b: KeyMap.Binding) {
+        showSheet(Sheet(root).title(KeyMap.keyName(b.code, b.long)).message(KeyMap.label(b.action, ::boundName))
+            .button("Changer la touche") { learn(b.action, replacing = b) }
+            .button("Changer la fonction") { remoteEdit = b; open(Page.REMOTE_ACTIONS) }
+            .button("Supprimer") { prefs.keyMap = KeyMap.serialize(KeyMap.remove(bindings(), b)) }
+            .button("Annuler") {})
+    }
+
+    /** The functions a key can do, then the apps and the inputs on pages of their own. */
+    private fun remoteActions() {
+        heading.text = "Fonction"
+        about.text = if (remoteEdit != null) "La nouvelle fonction de « ${KeyMap.keyName(remoteEdit!!.code, remoteEdit!!.long)} »." else "Ce que fera la touche ; elle est demandée ensuite."
+        for ((id, name) in KeyMap.ACTIONS) row(name, null, { "" }) { chooseAction(id) }
+        row("Ouvrir une app…", null, { "" }, chevron = true) { open(Page.REMOTE_APPS) }
+        row("Source HDMI…", null, { "" }, chevron = true) { open(Page.REMOTE_INPUTS) }
+    }
+
+    private fun remoteApps() {
+        heading.text = "Ouvrir une app"
+        about.text = "L'app que la touche ouvrira."
+        for (a in repo.allApps().sortedBy { it.label.lowercase() }) row(a.label, null, { "" }) { chooseAction(KeyMap.APP + a.pkg) }
+    }
+
+    /** The TV's inputs, read off the UI thread (a few hundred ms on some firmwares). */
+    private fun remoteInputs() {
+        heading.text = "Source HDMI"
+        about.text = "L'entrée sur laquelle la touche basculera."
+        row("Recherche des entrées…", null, { "" }) {}
+        Thread {
+            val inputs = runCatching { tv.inputs() }.getOrDefault(emptyList())
+            runOnUiThread {
+                if (page != Page.REMOTE_INPUTS || isDestroyed) return@runOnUiThread
+                list.removeAllViews()
+                if (inputs.isEmpty()) row("Aucune entrée", "Ce téléviseur n'expose pas d'entrée HDMI à canvasOS (voir AGENTS.md, section 9).", { "" }) {}
+                for (i in inputs) row(i.name, null, { if (i.connected) "Connectée" else "" }) { chooseAction(KeyMap.INPUT + InputTile.encode(i)) }
+                list.post { centreList(); list.getChildAt(0)?.requestFocus() }
+            }
+        }.start()
+    }
+
+    /** A function chosen: the key being changed keeps it, a new shortcut asks for its key. */
+    private fun chooseAction(action: String) {
+        val e = remoteEdit
+        if (e != null) {
+            remoteEdit = null
+            save(KeyMap.Binding(e.code, e.long, action), replacing = e)
+            show(Page.REMOTE)
+        } else learn(action, replacing = null)
+    }
+
+    /** Asks for the key: the next key pressed is read in [dispatchKeyEvent], Back cancels. */
+    private fun learn(action: String, replacing: KeyMap.Binding?) {
+        val sheet = Sheet(root).title("Appuyez sur la touche")
+            .message("Un appui bref l'associe à l'appui simple, un appui maintenu à l'appui long. Retour annule." +
+                if (prefs.captureKeys) "" else " Les touches Réglages et Profil demandent « Capter les touches du téléviseur ».")
+        learning = Learning(action, replacing, sheet)
+        learnCode = -1
+        // With key capture on, the service hands every key here, those the TV would keep included.
+        KeyCapture.learning = { e -> dispatchKeyEvent(e) }
+        // Only Back (dispatchKeyEvent) or a key learnt dismiss it; both clear the lesson first.
+        showSheet(sheet)
+    }
+
+    /** A key pressed ([long]: held) while learning: refused with the reason, confirmed when the key already does something, else bound. */
+    private fun learnt(code: Int, long: Boolean) {
+        val l = learning ?: return
+        KeyMap.reserved(code, long)?.let { l.sheet.message("$it Essayez une autre touche, ou Retour pour annuler."); return }
+        val b = KeyMap.Binding(code, long, l.action)
+        val taken = KeyMap.find(bindings(), code, long)?.takeIf { l.replacing == null || !it.sameKey(l.replacing.code, l.replacing.long) }
+        learning = null
+        KeyCapture.learning = null
+        page = Page.REMOTE
+        l.sheet.dismiss()
+        if (taken != null) {
+            showSheet(Sheet(root).title("Réaffecter « ${KeyMap.keyName(code, long)} » ?")
+                .message("Cette touche fait déjà « ${KeyMap.label(taken.action, ::boundName)} ».")
+                .button("Réaffecter") { save(b, l.replacing) }
+                .button("Annuler") {})
+        } else save(b, l.replacing)
+    }
+
+    private fun save(b: KeyMap.Binding, replacing: KeyMap.Binding?) {
+        var l = bindings()
+        if (replacing != null) l = KeyMap.remove(l, replacing)
+        prefs.keyMap = KeyMap.serialize(KeyMap.put(l, b))
+    }
+
+    /**
+     * While a key is being learnt, every key is the lesson's: Back cancels, a held key binds its
+     * long press at once, any other key binds its press on release. Nothing reaches the rows behind.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val l = learning ?: return super.dispatchKeyEvent(event)
+        val code = event.keyCode
+        if (code == KeyEvent.KEYCODE_BACK) {
+            if (event.action == KeyEvent.ACTION_UP) { learning = null; KeyCapture.learning = null; l.sheet.dismiss() }
+            return true
+        }
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (event.repeatCount == 0) learnCode = code
+                if (event.isLongPress && learnCode == code) { learnCode = -1; learnt(code, long = true) }
+            }
+            KeyEvent.ACTION_UP -> if (learnCode == code) { learnCode = -1; learnt(code, long = false) }
+        }
+        return true
+    }
+
     /** Lecture et notifications: the Control Center player and the banners. */
     private fun playbackGroup() {
         section("Lecture")
@@ -635,13 +800,17 @@ class SettingsActivity : Activity() {
             if (!prefs.nowPlaying) { Motion.bump(v, 1, 0); return@row }
             prefs.homePlayer = !prefs.homePlayer
         }
-        row("Paroles", "Activées par défaut. Quand le lecteur de l'accueil est sélectionné, un bouton Paroles sort à sa droite : OK affiche les paroles du titre, " +
-            "synchronisées quand elles le sont, demandées à LRCLIB (lrclib.net, gratuit, sans clé) au moment de l'appui. " +
-            "Le titre, l'artiste, l'album et la durée du morceau sont alors envoyés, rien d'autre ; rien n'est envoyé sans cet appui, et rien n'est enregistré.",
+        row("Paroles", "Activées par défaut. À chaque nouveau titre lu, le téléviseur demande à LRCLIB (lrclib.net, gratuit, sans clé) s'il a ses paroles : " +
+            "le titre, l'artiste, l'album et la durée du morceau sont envoyés, rien d'autre, et rien n'est enregistré. Quand il en a, un bouton Paroles sort à droite du " +
+            "lecteur de l'accueil quand celui-ci est sélectionné : OK affiche les paroles synchronisées sur le fond assombri (les paroles non synchronisées ne sont pas proposées), OK encore les retire. " +
+            "Désactivées, rien n'est envoyé à LRCLIB.",
             { if (!prefs.nowPlaying || !prefs.homePlayer) "Lecteur sur l'accueil requis" else onOff(prefs.lyrics) }) { v ->
             if (!prefs.nowPlaying || !prefs.homePlayer) { Motion.bump(v, 1, 0); return@row }
             prefs.lyrics = !prefs.lyrics
         }
+        row("Position des paroles", "Où les lignes s'affichent sur l'accueil : à gauche sous le lecteur, au centre, ou à droite.", {
+            when (prefs.lyricsAlign) { Prefs.LYRICS_CENTER -> "Centre"; Prefs.LYRICS_RIGHT -> "Droite"; else -> "Gauche" }
+        }) { prefs.lyricsAlign = Prefs.LYRICS_ALIGNS[(Prefs.LYRICS_ALIGNS.indexOf(prefs.lyricsAlign) + 1) % Prefs.LYRICS_ALIGNS.size] }
         section("Notifications")
         row("Bannières de notifications", "Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). " +
             "Le titre et le texte des notifications de toutes les apps, sauf celles exclues, sont lus, affichés 6 secondes et jamais enregistrés. " +

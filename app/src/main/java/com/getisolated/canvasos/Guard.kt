@@ -106,13 +106,28 @@ object Guard {
     fun setEnabled(ctx: Context, on: Boolean): Boolean {
         Prefs(ctx).guard = on
         if (!hasSecureSettings(ctx)) return false
-        if (on) ensure(ctx) else runCatching {
-            val me = service(ctx)
-            val r = ctx.contentResolver
-            val others = enabledServices(ctx).filter { ComponentName.unflattenFromString(it)?.flattenToString() != me }
-            Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.joinToString(":"))
-        }
+        // The service stays on while key capture still wants it.
+        if (on || Prefs(ctx).captureKeys) ensure(ctx) else disableService(ctx)
         return true
+    }
+
+    /**
+     * « Capter les touches du téléviseur » on or off: the service runs for it even with the guard
+     * off (its guard duties stay off then). Returns false when the permission to do so is missing.
+     */
+    fun setCaptureKeys(ctx: Context, on: Boolean): Boolean {
+        Prefs(ctx).captureKeys = on
+        if (!hasSecureSettings(ctx)) return false
+        if (on || Prefs(ctx).guard) ensure(ctx) else disableService(ctx)
+        HomeGuardService.refreshFilter()
+        return true
+    }
+
+    private fun disableService(ctx: Context) = runCatching {
+        val me = service(ctx)
+        val r = ctx.contentResolver
+        val others = enabledServices(ctx).filter { ComponentName.unflattenFromString(it)?.flattenToString() != me }
+        Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.joinToString(":"))
     }
 
     private fun enabledServices(ctx: Context) =
@@ -124,7 +139,7 @@ object Guard {
         ensureAdb(ctx)
         if (!hasSecureSettings(ctx)) return
         keepScreensaver(ctx)
-        if (!Prefs(ctx).guard) return
+        if (!Prefs(ctx).guard && !Prefs(ctx).captureKeys) return
         val me = service(ctx)
         val entries = enabledServices(ctx)
         runCatching {
@@ -167,7 +182,7 @@ object Guard {
      * makes Android bind it. Two writes in a row are coalesced, hence the pause.
      */
     fun rebindIfStalled(ctx: Context) {
-        if (HomeGuardService.isRunning || !Prefs(ctx).guard || !hasSecureSettings(ctx)) return
+        if (HomeGuardService.isRunning || !(Prefs(ctx).guard || Prefs(ctx).captureKeys) || !hasSecureSettings(ctx)) return
         val me = service(ctx)
         val entries = enabledServices(ctx)
         val others = entries.filter { ComponentName.unflattenFromString(it)?.flattenToString() != me }
@@ -225,7 +240,7 @@ class HomeGuardService : AccessibilityService() {
             SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime() < 60_000
         val awake = getSystemService(PowerManager::class.java)?.isInteractive == true
         Log.i(TAG, "connected: awake=$awake revived=$revived diedInFront=$diedInFront stock=${stockHomes.keys}")
-        if (awake && (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS || revived || diedInFront)) {
+        if (awake && Prefs(this).guard && (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS || revived || diedInFront)) {
             takeOverOnceSettled(if (revived) "revived" else if (diedInFront) "died in front" else "bound after boot")
         }
     }
@@ -249,7 +264,7 @@ class HomeGuardService : AccessibilityService() {
         val last = lastWindow
         // Unknown means we were only just bound. Any screen of the stock launcher counts: when
         // canvasOS is killed, whatever was on top of the launcher's task is uncovered.
-        if (stockHomes.isEmpty()) return // canvasOS is the only home; nothing to take over from
+        if (stockHomes.isEmpty() || !Prefs(this).guard) return // canvasOS is the only home, or the service only captures keys
         val stockInFront = last == null || last.first in stockHomes
         if (!stockInFront) Log.i(TAG, "$reason with ${last?.first} in front; leaving it")
         if (!stockInFront || SystemClock.uptimeMillis() < allowStockUntil) return
@@ -275,19 +290,25 @@ class HomeGuardService : AccessibilityService() {
      * Up to Android 11 always on: there, once Home reaches the system, it holds every background
      * activity start for five seconds, so canvasOS would come back only after five seconds.
      */
-    private fun filterKeys(on: Boolean) {
+    internal fun filterKeys(on: Boolean) {
         val info = serviceInfo ?: return
         val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
-        val want = if (on || Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) info.flags or flag else info.flags and flag.inv()
+        // Also on for « Capter les touches du téléviseur » ([KeyCapture]).
+        val want = if (on || Prefs(this).captureKeys || Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) info.flags or flag else info.flags and flag.inv()
         if (want == info.flags) return
         info.flags = want
         serviceInfo = info
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode != KeyEvent.KEYCODE_HOME || Guard.isDefaultHome(this)) return false
-        if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) goHome()
-        return true
+        val prefs = Prefs(this)
+        if (event.keyCode == KeyEvent.KEYCODE_HOME) {
+            if (!prefs.guard || Guard.isDefaultHome(this)) return false
+            if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) goHome()
+            return true
+        }
+        // The TV's own keys, for the remote shortcuts; every other key goes on untouched.
+        return prefs.captureKeys && KeyCapture.offer(event, prefs.homeInFront)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -300,7 +321,7 @@ class HomeGuardService : AccessibilityService() {
         val allowed = SystemClock.uptimeMillis() < allowStockUntil
         if (pkg in stockHomes) {
             filterKeys(allowed)
-            if (cls !in stockHomes.getValue(pkg) || allowed) return
+            if (cls !in stockHomes.getValue(pkg) || allowed || !Prefs(this).guard) return
             Log.i(TAG, "stock home $pkg came to the front; bringing canvasOS back")
             goHome()
             return
@@ -343,6 +364,9 @@ class HomeGuardService : AccessibilityService() {
         private var instance: HomeGuardService? = null
 
         val isRunning: Boolean get() = instance != null
+
+        /** The key-capture setting changed: the running service filters keys, or stops. */
+        fun refreshFilter() { instance?.filterKeys(false) }
 
         fun isStockHome(pkg: String): Boolean = instance?.stockHomes?.containsKey(pkg) == true
 
@@ -441,11 +465,12 @@ class ConfigReceiver : BroadcastReceiver() {
         if (i.hasExtra("now_playing")) prefs.nowPlaying = i.getBooleanExtra("now_playing", true)
         if (i.hasExtra("home_player")) prefs.homePlayer = i.getBooleanExtra("home_player", true)
         if (i.hasExtra("lyrics")) prefs.lyrics = i.getBooleanExtra("lyrics", true)
+        i.getStringExtra("lyrics_align")?.takeIf { it in Prefs.LYRICS_ALIGNS }?.let { prefs.lyricsAlign = it }
         if (i.hasExtra("banners")) prefs.banners = i.getBooleanExtra("banners", true)
         i.getStringExtra("banner_excluded")?.let { list ->
             prefs.bannerExcluded = list.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         }
-        resultData += " now_playing=${prefs.nowPlaying} home_player=${prefs.homePlayer} lyrics=${prefs.lyrics} banners=${prefs.banners} banner_excluded=${prefs.bannerExcluded.sorted().joinToString(",")} " +
+        resultData += " now_playing=${prefs.nowPlaying} home_player=${prefs.homePlayer} lyrics=${prefs.lyrics} lyrics_align=${prefs.lyricsAlign} capture_keys=${prefs.captureKeys} key_map=\"${KeyMap.describe(KeyMap.parse(prefs.keyMap))}\" banners=${prefs.banners} banner_excluded=${prefs.bannerExcluded.sorted().joinToString(",")} " +
             "listener=${Banners.listenerGranted(c)} overlay=${Settings.canDrawOverlays(c)}"
         // Asks GitHub for the latest Release now (a few seconds at most) and says what it found.
         if (i.getBooleanExtra("check_update", false)) resultData += " update=${Updater.checkForConfig(c)}"

@@ -10,9 +10,10 @@ import kotlin.math.abs
 
 /**
  * The lyrics of the track that plays, from LRCLIB (https://lrclib.net), a free, open database
- * with no key. Asked only when the user presses the Paroles button ([Prefs.lyrics]): the track's
- * title, artist, album and length go to lrclib.net, nothing else, and nothing is sent without
- * that press. What comes back is kept in memory for the last few tracks, never written anywhere.
+ * with no key. Asked for each new track while Paroles is on ([Prefs.lyrics]), so the home screen
+ * knows whether to offer its button: the track's title, artist, album and length go to
+ * lrclib.net, nothing else; off, nothing is sent. What comes back is kept in memory for the last
+ * few tracks, never written anywhere.
  * Synced lyrics come as LRC lines ("[01:02.34] text"); some tracks only have plain text.
  */
 object Lyrics {
@@ -64,12 +65,12 @@ object Lyrics {
         val q = StringBuilder("$BASE/get?track_name=${enc(title)}&artist_name=${enc(artist)}")
         if (!album.isNullOrBlank()) q.append("&album_name=${enc(album)}")
         if (durationMs > 0) q.append("&duration=${durationMs / 1000}")
-        val (code, body) = get(q.toString()) ?: return null
+        val (code, body) = get(q.toString()) ?: run { Log.i(TAG, "get: no answer"); return null }
         if (code == 200 && body != null) return parseTrack(JSONObject(body))
-        if (code != 404) return null
+        if (code != 404) { Log.i(TAG, "get: HTTP $code"); return null }
         // No exact match: the closest track by title and artist, the same length give or take a few seconds.
-        val (sc, sb) = get("$BASE/search?track_name=${enc(title)}&artist_name=${enc(artist)}") ?: return null
-        if (sc != 200 || sb == null) return null
+        val (sc, sb) = get("$BASE/search?track_name=${enc(title)}&artist_name=${enc(artist)}") ?: run { Log.i(TAG, "search: no answer"); return null }
+        if (sc != 200 || sb == null) { Log.i(TAG, "search: HTTP $sc"); return null }
         return best(JSONArray(sb), durationMs) ?: Result.NONE
     }
 
@@ -135,8 +136,21 @@ object Lyrics {
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
-    /** The status and body of [url]; null when the server could not be reached. */
+    /**
+     * The status and body of [url]; null when the server could not be reached. LRCLIB answers
+     * 503 (or 429) when busy, often for a moment only: up to three tries, a little apart.
+     */
     private fun get(url: String): Pair<Int, String?>? {
+        var last: Pair<Int, String?>? = null
+        for (wait in listOf(0L, 1_500L, 3_000L)) {
+            if (wait > 0) Thread.sleep(wait)
+            last = once(url) ?: return null
+            if (last.first != 503 && last.first != 429) return last
+        }
+        return last
+    }
+
+    private fun once(url: String): Pair<Int, String?>? {
         val c = URL(url).openConnection() as HttpURLConnection
         return try {
             c.connectTimeout = 5_000

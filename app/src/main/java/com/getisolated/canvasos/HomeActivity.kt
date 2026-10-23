@@ -89,10 +89,19 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private lateinit var ccButton: IconButton
     /** The small player top left ([Prefs.homePlayer]): cover, title and artist of what plays; OK opens its app. */
     private lateinit var homePlayer: HomePlayer
-    /** The lyrics over the home screen, while open (the Paroles button). */
-    private var lyricsView: LyricsView? = null
+    /** The lyrics layer of the scene, between the wallpaper and the dock (the Paroles button shows and hides it). */
+    private lateinit var lyricsView: LyricsView
+    private var lyricsOn = false
+    /** How far the grid and the dock are pushed down while the lyrics show: a row, so the dock only peeks out. */
+    private var lyricsShift = 0f
+    private val lyricsTween = Tween()
     /** The Top Shelf picture in front, for glass baked over the shelf; null while the shelf is down. */
     private var shelfPic: Bitmap? = null
+    /** Remote shortcuts ([KeyMap], Réglages → Télécommande), read again whenever the home screen comes back. */
+    private var keyBindings: List<KeyMap.Binding> = emptyList()
+    /** The bound key held down, and whether its hold already acted (its release then does nothing). */
+    private var pressedKey = -1
+    private var pressedFired = false
     private lateinit var grid: RecyclerView
     private lateinit var adapter: TileAdapter
     private lateinit var repo: AppRepo
@@ -345,6 +354,17 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         scene.addView(backdrop, match())
         bg = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
         backdrop.addView(bg, match())
+        // The lyrics darken the wallpaper (and the shelf's picture) and stand under the dock, the grid and the header.
+        lyricsView = LyricsView(this, io).apply {
+            // No lyrics for this track (or LRCLIB out of reach): the button stays in, and the lyrics, if up, go.
+            onAvailability = { ok ->
+                homePlayer.lyricsAvailable = ok == true
+                if (ok == false && lyricsOn) {
+                    setLyricsShown(false)
+                    Toast.makeText(this@HomeActivity, "Pas de paroles synchronisées pour ce titre", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
 
         val dm = resources.displayMetrics
         sw = dm.widthPixels
@@ -365,6 +385,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         dockRect.set(side - pad, firstRowY - pad, sw - side + pad, firstRowY + tileH + pad)
         dockRadius = dp(11) + pad.toFloat()
         buildShelf(side)
+        scene.addView(lyricsView, match())
         dock = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_XY }
         scene.addView(dock, FrameLayout.LayoutParams(dockRect.width(), dockRect.height()).apply {
             leftMargin = dockRect.left; topMargin = dockRect.top
@@ -439,12 +460,15 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         avatar.nextFocusLeftId = ccButton.id
         // The small player, top left, its middle level with the corner buttons' (26 + 8 + 14 dp). Its
         // glass is baked over what the header stands on: the wallpaper, or the shelf's picture.
-        homePlayer = HomePlayer(this, io, SceneSource(scene, sw, sh) { if (shelfShown) shelfPic ?: bgShown else bgShown }) { pkg -> openPlaying(pkg) }.apply {
+        homePlayer = HomePlayer(this, io, SceneSource(scene) { listOf(header) }) { pkg -> openPlaying(pkg) }.apply {
             onLost = { focusAt(focusedPos) }
             onDown = { focusAt(focusedPos) }
             onRight = { netButton.requestFocus() }
-            onLyrics = { openLyrics() }
-            onReading = { n -> lyricsView?.update(n) }
+            onLyrics = { toggleLyrics() }
+            onReading = { n ->
+                lyricsView.update(n)
+                if (n == null && lyricsOn) setLyricsShown(false)
+            }
         }
         header.addView(homePlayer, FrameLayout.LayoutParams(-2, dp(HomePlayer.HEIGHT_DP), Gravity.START or Gravity.TOP).apply {
             leftMargin = dp(32); topMargin = dp(26)
@@ -486,13 +510,18 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             }
         })
         grid.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(rv: RecyclerView, state: Int) {
+                // Rows that came up under the header show through the small player's glass once they stop.
+                if (state == RecyclerView.SCROLL_STATE_IDLE) homePlayer.refreshGlass()
+            }
+
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 // Measured from the rows themselves: layouts and jumps (reloads, scrollToPosition)
                 // move the grid with dy = 0, so a running sum of dy drifts away from the truth.
                 scrollY = gridOffset() ?: (scrollY + dy)
                 val off = scrollY.toFloat()
                 // The glass was baked for its resting place, so it fades out quickly once it moves.
-                dock.translationY = -off
+                dock.translationY = -off + lyricsShift
                 dock.alpha = (1f - off / (rowPitch * 0.7f)).coerceIn(0f, 1f)
                 // The large clock gives way to the rows coming up under it.
                 if (!shelfShown) bigClock.alpha = dock.alpha
@@ -500,6 +529,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         })
         scene.addView(grid, match())
         header.bringToFront()
+        // While the lyrics show, where focus goes decides how much of them shows (lyricsLayout).
+        root.viewTreeObserver.addOnGlobalFocusChangeListener { _, _ -> if (lyricsOn) lyricsLayout() }
         setContentView(root)
     }
 
@@ -555,6 +586,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             homeDock = glass
             main.post {
                 if (isDestroyed) return@post
+                // Under the lyrics the dock shows their shade: that glass takes over once the picture has settled.
+                if (lyricsOn) main.postDelayed({ if (!isDestroyed) restageDock(300) }, 1250)
                 // The first picture rises from black; the next ones cross-fade over 1.2 s.
                 val first = bgShown == null
                 val ms = if (first) 300L else 1200L
@@ -566,6 +599,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                 // Under the shelf the dock refracts the shelf's picture: homeDock waits for the shelf to go.
                 val glassFade = if (shelfShown) null else stageDock(glass)
                 if (!shelfShown) control.backgroundChanging(ms) { drawFinalScene(it) }
+                // The small player's glass fades to the new picture in step with it.
+                if (!shelfShown) homePlayer.glassFollow(ms, curve) { drawFinalScene(it) }
                 runFade(bgTween, pic, ms, curve)
                 glassFade?.let { runFade(dockTween, it, ms, curve) }
             }
@@ -575,6 +610,45 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     /** The dock's glass over [picture] (shown centre-cropped, full screen); blocking, off the main thread. */
     private fun bakeDock(picture: Bitmap): Bitmap =
         LiquidGlass.bake(picture, sw, sh, dockRect, dockRadius).also { it.prepareToDraw() }
+
+    /** The dock's glass while the lyrics show: over the picture under their shade, and a row lower when the dock is pushed down ([shifted]). */
+    private val lyricsDocks = HashMap<String, Bitmap>()
+    private fun bakeLyricsDock(picture: Bitmap, shifted: Boolean): Bitmap {
+        val key = "${System.identityHashCode(picture)}|$shifted"
+        synchronized(lyricsDocks) { lyricsDocks[key] }?.let { return it }
+        val rect = Rect(dockRect).apply { if (shifted) offset(0, rowPitch) }
+        // The glass is baked bright whatever lies under it, so the shade goes over the slab itself: the
+        // dock then reads as standing under the lyrics' veil, like the picture around it.
+        val alpha = if (shifted) LyricsView.SHADE_ALPHA else (LyricsView.SHADE_ALPHA * 0.35f).toInt()
+        // The bake comes out immutable: shaded on a mutable copy.
+        val g = LiquidGlass.bake(picture, sw, sh, rect, dockRadius).copy(Bitmap.Config.ARGB_8888, true).also {
+            Canvas(it).drawColor(Color.argb(alpha, 0, 0, 0), android.graphics.PorterDuff.Mode.SRC_ATOP)
+            it.prepareToDraw()
+        }
+        synchronized(lyricsDocks) { lyricsDocks.clear(); lyricsDocks[key] = g }
+        return g
+    }
+
+    /** The dock's glass for the state at hand: bright at rest, shaded (and shifted) under the lyrics; faded in over [ms]. */
+    private fun restageDock(ms: Long) {
+        val pic = bgShown ?: return
+        val on = lyricsOn
+        val shifted = on && lyricsShiftTarget > 0f
+        io.execute {
+            val g = runCatching { if (on) bakeLyricsDock(pic, shifted) else homeDock ?: bakeDock(pic) }
+                .onFailure { android.util.Log.w("canvasOSLyrics", "dock glass bake failed", it) }.getOrNull() ?: return@execute
+            main.post {
+                val why = when {
+                    isDestroyed -> "destroyed"; bgShown !== pic -> "picture changed"; lyricsOn != on -> "lyrics toggled meanwhile"
+                    on && (lyricsShiftTarget > 0f) != shifted -> "shift changed"; shelfShown -> "shelf up"; dockShown === g -> "same glass"; else -> null
+                }
+                android.util.Log.d("canvasOSLyrics", "dock glass on=$on shifted=$shifted -> ${why ?: "staged"}")
+                if (why != null) return@post
+                runFade(dockTween, stageDock(g), ms, Motion.ease)
+            }
+        }
+    }
+    private var lyricsShiftTarget = 0f
 
     /**
      * Puts [glass] in the dock over the glass it shows, not drawn yet: nothing changes until
@@ -712,7 +786,6 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         val item = shelfItems.getOrNull(i) ?: return
         shelfIndex = i
         shelfPic = b
-        if (shelfShown) homePlayer.refreshGlass()
         // The new picture fades in over the old one, settling from a slight zoom.
         val old = shelfFront
         val pic = ImageView(this).apply {
@@ -722,6 +795,12 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             scaleX = 1.04f; scaleY = 1.04f
         }
         shelfPics.addView(pic, FrameLayout.LayoutParams(-1, -1))
+        // Laid out now, not at the next frame: the glass samples the final scene before that frame,
+        // and a picture without a size yet would be missing from it (the capsule then lagged a reading).
+        if (shelfPics.width > 0 && shelfPics.height > 0) {
+            pic.measure(View.MeasureSpec.makeMeasureSpec(shelfPics.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(shelfPics.height, View.MeasureSpec.EXACTLY))
+            pic.layout(0, 0, shelfPics.width, shelfPics.height)
+        }
         shelfFront = pic
         shelfGlass = glass
         shelfInfo.animate().cancel()
@@ -734,7 +813,10 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         val ms = if (old == null) 0L else 700L
         // The dock refracts the new picture: staged now, moved with it.
         val glassFade = if (shelfShown) stageDock(glass) else null
-        if (shelfShown) control.backgroundChanging(ms) { drawFinalScene(it) }
+        if (shelfShown) {
+            control.backgroundChanging(ms) { drawFinalScene(it) }
+            homePlayer.glassFollow(ms, Motion.ease) { drawFinalScene(it) }
+        }
         // One Tween per picture: a newer one starting does not cut this one short.
         Tween().start(ms, Motion.ease, end = { if (old != null) shelfPics.removeView(old) }) { p ->
             pic.alpha = p
@@ -749,9 +831,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (v == shelfShown) return
         shelfShown = v
         if (v) shelf.visibility = View.VISIBLE else bg.visibility = View.VISIBLE
-        // The small player's glass follows the picture under it.
         if (!v) shelfPic = null
-        homePlayer.refreshGlass()
         // The large clock gives way to the shelf.
         bigClock.animate().alpha(if (v) 0f else dock.alpha).setDuration(350).start()
         // The shelf, the dock's glass and the Control Center's glass change together: staged, then
@@ -760,6 +840,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         val curve = shelfCurve
         val glassFade = (if (v) shelfGlass else homeDock)?.let { stageDock(it) }
         control.backgroundChanging(ms) { drawFinalScene(it) }
+        // The small player's glass fades with the shelf.
+        homePlayer.glassFollow(ms, curve) { drawFinalScene(it) }
         val a0 = shelf.alpha
         val a1 = if (v) 1f else 0f
         shelfTween.start(ms, curve, end = {
@@ -924,11 +1006,16 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     override fun onTileFocused(pos: Int, cell: TileCell) {
         focusedPos = pos
+        shelfFor(pos)
+    }
+
+    /** The Top Shelf of the dock tile at [pos], or none; nothing while the lyrics show (they take the whole picture). */
+    private fun shelfFor(pos: Int) {
         val app = adapter.apps.getOrNull(pos)
         val pkg = app?.pkg
         main.removeCallbacks(shelfShow)
         // Shelf.has is cheap; what there is to show is found off the main thread (showShelf). Inputs and folders have none.
-        if (pos < cols && pkg != null && app.input == null && app.folder == null && pkg != packageName && moving < 0 && Shelf.has(this, pkg)) {
+        if (!lyricsOn && pos < cols && pkg != null && app.input == null && app.folder == null && pkg != packageName && moving < 0 && Shelf.has(this, pkg)) {
             if (pkg != shelfPkg || !shelfShown) {
                 // The shelf of the previous app stays up while the next one loads: when it arrives the
                 // pictures cross-fade; when there is nothing, the shelf fades out then (showShelf).
@@ -1411,10 +1498,10 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         // Any key skips the intro to its closing zoom; nothing behind it reacts meanwhile.
         intro?.let { if (event.action == KeyEvent.ACTION_UP) it.skip(); return true }
         val code = event.keyCode
+        if (shortcutKey(event)) return true
         if (event.action == KeyEvent.ACTION_UP && (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU)) {
             when {
                 sheets.isNotEmpty() -> sheets.last().dismiss()
-                lyricsView != null -> closeLyrics()
                 // Before the Control Center: Back from an open folder returns to the grid.
                 folderView != null -> closeFolder()
                 // The large player first: its cursor, then itself, before the panel closes.
@@ -1454,6 +1541,88 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         }
         return super.dispatchKeyEvent(event)
     }
+
+    // ---------------------------------------------------------------- remote shortcuts
+
+    /**
+     * A key bound in Réglages → Télécommande ([keyBindings]): its press acts on release, its
+     * hold on the first repeat Android flags as a long press (the release then does nothing). A
+     * key with a bound press is the shortcut's alone; one with only a bound hold keeps its press
+     * (Back held opens the lyrics, Back pressed still goes back). Not while typing in a field.
+     */
+    private fun shortcutKey(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        if (keyBindings.isEmpty() || !KeyMap.uses(keyBindings, code) || currentFocus is android.widget.EditText) return false
+        val press = KeyMap.find(keyBindings, code, false)
+        val hold = KeyMap.find(keyBindings, code, true)
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (event.repeatCount == 0) { pressedKey = code; pressedFired = false }
+                if (hold != null && event.isLongPress && pressedKey == code && !pressedFired) {
+                    pressedFired = true
+                    runShortcut(hold.action)
+                    return true
+                }
+                return press != null || pressedFired
+            }
+            KeyEvent.ACTION_UP -> {
+                val fired = pressedFired && pressedKey == code
+                pressedKey = -1
+                pressedFired = false
+                if (fired) return true
+                if (press != null) { runShortcut(press.action); return true }
+            }
+        }
+        return false
+    }
+
+    /** Runs a shortcut's action: whatever is open on the home screen gives way first (the same action again closes it). */
+    private fun runShortcut(action: String) {
+        val ccWasOpen = control.isOpen
+        sheets.toList().forEach { it.dismiss() }
+        if (folderView != null) closeFolder(animate = false)
+        if (moving >= 0) endMove()
+        if (ccWasOpen) control.close()
+        when {
+            action == KeyMap.CONTROL_CENTER -> if (!ccWasOpen) main.post { control.open() }
+            action == KeyMap.LYRICS -> toggleLyrics()
+            action == KeyMap.PLAY_PAUSE -> withPlaying { n -> io.execute { n.playPause() }; refreshPlayerSoon() }
+            action == KeyMap.NEXT -> withPlaying { n -> io.execute { n.next() }; refreshPlayerSoon() }
+            action == KeyMap.PREVIOUS -> withPlaying { n ->
+                io.execute { if (NowPlaying.restartsOnBack(n.positionNow())) n.seekTo(0L) else n.previous() }
+                refreshPlayerSoon()
+            }
+            action == KeyMap.OPEN_PLAYING -> withPlaying { openPlaying(it.pkg) }
+            action == KeyMap.NEXT_PHOTO -> nextWallpaper { msg -> if (msg.isNotEmpty()) Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
+            action == KeyMap.PHOTO_FRAME -> openFrame()
+            action == KeyMap.SLEEP_TIMER -> control.sleepTimer()
+            action == KeyMap.CLEAN -> control.cleanMemory()
+            action == KeyMap.HOME_SETTINGS -> openSettings()
+            action == KeyMap.TV_SETTINGS -> unlocked("Réglages du téléviseur") {
+                runCatching { startActivity(tv.settingsIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+            action == KeyMap.PROFILES -> profileSheet()
+            action.startsWith(KeyMap.APP) -> openPlaying(action.removePrefix(KeyMap.APP))
+            action.startsWith(KeyMap.INPUT) -> InputTile.decode(action.removePrefix(KeyMap.INPUT))?.let { i -> io.execute { tv.setInput(i) } }
+        }
+    }
+
+    /** [block] with the session that plays (the small player's reading, or a fresh one when it is off); a toast when there is none. */
+    private fun withPlaying(block: (NowPlaying) -> Unit) {
+        homePlayer.now?.let { block(it); return }
+        io.execute {
+            val reader = NowPlaying.Reader(this, 1, 1)
+            val n = runCatching { reader.read() }.getOrNull()
+            reader.shutdown()
+            main.post {
+                if (isDestroyed) return@post
+                if (n != null) block(n) else Toast.makeText(this, "Rien en lecture", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /** The small player reads the session again once the app has had time to act on a press. */
+    private fun refreshPlayerSoon() = main.postDelayed({ if (resumed) homePlayer.poll() }, 600)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -1526,7 +1695,12 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         control.refresh()
         if (shelfShown && !control.isOpen) resumeShelfRotation()
         homePlayer.lyricsEnabled = prefs.lyrics
+        lyricsView.lookup = prefs.lyrics && prefs.nowPlaying && prefs.homePlayer
+        lyricsView.align = prefs.lyricsAlign
         homePlayer.start(prefs.nowPlaying && prefs.homePlayer)
+        keyBindings = KeyMap.parse(prefs.keyMap)
+        // The TV's own keys, caught by the accessibility service when the user asked for it (KeyCapture).
+        KeyCapture.home = { e -> shortcutKey(e) }
         // Notification banners (Prefs.banners) show in here while the home screen is in front.
         Banners.attach(root)
     }
@@ -1539,33 +1713,65 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         main.removeCallbacks(idleFrame)
         main.removeCallbacks(ticker)
         main.removeCallbacks(shelfAdvance)
-        closeLyrics()
+        KeyCapture.home = null
+        if (lyricsOn) setLyricsShown(false, animate = false)
         homePlayer.stop()
         Banners.detach(root)
         Foreground.paused(this)
         super.onPause()
     }
 
-    /** The Paroles button: the lyrics of the track over the home screen, until Back or the end of playback. */
-    private fun openLyrics() {
-        if (lyricsView != null) return
-        val n = homePlayer.now ?: return
-        val v = LyricsView(this, io) { closeLyrics() }
-        lyricsView = v
-        root.addView(v, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        v.alpha = 0f
-        v.animate().alpha(1f).setDuration(220).start()
-        setGridBlocked(true)
-        v.requestFocus()
-        v.update(n)
+    /** The Paroles button (and its shortcut): the lyrics show, or go away again. */
+    private fun toggleLyrics() {
+        if (!lyricsOn && (homePlayer.now == null || !lyricsView.available)) return
+        setLyricsShown(!lyricsOn)
     }
 
-    private fun closeLyrics() {
-        val v = lyricsView ?: return
-        lyricsView = null
-        root.removeView(v)
-        setGridBlocked(control.isOpen)
-        if (resumed && !control.isOpen) { if (homePlayer.shown) homePlayer.focusCapsule() else focusAt(focusedPos) }
+    /**
+     * The lyrics layer on or off: it fades over the darkened wallpaper, the grid and the dock
+     * slide down a row so the dock only peeks out at the bottom (as the second row does), and
+     * the Paroles button stays out, pressed. Everything stays navigable ([lyricsLayout]).
+     */
+    private fun setLyricsShown(on: Boolean, animate: Boolean = true) {
+        if (lyricsOn == on) return
+        lyricsOn = on
+        homePlayer.lyricsOn = on
+        if (on) { lyricsView.show(); lyricsView.update(homePlayer.now) } else lyricsView.hide()
+        // The Top Shelf gives way to the lyrics, and comes back for the focused tile once they go.
+        if (on) hideShelf() else shelfFor(focusedPos)
+        lyricsLayout(animate)
+    }
+
+    /**
+     * With the lyrics on: focus up in the header (the capsule, the button) keeps
+     * the grid down and the lyrics bright; focus down in the grid brings the grid back up and
+     * leaves the lyrics faint behind it. Off: everything back in place.
+     */
+    private fun lyricsLayout(animate: Boolean = true) {
+        val up = lyricsOn && (homePlayer.hasHeaderFocus || header.hasFocus())
+        val target = if (up) rowPitch.toFloat() else 0f
+        val shade = if (!lyricsOn) 0f else if (up) 1f else 0.35f
+        if (lyricsOn) lyricsView.dim(shade)
+        // The small player's glass fades with the lyrics' shade, drawn here at its end value.
+        homePlayer.glassFollow(if (animate) 300 else 0, Motion.ease) { c ->
+            val a = lyricsView.alpha
+            val vis = lyricsView.visibility
+            lyricsView.alpha = shade
+            lyricsView.visibility = if (shade > 0f) View.VISIBLE else View.INVISIBLE
+            try { drawFinalScene(c) } finally { lyricsView.alpha = a; lyricsView.visibility = vis }
+        }
+        // The dock's glass follows the shade over the picture (and its own place).
+        lyricsShiftTarget = target
+        restageDock(if (animate) 350 else 0)
+        val from = lyricsShift
+        fun apply(v: Float) {
+            lyricsShift = v
+            grid.translationY = v
+            dock.translationY = -scrollY + v
+        }
+        lyricsTween.cancel()
+        if (!animate || from == target) { apply(target); return }
+        lyricsTween.start(350, Motion.ease, end = { control.refreshGlass() }) { f -> apply(lerp(from, target, f)) }
     }
 
     /**
