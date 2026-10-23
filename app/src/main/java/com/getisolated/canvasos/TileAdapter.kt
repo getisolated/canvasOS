@@ -31,6 +31,11 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
     }
     /** The entry last bound here; a tile that finishes loading for an earlier one is not shown. */
     var entry: AppEntry? = null
+    /**
+     * A folder's cell: its mosaic leaves the wallpaper showing between and around the apps, so the
+     * focus shadow (a full card's) and the highlight would read as a dark or light slab there.
+     */
+    var hollow = false
     private var jiggle: ObjectAnimator? = null
     /** Soft shadow under the card, only visible while it is lifted (focused). */
     private val shadow = ImageView(ctx).apply {
@@ -86,13 +91,13 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
         val z1 = if (f) dp(4).toFloat() else 0f
         val z0 = card.translationZ
         val sh0 = shadow.alpha
-        val sh1 = if (f) 0.9f else 0f
+        val sh1 = if (!f) 0f else if (hollow) 0.3f else 0.9f
         val shy0 = shadow.translationY
         val shy1 = -shadowPad + if (f) dp(18).toFloat() else 0f
         val l0 = label.alpha
         val l1 = if (f && showLabel) 1f else 0f
         val g0 = sheen.alpha
-        val g1 = if (f && tvos) 1f else 0f
+        val g1 = if (!(f && tvos)) 0f else if (hollow) 0.5f else 1f
         if (f && tvos) {
             // The highlight enters from the side the focus came from and comes to rest near the top.
             sheen.translationX = -fromDx * tileW * 0.45f
@@ -233,7 +238,8 @@ class TileAdapter(
         cell.entry = app
         cell.setJiggle(app.pkg == movingPkg)
         // A folder's mosaic sits on nothing: the placeholder would show through its gaps.
-        cell.image.setBackgroundColor(if (app.folder != null) Color.TRANSPARENT else TileCell.PLACEHOLDER)
+        cell.hollow = app.folder != null
+        cell.image.setBackgroundColor(if (cell.hollow) Color.TRANSPARENT else TileCell.PLACEHOLDER)
         val cached = repo.cachedTile(app)
         if (cached != null) {
             cell.image.setImageBitmap(cached)
