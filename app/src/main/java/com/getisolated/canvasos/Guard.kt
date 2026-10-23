@@ -421,6 +421,8 @@ class ConfigReceiver : BroadcastReceiver() {
         // The Top Shelf's TMDB key; an empty string removes it. Never echoed back, only whether there is one.
         i.getStringExtra("tmdb_key")?.let { Shelf.setTmdbKey(c, it) }
         i.getStringExtra("shelf")?.takeIf { it in Prefs.SHELF_MODES }?.let { prefs.shelfMode = it }
+        // The Unsplash key for the wallpaper source; an empty string removes it. Never echoed back.
+        i.getStringExtra("unsplash_key")?.let { prefs.unsplashKey = it; Wallpapers(c, Wallpapers.UNSPLASH).forgetList() }
         if (i.hasExtra("phone_server")) {
             prefs.phoneServer = i.getBooleanExtra("phone_server", true)
             // KeeperService applies it; Android 12 may refuse to start a foreground service from here.
@@ -431,7 +433,7 @@ class ConfigReceiver : BroadcastReceiver() {
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
             "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} own_icon=${prefs.ownIcon} settings_bg=${prefs.settingsBg} low_end=${Device.isLowEnd(c)} " +
             "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents} " +
-            "tmdb_key=${if (prefs.tmdbKey.isNotEmpty()) "set" else "unset"} shelf=${prefs.shelfMode}"
+            "tmdb_key=${if (prefs.tmdbKey.isNotEmpty()) "set" else "unset"} shelf=${prefs.shelfMode} unsplash_key=${if (prefs.unsplashKey.isNotEmpty()) "set" else "unset"}"
         // Lecture en cours and banners (Réglages → Lecture et notifications); both need the listener.
         if (i.hasExtra("now_playing")) prefs.nowPlaying = i.getBooleanExtra("now_playing", false)
         if (i.hasExtra("banners")) prefs.banners = i.getBooleanExtra("banners", false)

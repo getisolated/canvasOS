@@ -477,6 +477,29 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         }
     }
 
+    /**
+     * The Control Center's "Photo suivante": moves the photo source on now (downloading the next
+     * picture if the day's list still has one) and shows it; a gradient theme has nothing to move.
+     */
+    fun nextWallpaper(report: (String) -> Unit) {
+        val theme = prefs.background
+        if (!Wallpapers.isPhoto(theme)) { report("Fond d'écran : dégradé fixe, choisissez une source de photos"); return }
+        if (refreshing) return
+        refreshing = true
+        report("Photo suivante…")
+        io.execute {
+            val walls = Wallpapers(this, Wallpapers.sourceFor(theme))
+            val changed = runCatching { walls.refresh(); walls.advance(prefs.wallMinutes, force = true) }.getOrDefault(false)
+            val photo = walls.current()
+            refreshing = false
+            main.post {
+                if (isDestroyed) return@post
+                if (prefs.background == theme) showBackground(theme, photo)
+                report(if (changed) "" else if (photo == null) "Aucune photo pour l'instant" else "Une seule photo disponible pour l'instant")
+            }
+        }
+    }
+
     private fun showBackground(theme: String, photo: java.io.File?) {
         val key = if (Wallpapers.isPhoto(theme)) "$theme:${photo?.name}" else theme
         if (key == shownBackground) return

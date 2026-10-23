@@ -101,6 +101,9 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
         if (files().isEmpty()) download()
     }
 
+    /** Drops the day's list, so the next refresh reads the source again (a key was added or removed). */
+    fun forgetList() { synchronized(lock) { queueFile.delete() } }
+
     private fun readQueue(): JSONObject? = runCatching { JSONObject(queueFile.readText()) }.getOrNull()
 
     private fun list(): JSONObject {
@@ -112,6 +115,7 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
             ANIME -> if (runCatching { listAnime(items, day) }.onFailure { Log.w("Wallpapers", "wallhaven", it) }.isFailure ||
                 items.length() == 0) listFeeds(WallFeeds.feeds(ANIME_BACKUP, day), items, day)
             CUSTOM -> listLinks(Prefs(ctx).customWallUrls.lines(), items)
+            UNSPLASH -> listUnsplash(items, day)
             else -> listFeeds(WallFeeds.feeds(source, day), items, day)
         }
         // Nothing listed (offline, or every feed down): try again in half an hour, not tomorrow.
@@ -123,6 +127,7 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
     private fun item(url: String, caption: String) = JSONObject().put("url", url).put("caption", caption)
 
     private fun listBing(items: JSONArray) {
+        val uhd = targetWidth(ctx) >= 3840
         for (idx in listOf(0, 7)) {
             val json = get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=$idx&n=8&mkt=fr-FR").decodeToString()
             val imgs = JSONObject(json).getJSONArray("images")
@@ -130,9 +135,28 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
                 val o = imgs.getJSONObject(i)
                 val title = o.optString("title")
                 val copy = o.optString("copyright")
-                items.put(item("https://www.bing.com" + o.getString("urlbase") + "_1920x1080.jpg",
+                // Bing keeps every picture in 3840×2160 too (_UHD); only worth it on a 4K panel.
+                items.put(item("https://www.bing.com" + o.getString("urlbase") + if (uhd) "_UHD.jpg" else "_1920x1080.jpg",
                     if (title.isNotEmpty() && !copy.startsWith(title)) "$title — $copy" else copy)
                     .put("name", o.getString("startdate") + ".jpg"))
+            }
+        }
+    }
+
+    /**
+     * Unsplash's editorial "Wallpapers" and "Nature" topics, the closest thing to Apple's own
+     * pictures: one page of each per day, at the screen's width. Needs the user's key
+     * ([Prefs.unsplashKey]); without one the list stays empty and the gallery card says so.
+     */
+    private fun listUnsplash(items: JSONArray, day: Int) {
+        val key = Prefs(ctx).unsplashKey
+        if (key.isEmpty()) return
+        val width = targetWidth(ctx)
+        for (url in WallFeeds.unsplashUrls(day)) {
+            val json = runCatching { get(url, mapOf("Authorization" to "Client-ID $key", "Accept-Version" to "v1")).decodeToString() }
+                .onFailure { Log.w("Wallpapers", "unsplash", it) }.getOrNull() ?: continue
+            for (p in WallFeeds.unsplash(json, width)) {
+                items.put(item(p.url, p.caption).put("id", p.id).put("name", p.id + ".jpg").put("track", p.track))
             }
         }
     }
@@ -268,6 +292,11 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
             looks.put(look)
         }
         id?.let { ids.put(it) }
+        // Unsplash's API terms: tell it a picture was taken (counts as one request on the user's key).
+        o.optString("track").takeIf { it.isNotEmpty() }?.let { track ->
+            val key = Prefs(ctx).unsplashKey
+            if (key.isNotEmpty()) runCatching { get(track, mapOf("Authorization" to "Client-ID $key")) }
+        }
         val name = given ?: ("u-" + hash(bytes) + ".jpg")
         if (File(dir, name).exists() || !write(bytes, name)) return null
         meta.put(name, o.optString("caption"))
@@ -372,31 +401,41 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
         return bits
     }
 
-    /** Decodes a large picture straight down to 1920x1080, cropping to 16:9 rather than stretching. */
+    /**
+     * Decodes a large picture straight down to the screen's size ([targetWidth]: 3840×2160 on a 4K
+     * panel, else 1920×1080), cropping to 16:9 rather than stretching. A picture smaller than the
+     * screen is kept at its own size, never blown up.
+     */
     private fun fitScreen(bytes: ByteArray): Bitmap? {
+        val tw = targetWidth(ctx)
+        val th = tw * 9 / 16
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         var sample = 1
-        while (bounds.outWidth / (sample * 2) >= 1920 && bounds.outHeight / (sample * 2) >= 1080) sample *= 2
+        while (bounds.outWidth / (sample * 2) >= tw && bounds.outHeight / (sample * 2) >= th) sample *= 2
         val b = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
             ?: return null
-        if (b.width == 1920 && b.height == 1080) return b
+        if (b.width == tw && b.height == th) return b
         // The middle 16:9 of it: portrait paintings and phone-shaped art keep their proportions.
         val w = minOf(b.width, b.height * 16 / 9)
         val h = minOf(b.height, b.width * 9 / 16)
         val src = Rect((b.width - w) / 2, (b.height - h) / 2, (b.width + w) / 2, (b.height + h) / 2)
-        val out = Bitmap.createBitmap(1920, 1080, Bitmap.Config.ARGB_8888)
-        Canvas(out).drawBitmap(b, src, Rect(0, 0, 1920, 1080), Paint(Paint.FILTER_BITMAP_FLAG))
+        val ow = minOf(w, tw)
+        val oh = ow * 9 / 16
+        val out = Bitmap.createBitmap(ow, oh, Bitmap.Config.ARGB_8888)
+        Canvas(out).drawBitmap(b, src, Rect(0, 0, ow, oh), Paint(Paint.FILTER_BITMAP_FLAG))
         b.recycle()
         return out
     }
 
     /** GET of a small API answer; throws on an error status (a rate limit's 429 included). */
-    private fun get(url: String): ByteArray = open(url).inputStream.use { it.readBytes() }
+    private fun get(url: String, headers: Map<String, String> = emptyMap()): ByteArray =
+        open(url).apply { headers.forEach { (k, v) -> setRequestProperty(k, v) } }.inputStream.use { it.readBytes() }
 
     fun decode(f: File, full: Boolean = false): Bitmap? = try {
         BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply {
-            inPreferredConfig = if (full) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
+            // Full colour for the photo frame's slow pans, except on 4K panels, where two 33 MB layers would not fit the heap.
+            inPreferredConfig = if (full && targetWidth(ctx) < 3840) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
             inMutable = true
         })
     } catch (e: OutOfMemoryError) { null }
@@ -429,14 +468,33 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
         const val ART = "art"
         /** The anime source's backup feeds, when Wallhaven's monthly ranking can't be read. */
         internal const val ANIME_BACKUP = "anime-backup"
-        val SOURCES = listOf(BING, SCENERY, FRESH, ANIME, ART, MINE, CUSTOM)
+        const val UNSPLASH = "unsplash"
+        val SOURCES = listOf(BING, UNSPLASH, SCENERY, FRESH, ANIME, ART, MINE, CUSTOM)
+
+        /**
+         * The width pictures are kept at: the panel's real width when it is 4K (3840), else 1920.
+         * A 4K background costs 16 MB in RGB_565 on the home screen; the glass and the frame cope.
+         */
+        @Volatile private var target = 0
+        fun targetWidth(ctx: Context): Int {
+            if (target == 0) {
+                val p = android.graphics.Point()
+                runCatching {
+                    @Suppress("DEPRECATION")
+                    (ctx.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay.getRealSize(p)
+                }
+                target = if (maxOf(p.x, p.y) >= 3000) 3840 else 1920
+                WallFeeds.atLeast = if (target >= 3840) "3840x2160" else "1920x1080"
+            }
+            return target
+        }
 
         /** Hosts to the captions the photo frame shows under their pictures (API feeds write their own). */
         private val CAPTIONS = mapOf("360.cn" to "Fonds d'écran 360", "wallhaven.cc" to "Wallhaven", "alcy.cc" to "alcy.cc",
             "clevelandart.org" to "Cleveland Museum of Art · Domaine public", "picsum.photos" to "Lorem Picsum · Unsplash",
             "wikimedia.org" to "Wikimedia Commons", "apod.nasa.gov" to "NASA APOD", "api.nasa.gov" to "NASA APOD",
             "metmuseum.org" to "The Met · Domaine public", "artic.edu" to "Art Institute of Chicago · Domaine public",
-            "dog.ceo" to "Dog CEO", "thecatapi.com" to "TheCatAPI")
+            "dog.ceo" to "Dog CEO", "thecatapi.com" to "TheCatAPI", "unsplash.com" to "Unsplash")
 
         /** A day's list is read again after this long; an empty one after [RETRY]. */
         private const val STALE = 20 * 3_600_000L
@@ -456,6 +514,7 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
         private const val MAX_DOWNLOAD = 15L * 1024 * 1024
 
         fun label(source: String) = when (source) {
+            UNSPLASH -> "Unsplash"
             ANIME -> "Anime"
             SCENERY -> "Paysages"
             FRESH -> "Animaux mignons"
@@ -464,6 +523,17 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
             CUSTOM -> "Lien personnalisé"
             else -> "Photos du jour"
         }
+
+        /** Whether Unsplash accepts [key]: true or false, or null when it cannot be reached. Blocking. */
+        fun checkUnsplashKey(key: String): Boolean? = try {
+            val c = URL("https://api.unsplash.com/topics/wallpapers?per_page=1").openConnection() as HttpURLConnection
+            c.connectTimeout = 8000; c.readTimeout = 8000
+            c.setRequestProperty("Authorization", "Client-ID $key")
+            c.setRequestProperty("Accept-Version", "v1")
+            val code = c.responseCode
+            c.disconnect()
+            when (code) { in 200..299 -> true; 401, 403 -> false; else -> null }
+        } catch (e: Exception) { null }
 
         /** The picture source behind a [Prefs.background] value; gradient themes fall back to Bing. */
         fun sourceFor(background: String) = if (background in SOURCES) background else BING
@@ -527,6 +597,9 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
 /** A picture a feed lists: its address, the photo frame's caption, and an id that stays the same from day to day. */
 data class FeedPic(val url: String, val caption: String, val id: String)
 
+/** An Unsplash photo: like [FeedPic], plus the download endpoint its terms ask the app to ping. */
+data class UnsplashPic(val url: String, val caption: String, val id: String, val track: String)
+
 /**
  * The picture feeds of [Wallpapers.SCENERY], [Wallpapers.FRESH], [Wallpapers.ART] and the anime
  * backup: which links to read on a given day, and each API's answer read into [FeedPic]s. All of them
@@ -547,6 +620,9 @@ object WallFeeds {
      * work): the two main feeds, which one leads changing daily, then backups; 360's always last, as
      * it is slow or unreachable from Europe.
      */
+    /** Wallhaven's minimum size: the screen's, so a 4K panel gets 4K pictures (set by [Wallpapers.targetWidth]). */
+    @Volatile var atLeast = "1920x1080"
+
     fun feeds(source: String, day: Int): List<String> {
         fun q360(cid: Int) = "http://wallpaper.apc.360.cn/index.php?c=WallPaper&a=getAppsByCategory&cid=$cid" +
             "&start=${day % 20 * 12}&count=12"
@@ -557,7 +633,7 @@ object WallFeeds {
             Wallpapers.ART -> listOf(metUrl(day), articUrl(day)).rotate(day) +
                 ("https://openaccess-api.clevelandart.org/api/artworks/?q=landscape&type=Painting&cc0=1&has_image=1" +
                     "&limit=30&skip=${day % 10 * 30}") +
-                ("https://wallhaven.cc/api/v1/search?q=painting&categories=100&purity=100&atleast=1920x1080" +
+                ("https://wallhaven.cc/api/v1/search?q=painting&categories=100&purity=100&atleast=$atLeast" +
                     "&ratios=16x9&sorting=toplist&page=${1 + day % 5}")
             Wallpapers.ANIME_BACKUP -> listOf(animeUrl(day), q360(26))
             else -> emptyList()
@@ -581,6 +657,35 @@ object WallFeeds {
             u.host == "api.thecatapi.com" -> ::cats
             else -> null
         }
+    }
+
+    // Unsplash
+
+    /** Unsplash's two editorial topics, one page of 30 each, the page moving on daily so the set changes. */
+    fun unsplashUrls(day: Int): List<String> = listOf("wallpapers", "nature").map { topic ->
+        "https://api.unsplash.com/topics/$topic/photos?orientation=landscape&order_by=popular&per_page=30&page=${1 + day % 8}"
+    }
+
+    /**
+     * The photos of a topic page, at [width] (Unsplash resizes on its CDN; `ixid` must stay in the
+     * URL), with the photographer's credit, and the download endpoint to ping when one is taken.
+     */
+    fun unsplash(json: String, width: Int): List<UnsplashPic> {
+        val arr = runCatching { JSONArray(json) }.getOrNull() ?: return emptyList()
+        val out = ArrayList<UnsplashPic>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val id = o.text("id")
+            val raw = o.optJSONObject("urls")?.text("raw").orEmpty()
+            if (id.isEmpty() || raw.isEmpty() || o.optInt("width") < width * 3 / 4) continue
+            if (o.optInt("width") * 5 < o.optInt("height") * 6) continue
+            val url = raw + (if ('?' in raw) "&" else "?") + "w=$width&fit=max&q=85&fm=jpg"
+            val who = o.optJSONObject("user")?.text("name").orEmpty()
+            val what = shorten(plain(o.text("description").ifEmpty { o.text("alt_description") }), 80)
+            val caption = listOf(what, if (who.isEmpty()) "" else "Photo de $who", "Unsplash").filter { it.isNotEmpty() }.joinToString(" · ")
+            out += UnsplashPic(url, caption, "us-$id", o.optJSONObject("links")?.text("download_location").orEmpty())
+        }
+        return out
     }
 
     // Wikimedia Commons
@@ -787,10 +892,10 @@ object WallFeeds {
     private val ANIMALS = listOf("kittens", "puppies", "cute animals", "fox", "bunny", "owl", "cat", "dog")
 
     fun animalsUrl(day: Int) = "https://wallhaven.cc/api/v1/search?q=" + URLEncoder.encode(ANIMALS[day % ANIMALS.size], "UTF-8") +
-        "&categories=100&purity=100&ratios=16x9&atleast=1920x1080&sorting=favorites&page=${1 + day / ANIMALS.size % 5}"
+        "&categories=100&purity=100&ratios=16x9&atleast=$atLeast&sorting=favorites&page=${1 + day / ANIMALS.size % 5}"
 
     /** The anime backup: Wallhaven's all-time favourites rather than the month's ranking. */
-    fun animeUrl(day: Int) = "https://wallhaven.cc/api/v1/search?categories=010&purity=100&ratios=16x9&atleast=1920x1080" +
+    fun animeUrl(day: Int) = "https://wallhaven.cc/api/v1/search?categories=010&purity=100&ratios=16x9&atleast=$atLeast" +
         "&sorting=favorites&page=${1 + day % 20}"
 
     fun wallhaven(json: String): List<FeedPic> {

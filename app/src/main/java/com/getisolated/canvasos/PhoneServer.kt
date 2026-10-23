@@ -174,6 +174,14 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                         Weather.setPlace(ctx, Weather.Place(name, lat, lon), auto = false)
                     json(state())
                 }
+                post && path == "/api/unsplash" -> {
+                    // The Unsplash key for the wallpaper source; "" removes it. Checked with one call, never echoed.
+                    val key = form(session)["key"].orEmpty().trim()
+                    prefs.unsplashKey = key
+                    Wallpapers(ctx, Wallpapers.UNSPLASH).forgetList()
+                    val ok = if (key.isEmpty()) null else Wallpapers.checkUnsplashKey(key)
+                    json(state().put("unsplashOk", ok ?: JSONObject.NULL))
+                }
                 post && path == "/api/tmdb" -> {
                     // The Top Shelf's TMDB key; "" removes it. The answer says whether TMDB took it, never the key.
                     val key = form(session)["key"].orEmpty().trim()
@@ -213,6 +221,7 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("weatherPlace", prefs.weatherPlace)
         .put("weatherAuto", prefs.weatherAuto)
         .put("tmdbKey", prefs.tmdbKey.isNotEmpty())
+        .put("unsplashKey", prefs.unsplashKey.isNotEmpty())
         .put("profiles", profiles())
 
     /** The profiles for the Réglages tab; `v` changes with the picture, so the phone fetches a new one rather than its cached one. */

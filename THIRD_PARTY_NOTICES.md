@@ -21,6 +21,7 @@ The photo backgrounds and the photo frame download pictures at run time from the
 - **Wallhaven** API (https://wallhaven.cc/help/api): SFW wallpapers uploaded by its users; Wallhaven's terms of use.
 - **TheCatAPI** (https://thecatapi.com) and **Dog CEO** (https://dog.ceo/dog-api/): free tiers without a key; pictures as published by each service.
 - **Lorem Picsum** (https://picsum.photos): photos from Unsplash under the Unsplash License.
+- **Unsplash API** (https://unsplash.com/developers): the "Unsplash" wallpaper source, with the user's own access key; photos under the Unsplash License, credited to their photographer and to Unsplash in the frame's caption, each download reported to the API as its terms ask.
 - **Bing** daily images (https://www.bing.com): © their photographers, shown with Bing's credit.
 - **360 wallpapers** (wallpaper.apc.360.cn): last-resort backup feed; pictures © their owners.
 

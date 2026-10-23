@@ -240,12 +240,10 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
                 })
             }
         memButton = utility("Libérer la mémoire", R.drawable.ic_memory) { cleanNow() }
-        utility("Cadre photo", R.drawable.ic_photo) {
+        utility("Photo suivante", R.drawable.ic_photo) { ctx.nextWallpaper { status.text = it; status.visibility = View.VISIBLE } }
+        utility("Cadre photo", R.drawable.ic_screensaver) {
             close()
             ctx.openFrame()
-        }
-        utility("Redémarrer", R.drawable.ic_restart) {
-            confirm("Redémarrer", "Le téléviseur redémarre ; cela prend environ une minute.") { Cleaner.reboot(ctx) }
         }
         utility("Réglages", R.drawable.ic_gear) {
             close()

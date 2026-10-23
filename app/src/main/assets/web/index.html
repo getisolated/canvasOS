@@ -280,7 +280,15 @@
   <p style="margin-top:12px"><button class="primary" id="tmdbSave" type="submit">Enregistrer</button></p>
 </form>
 <p class="hint" id="tmdbHint"></p>
-<p class="hint">Avec une clé, le Top Shelf de Netflix, Prime Video, Disney+, Apple TV, Max, Paramount+, Canal+ et Crunchyroll affiche les titres populaires de la semaine sur ce service en France (quand l'app ne publie pas elle-même ses recommandations). Clé gratuite : <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">themoviedb.org/settings/api</a> (la « clé d'API » ou le « jeton d'accès en lecture »). La clé est enregistrée sur le téléviseur uniquement.</p>
+<p class="hint" id="tmdbNote">Avec une clé, le Top Shelf de Netflix, Prime Video, Disney+, Apple TV, Max, Paramount+, Canal+ et Crunchyroll affiche les titres populaires de la semaine sur ce service en France (quand l'app ne publie pas elle-même ses recommandations). Clé gratuite : <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">themoviedb.org/settings/api</a> (la « clé d'API » ou le « jeton d'accès en lecture »). La clé est enregistrée sur le téléviseur uniquement.</p>
+
+<h2>Fond d'écran Unsplash</h2>
+<form class="type" id="unsplashForm" autocomplete="off">
+  <input id="unsplashKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Clé d'accès Unsplash">
+  <p style="margin-top:12px"><button class="primary" id="unsplashSave" type="submit">Enregistrer</button></p>
+</form>
+<p class="hint" id="unsplashHint"></p>
+<p class="hint">La source « Unsplash » du fond d'écran puise dans les sélections éditoriales Fonds d'écran et Nature d'Unsplash, en 4K sur un téléviseur 4K. Clé gratuite : <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer">unsplash.com/developers</a> (créez une app et copiez l'« Access Key » ; 50 requêtes par heure suffisent largement). La clé reste sur le téléviseur.</p>
 </section>
 
 <section class="tab" data-tab="apps" id="tab-apps" role="tabpanel" aria-label="Apps" hidden>
@@ -462,6 +470,13 @@ function render(s) {
   }
   // The key itself never comes back from the TV: only whether there is one.
   $('tmdbKey').placeholder = s.tmdbKey ? 'Clé enregistrée (masquée)' : 'Clé d\'API TMDB';
+  $('unsplashKey').placeholder = s.unsplashKey ? 'Clé enregistrée (masquée)' : 'Clé d\'accès Unsplash';
+  if (s.unsplashKey) {
+    $('unsplashHint').innerHTML = 'Une clé est enregistrée ; collez-en une autre pour la remplacer. <a href="#" id="unsplashDel">Supprimer la clé</a>';
+    $('unsplashDel').onclick = e => { e.preventDefault(); post('api/unsplash', { key: '' }).then(() => toast('Clé Unsplash supprimée')); };
+  } else {
+    $('unsplashHint').textContent = 'Aucune clé enregistrée.';
+  }
   if (s.tmdbKey) {
     $('tmdbHint').innerHTML = 'Une clé est enregistrée ; collez-en une autre pour la remplacer. <a href="#" id="tmdbDel">Supprimer la clé</a>';
     $('tmdbDel').onclick = e => { e.preventDefault(); post('api/tmdb', { key: '' }).then(() => toast('Clé TMDB supprimée')); };
@@ -561,6 +576,21 @@ $('tmdbForm').onsubmit = async e => {
     toast(s.tmdbOk === true ? 'Clé enregistrée : le Top Shelf suit les tendances' :
       s.tmdbOk === false ? 'Clé enregistrée, mais TMDB la refuse : vérifiez-la' :
       'Clé enregistrée ; TMDB est injoignable pour la vérifier', 3500);
+  } catch (_) { toast(LOST, 4000); }
+  b.classList.remove('busy'); b.textContent = 'Enregistrer';
+};
+
+$('unsplashForm').onsubmit = async e => {
+  e.preventDefault();
+  const input = $('unsplashKey'), key = input.value.trim();
+  if (!key) { toast('Collez d\'abord la clé'); return; }
+  const b = $('unsplashSave'); b.classList.add('busy'); b.textContent = 'Vérification…';
+  try {
+    const s = await post('api/unsplash', { key });
+    input.value = '';
+    toast(s.unsplashOk === true ? 'Clé enregistrée : choisissez « Unsplash » comme fond d\'écran' :
+      s.unsplashOk === false ? 'Clé enregistrée, mais Unsplash la refuse : vérifiez-la' :
+      'Clé enregistrée ; Unsplash est injoignable pour la vérifier', 3500);
   } catch (_) { toast(LOST, 4000); }
   b.classList.remove('busy'); b.textContent = 'Enregistrer';
 };

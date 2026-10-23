@@ -9,7 +9,7 @@ import org.junit.Test
 class WallpaperSourcesTest {
     @Test fun theSourcesAreTheDocumentedOnesInTheDocumentedOrder() {
         // AGENTS.md section 8 lists them as daily|scenery|fresh|anime|art|mine|custom.
-        assertEquals(setOf("daily", "scenery", "fresh", "anime", "art", "mine", "custom"), Wallpapers.SOURCES.toSet())
+        assertEquals(setOf("daily", "unsplash", "scenery", "fresh", "anime", "art", "mine", "custom"), Wallpapers.SOURCES.toSet())
         assertEquals(Wallpapers.SOURCES.size, Wallpapers.SOURCES.toSet().size)
     }
 

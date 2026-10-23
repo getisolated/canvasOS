@@ -126,6 +126,7 @@ class WallpaperActivity : Activity() {
                 files.isNotEmpty() -> null
                 s == Wallpapers.MINE -> "Scannez pour importer"
                 s == Wallpapers.CUSTOM -> "Scannez pour ajouter un lien"
+                s == Wallpapers.UNSPLASH && prefs.unsplashKey.isEmpty() -> "Clé Unsplash : scannez"
                 else -> "Téléchargé à la sélection"
             }
             main.post { cards[s]?.apply { image.setImageBitmap(bmp); this.label.text = label; emptyText(empty) } }
@@ -137,6 +138,10 @@ class WallpaperActivity : Activity() {
     }
 
     private fun pick(key: String) {
+        if (key == Wallpapers.UNSPLASH && prefs.unsplashKey.isEmpty()) {
+            Toast.makeText(this, "Unsplash demande une clé gratuite : scannez le code QR à droite et collez-la dans l'onglet Réglages", Toast.LENGTH_LONG).show()
+            return
+        }
         if (key == Wallpapers.MINE || key == Wallpapers.CUSTOM) {
             if (Wallpapers(this, key).files().isEmpty()) {
                 Toast.makeText(this, if (key == Wallpapers.MINE) "Aucune photo pour l'instant : scannez le code QR à droite avec un téléphone pour en importer" else "Aucun lien pour l'instant : scannez le code QR à droite avec un téléphone pour en ajouter", Toast.LENGTH_LONG).show()

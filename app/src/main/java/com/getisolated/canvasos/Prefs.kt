@@ -416,6 +416,11 @@ class Prefs(ctx: Context) {
         }
         set(v) = sp.edit().putBoolean("setup_done", v).apply()
 
+    /** The user's Unsplash access key for the "Unsplash" wallpaper source ([Wallpapers.UNSPLASH]); "" = none. Kept on the TV only. */
+    var unsplashKey: String
+        get() = sp.getString("unsplash_key", "")!!
+        set(v) = sp.edit().putString("unsplash_key", v.trim()).apply()
+
     /** What the Top Shelf may use: [SHELF_ALL] (Android TV rows, then TMDB and web), [SHELF_TV] (Android TV rows only) or [SHELF_OFF]. */
     var shelfMode: String
         get() = sp.getString("shelf_mode", SHELF_ALL)!!.takeIf { it in SHELF_MODES } ?: SHELF_ALL
