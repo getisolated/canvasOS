@@ -1,6 +1,5 @@
 package com.getisolated.canvasos
 
-import com.getisolated.canvasos.ShelfFeeds.TvChannel
 import com.getisolated.canvasos.ShelfFeeds.TvRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -267,7 +266,7 @@ class ShelfFeedsEdgeTest {
         assertEquals(Shelf.Item("Titre", "Résumé", "https://a/1.jpg"), item)
     }
 
-    // ---- Watch Next and preview rows ----
+    // ---- Watch Next rows ----
 
     @Test fun watchNextDropsRepeatsAndCapsAtTheLimit() {
         val rows = (1..30).map { TvRow("Titre $it", thumbnail = "https://a/$it.jpg", engagedAt = it.toLong()) } +
@@ -295,41 +294,5 @@ class ShelfFeedsEdgeTest {
         assertEquals("Continuer à regarder", ShelfFeeds.watchNextLabel(listOf(TvRow("A", watchNextType = -1))))
         assertEquals("rows the user hid do not count", "Ma liste",
             ShelfFeeds.watchNextLabel(listOf(TvRow("A", watchNextType = 3), TvRow("B", watchNextType = 1, browsable = false))))
-    }
-
-    @Test fun aPreviewNeedsChannelsWithRowsThatCanBeShown() {
-        val channels = listOf(TvChannel(1, "Vide", browsable = true), TvChannel(2, "Pleine", browsable = true))
-        val rows = listOf(
-            TvRow("Sans image", channel = 1),
-            TvRow("Masqué", thumbnail = "https://a/1.jpg", channel = 1, browsable = false),
-            TvRow("Visible", thumbnail = "https://a/2.jpg", channel = 2),
-        )
-        // The first channel has nothing to show, so the second is taken.
-        val (name, items) = ShelfFeeds.preview(channels, rows)!!
-        assertEquals("Pleine", name)
-        assertEquals(listOf("Visible"), items.map { it.title })
-        assertNull(ShelfFeeds.preview(channels, emptyList()))
-        assertNull(ShelfFeeds.preview(emptyList(), rows))
-        assertNull(ShelfFeeds.preview(channels, rows.take(2)))
-    }
-
-    @Test fun aPreviewTakesChannelsInIdOrderAndNamesABlankOne() {
-        val channels = listOf(TvChannel(9, null, true), TvChannel(4, "Quatre", true))
-        val rows = listOf(TvRow("Neuf", thumbnail = "https://a/9.jpg", channel = 9), TvRow("Quatre", thumbnail = "https://a/4.jpg", channel = 4))
-        assertEquals("Quatre", ShelfFeeds.preview(channels, rows)!!.first)
-        assertEquals("À découvrir", ShelfFeeds.preview(listOf(TvChannel(9, null, true)), rows)!!.first)
-        assertEquals("À découvrir", ShelfFeeds.preview(listOf(TvChannel(9, "  ", true)), rows)!!.first)
-        assertEquals("Trimmed", ShelfFeeds.preview(listOf(TvChannel(9, " Trimmed ", true)), rows)!!.first)
-    }
-
-    @Test fun aPreviewShowsTheHeaviestRowsFirstWithoutRepeatsAndCapsAtTheLimit() {
-        val rows = (1..20).map { TvRow("Prog $it", thumbnail = "https://a/$it.jpg", channel = 1, weight = it) } +
-            TvRow("Prog 20", thumbnail = "https://a/20.jpg", channel = 1, weight = 19)
-        val (_, items) = ShelfFeeds.preview(listOf(TvChannel(1, "C", true)), rows)!!
-        assertEquals(12, items.size)
-        assertEquals("Prog 20", items[0].title)
-        assertEquals("Prog 9", items.last().title)
-        assertEquals(1, items.count { it.title == "Prog 20" })
-        assertEquals(4, ShelfFeeds.preview(listOf(TvChannel(1, "C", true)), rows, limit = 4)!!.second.size)
     }
 }

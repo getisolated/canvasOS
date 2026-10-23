@@ -1,6 +1,5 @@
 package com.getisolated.canvasos
 
-import com.getisolated.canvasos.ShelfFeeds.TvChannel
 import com.getisolated.canvasos.ShelfFeeds.TvRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -108,23 +107,12 @@ class ShelfFeedsTest {
         assertEquals("https://a/p.jpg", ShelfFeeds.art(TvRow("X", poster = "https://a/p.jpg", thumbnail = "https://a/t.jpg")))
     }
 
-    @Test fun previewTakesTheFirstVisibleChannelWithPrograms() {
-        val channels = listOf(TvChannel(7, "Populaire", browsable = true), TvChannel(3, "Masquée", browsable = false),
-            TvChannel(5, "Recommandé", browsable = true))
+    @Test fun watchNextLeavesOutWhatTheUserRemoved() {
         val rows = listOf(
-            TvRow("Caché", thumbnail = "https://a/1.jpg", channel = 3, weight = 9),
-            TvRow("Léger", thumbnail = "https://a/2.jpg", channel = 5, weight = 1, description = "Chaîne · 1,2 M de vues"),
-            TvRow("Lourd", thumbnail = "https://a/3.jpg", channel = 5, weight = 8),
-            TvRow("Populaire", thumbnail = "https://a/4.jpg", channel = 7),
+            TvRow("Retiré", thumbnail = "https://a/1.jpg", engagedAt = 9, browsable = false),
+            TvRow("Gardé", thumbnail = "https://a/2.jpg", engagedAt = 1),
         )
-        val (name, items) = ShelfFeeds.preview(channels, rows)!!
-        assertEquals("Recommandé", name)
-        assertEquals(listOf("Lourd", "Léger"), items.map { it.title })
-        assertEquals("Chaîne · 1,2 M de vues", items[1].meta)
-        // A TV whose home never made any channel visible: all of them count.
-        val (name2, items2) = ShelfFeeds.preview(listOf(TvChannel(3, " ", browsable = false)), rows)!!
-        assertEquals("À découvrir", name2)
-        assertEquals(listOf("Caché"), items2.map { it.title })
-        assertNull(ShelfFeeds.preview(emptyList(), rows))
+        assertEquals(listOf("Gardé"), ShelfFeeds.watchNext(rows).map { it.title })
+        assertTrue(ShelfFeeds.watchNext(rows.take(1)).isEmpty())
     }
 }

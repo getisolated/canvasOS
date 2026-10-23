@@ -28,13 +28,13 @@ import android.widget.LinearLayout
 import java.lang.ref.WeakReference
 
 /**
- * tvOS-style notification banners, top right, for the apps the user picked ([Prefs.bannerApps]:
- * a doorbell, home automation) and no other. Off by default ([Prefs.banners]).
+ * tvOS-style notification banners, top right, for every app except those the user excluded
+ * ([Prefs.bannerExcluded]). On by default ([Prefs.banners]); switched off, nothing is read.
  *
- * [RevivalListener] hands over every posted notification and this returns at once unless banners
- * are on and the app is on the list. For those apps it reads the app's name and icon and the
- * notification's title and text, shows them for 6 seconds, and forgets them: the banner on screen
- * is the only copy, nothing is logged or written anywhere, and a newer banner replaces it (no queue).
+ * [RevivalListener] hands over every posted notification and this returns at once when banners are
+ * off or the app is excluded. Otherwise it reads the app's name and icon and the notification's
+ * title and text, shows them for 6 seconds, and forgets them: the banner on screen is the only
+ * copy, nothing is logged or written anywhere, and a newer banner replaces it (no queue).
  *
  * Where: inside the home screen when it is in front ([attach]), else over whatever is being watched
  * through an overlay window when canvasOS may draw over apps (SYSTEM_ALERT_WINDOW, granted with the
@@ -52,7 +52,7 @@ object Banners {
     const val MEDIA_TEMPLATE = "android.app.Notification\$MediaStyle"
 
     /**
-     * Whether a notification becomes a banner: an app on the list, something that happened (not a
+     * Whether a notification becomes a banner: an app not excluded, something that happened (not a
      * running service or a playing track, not the summary of a group whose children come as well),
      * with a title or a text to show.
      */
@@ -63,8 +63,8 @@ object Banners {
         template: String?,
         title: CharSequence?,
         text: CharSequence?,
-        allow: Set<String>,
-    ): Boolean = pkg in allow && !isOngoing && !isGroupSummary && !isMedia(template) &&
+        excluded: Set<String>,
+    ): Boolean = pkg !in excluded && !isOngoing && !isGroupSummary && !isMedia(template) &&
         !(title.isNullOrBlank() && text.isNullOrBlank())
 
     /** Notification.MediaStyle, DecoratedMediaCustomViewStyle, and AndroidX's, which reports the platform's. */
@@ -97,9 +97,10 @@ object Banners {
     fun onPosted(ctx: Context, sbn: StatusBarNotification) {
         val prefs = Prefs(ctx)
         if (!prefs.banners) return
-        val allow = prefs.bannerApps
+        val excluded = prefs.bannerExcluded
         val pkg = sbn.packageName ?: return
-        if (pkg !in allow) return
+        // Excluded apps' notifications are let go before anything in them is read.
+        if (pkg in excluded) return
         val n = sbn.notification ?: return
         val x = n.extras ?: return
         val ongoing = sbn.isOngoing || n.flags and Notification.FLAG_FOREGROUND_SERVICE != 0
@@ -107,7 +108,7 @@ object Banners {
         val template = if (x.containsKey(Notification.EXTRA_MEDIA_SESSION)) MEDIA_TEMPLATE else x.getString(Notification.EXTRA_TEMPLATE)
         val title = x.getCharSequence(Notification.EXTRA_TITLE)
         val text = x.getCharSequence(Notification.EXTRA_TEXT)
-        if (!accept(pkg, ongoing, summary, template, title, text, allow)) return
+        if (!accept(pkg, ongoing, summary, template, title, text, excluded)) return
         val app = ctx.applicationContext
         // In standby there is no one to read it, and it must not wait for the wake-up.
         if (app.getSystemService(PowerManager::class.java)?.isInteractive == false) return

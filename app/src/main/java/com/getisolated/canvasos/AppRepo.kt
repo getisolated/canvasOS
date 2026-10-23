@@ -299,7 +299,7 @@ class AppRepo(private val ctx: Context) {
         crop.recycle(); blurred.recycle(); src.recycle()
     }
 
-    /** The dark glass card under input and folder tiles. */
+    /** The dark glass card under input tiles. */
     private fun drawGlassCard(c: Canvas, p: Paint) {
         p.shader = android.graphics.LinearGradient(0f, 0f, TILE_W.toFloat(), TILE_H.toFloat(),
             Color.rgb(58, 64, 82), Color.rgb(22, 24, 32), android.graphics.Shader.TileMode.CLAMP)
@@ -330,14 +330,13 @@ class AppRepo(private val ctx: Context) {
     }
 
     /**
-     * A folder, as on tvOS: the glass card with its first four apps' own tiles in a 2×2 mosaic. The
-     * places left empty stay as faint wells, so a folder of one still reads as a folder. Builds the
-     * members' tiles it needs (and caches them for when the folder opens); off the main thread.
+     * A folder: its first four apps' own tiles in a 2×2 mosaic on nothing at all (the owner's
+     * choice: no card, no rim). Places left empty stay transparent. Builds the members' tiles it
+     * needs (and caches them for when the folder opens); off the main thread.
      */
     private fun drawFolderTile(c: Canvas, members: List<AppEntry>) {
         val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        drawGlassCard(c, p)
-        // 16:9 places as tall as the card allows, centred.
+        // 16:9 places as tall as the tile allows, centred.
         val gap = 12f
         val padY = 20f
         val h = (TILE_H - padY * 2 - gap) / 2
@@ -353,12 +352,7 @@ class AppRepo(private val ctx: Context) {
             val x = left + (k % 2) * (w + gap)
             val y = padY + (k / 2) * (h + gap)
             val dst = RectF(x, y, x + w, y + h)
-            val app = members.getOrNull(k)
-            if (app == null) {
-                p.color = Color.argb(30, 255, 255, 255)
-                c.drawRoundRect(dst, r, r, p)
-                continue
-            }
+            val app = members.getOrNull(k) ?: continue
             c.drawRoundRect(RectF(dst).apply { offset(0f, 3f) }, r, r, shadow)
             val src = tile(app)
             // A shader rather than a clip: Canvas clips are not anti-aliased, the rounded rect is.
@@ -369,15 +363,6 @@ class AppRepo(private val ctx: Context) {
             c.drawRoundRect(dst, r, r, p)
             p.shader = null
         }
-        // The rim: light catching the card's top-left edge, fading along it. The cell rounds the corners
-        // (dp(11) on a tile about 15 % of the screen wide, some 30 px of this bitmap).
-        p.style = Paint.Style.STROKE
-        p.strokeWidth = 3f
-        p.shader = android.graphics.LinearGradient(0f, 0f, TILE_W * 0.7f, TILE_H.toFloat(),
-            Color.argb(120, 255, 255, 255), Color.argb(16, 255, 255, 255), android.graphics.Shader.TileMode.CLAMP)
-        c.drawRoundRect(RectF(1.5f, 1.5f, TILE_W - 1.5f, TILE_H - 1.5f), 30f, 30f, p)
-        p.shader = null
-        p.style = Paint.Style.FILL
     }
 
     companion object {

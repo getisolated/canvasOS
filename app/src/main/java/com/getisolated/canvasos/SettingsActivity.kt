@@ -271,13 +271,16 @@ class SettingsActivity : Activity() {
             { if (prefs.clock24) "24 h" else "12 h" }) { prefs.clock24 = !prefs.clock24 }
         row("Dock", "Récents : l'app que vous ouvrez passe en tête, comme aujourd'hui. Fixe : l'ordre que vous avez choisi avec « Modifier l'accueil » est conservé.",
             { if (prefs.dockRecents) "Récents" else "Fixe" }) { prefs.dockRecents = !prefs.dockRecents }
-        row("Top Shelf", "Les contenus de l'app sélectionnée dans le Dock, en plein écran au-dessus. Complet : la ligne « Continuer à regarder » et les " +
-            "recommandations publiées pour Android TV, puis les tendances TMDB (avec votre clé) et les sources web. Android TV seul : sans TMDB ni web. " +
+        row("Top Shelf", "Les contenus de l'app sélectionnée dans le Dock, en plein écran au-dessus. Complet : la ligne « Continuer à regarder » " +
+            "publiée pour Android TV, puis les tendances TMDB (avec votre clé) et les sources web. Android TV seul : sans TMDB ni web. " +
             "Désactivé : le fond d'écran reste visible.", {
             when (prefs.shelfMode) { Prefs.SHELF_TV -> "Android TV seul"; Prefs.SHELF_OFF -> "Désactivé"; else -> "Complet" }
         }) {
             prefs.shelfMode = Prefs.SHELF_MODES[(Prefs.SHELF_MODES.indexOf(prefs.shelfMode) + 1) % Prefs.SHELF_MODES.size]
         }
+        row("Continuer à regarder", "La ligne que les apps (YouTube, Netflix…) publient pour Android TV : ce que vous regardiez, à reprendre. " +
+            "Désactivée, le Top Shelf n'utilise que TMDB et les sources web, quand le mode du Top Shelf les autorise.",
+            { onOff(prefs.watchNext) }) { prefs.watchNext = !prefs.watchNext }
         row("Météo", "La température et le temps qu'il fait à côté de l'horloge, et les prévisions sur cinq jours dans le Centre de contrôle. " +
             "Elles viennent d'Open-Meteo et sont mises à jour toutes les 30 minutes pendant que l'accueil est affiché. " +
             "Tant qu'aucune ville n'est choisie, le lieu est deviné une fois d'après l'adresse IP publique du téléviseur (ip-api.com).",
@@ -469,10 +472,11 @@ class SettingsActivity : Activity() {
         }
 
         section("Lecture et notifications")
-        row("Lecture en cours", "Affiche dans le Centre de contrôle ce que lit une app (titre, artiste, pochette) avec lecture/pause et piste suivante. " +
-            "Lit uniquement les métadonnées de lecture via l'écouteur de notifications ; aucune notification n'est lue pour cela.",
+        row("Lecture en cours", "Activée par défaut. Affiche dans le Centre de contrôle ce que lit une app (titre, artiste, pochette) avec lecture/pause et piste suivante. " +
+            "Lit pour cela les informations de lecture des apps (titre, artiste, pochette, état de lecture) via l'écouteur de notifications ; rien n'est enregistré.",
             { if (!MediaSessions.isAvailable(this)) LISTENER_NEEDED else onOff(prefs.nowPlaying) }) { v ->
-            if (prefs.nowPlaying) { prefs.nowPlaying = false; return@row }
+            // On by default: without the listener it shows as needing it, and OK then asks for it rather than switching off.
+            if (prefs.nowPlaying && MediaSessions.isAvailable(this)) { prefs.nowPlaying = false; return@row }
             v.text = "Réglage…"
             Thread {
                 val ok = MediaSessions.isAvailable(applicationContext) || (allowListener() && MediaSessions.isAvailable(applicationContext))
@@ -480,10 +484,11 @@ class SettingsActivity : Activity() {
                 runOnUiThread { v.text = if (ok) onOff(true) else LISTENER_NEEDED }
             }.start()
         }
-        row("Bannières de notifications", "Affiche en haut à droite les notifications des apps choisies (sonnette, domotique…). " +
-            "Seules ces apps sont lues : titre et texte, affichés 6 secondes, jamais enregistrés.",
+        row("Bannières de notifications", "Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). " +
+            "Le titre et le texte des notifications de toutes les apps, sauf celles exclues, sont lus, affichés 6 secondes et jamais enregistrés. " +
+            "Désactivées, aucune notification n'est lue.",
             { if (!Banners.listenerGranted(this)) LISTENER_NEEDED else onOff(prefs.banners) }) { v ->
-            if (prefs.banners) {
+            if (prefs.banners && Banners.listenerGranted(this)) {
                 prefs.banners = false
                 show(Page.MAIN, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
                 return@row
@@ -497,14 +502,14 @@ class SettingsActivity : Activity() {
                 if (ok) prefs.banners = true
                 runOnUiThread {
                     if (!ok) v.text = LISTENER_NEEDED
-                    // "Apps des bannières" appears below: the page is rebuilt where the focus is.
+                    // "Apps exclues des bannières" appears below: the page is rebuilt where the focus is.
                     else if (page == Page.MAIN && !isDestroyed) show(Page.MAIN, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
                 }
             }.start()
         }
-        if (prefs.banners) row("Apps des bannières", "Les apps dont les notifications s'affichent en bannière. Aucune autre notification n'est lue." +
+        if (prefs.banners) row("Apps exclues des bannières", "Les notifications des apps cochées ne sont ni lues ni affichées. Toutes les autres s'affichent en bannière." +
             if (Settings.canDrawOverlays(this)) "" else "\nSans l'autorisation d'affichage par-dessus les autres apps (étape 4), les bannières n'apparaissent que sur l'accueil.",
-            { "${prefs.bannerApps.size}" }, chevron = true) { show(Page.BANNER_APPS) }
+            { "${prefs.bannerExcluded.size}" }, chevron = true) { show(Page.BANNER_APPS) }
 
         section("Système")
         row("Débogage local", "Permet à l'accueil d'éteindre le téléviseur, de libérer la mémoire, etc. via le débogage local. Dans la fenêtre qui s'affiche, choisissez « Toujours autoriser ».",
@@ -626,21 +631,21 @@ class SettingsActivity : Activity() {
     }
 
     /**
-     * The apps whose notifications become banners: every app on the TV, system ones included (a
-     * doorbell or home-automation app may come with the firmware), and any package set over adb.
+     * The apps whose notifications never become banners (ticked = excluded): every app on the TV,
+     * system ones included (a firmware app may be chatty), and any package excluded over adb.
      */
     private fun bannerAppsPage() {
         val listed = repo.allApps().filter { !repo.isOwn(it.pkg) }
         val known = listed.mapTo(HashSet()) { it.pkg }
-        val more = (prefs.bannerApps - known).mapNotNull { pkg ->
+        val more = (prefs.bannerExcluded - known).mapNotNull { pkg ->
             runCatching {
                 AppEntry(pkg, packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString(), android.content.ComponentName(pkg, ""), false)
             }.getOrNull()
         }
-        appPicker("Apps des bannières", prefs.bannerApps, source = (listed + more).sortedBy { it.label.lowercase() }) { pkg, on ->
-            prefs.bannerApps = if (on) prefs.bannerApps + pkg else prefs.bannerApps - pkg
+        appPicker("Apps exclues des bannières", prefs.bannerExcluded, source = (listed + more).sortedBy { it.label.lowercase() }) { pkg, on ->
+            prefs.bannerExcluded = if (on) prefs.bannerExcluded + pkg else prefs.bannerExcluded - pkg
         }
-        about.text = "Les notifications des apps cochées s'affichent 6 secondes en haut à droite. Celles des autres apps ne sont pas lues."
+        about.text = "Les notifications des apps cochées ne sont ni lues ni affichées. Celles des autres apps s'affichent 6 secondes en haut à droite."
     }
 
     /** Approves the notification listener through local adb, as AGENTS.md step 4 does from a computer. Blocking. */
