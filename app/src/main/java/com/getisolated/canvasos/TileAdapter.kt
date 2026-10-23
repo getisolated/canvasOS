@@ -20,7 +20,7 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
     val card = FrameLayout(ctx)
     val image = ImageView(ctx).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
-        setBackgroundColor(Color.argb(60, 255, 255, 255))
+        setBackgroundColor(PLACEHOLDER)
     }
     val label: TextView = ctx.text(15f, bold = true).apply {
         gravity = Gravity.CENTER
@@ -120,6 +120,8 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
 
     companion object {
         const val SHADOW_PAD = 30
+        /** What an app's tile shows until its picture is drawn. A folder's cell has none: its tile is transparent. */
+        val PLACEHOLDER = Color.argb(60, 255, 255, 255)
         const val FOCUS_SCALE = 1.12f
         private var shared: android.graphics.Bitmap? = null
 
@@ -230,6 +232,8 @@ class TileAdapter(
         cell.tag = app.pkg
         cell.entry = app
         cell.setJiggle(app.pkg == movingPkg)
+        // A folder's mosaic sits on nothing: the placeholder would show through its gaps.
+        cell.image.setBackgroundColor(if (app.folder != null) Color.TRANSPARENT else TileCell.PLACEHOLDER)
         val cached = repo.cachedTile(app)
         if (cached != null) {
             cell.image.setImageBitmap(cached)

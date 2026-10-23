@@ -6,8 +6,8 @@ import java.net.URLEncoder
 import java.util.Locale
 
 /**
- * The Top Shelf's parsing, free of Android calls so it runs in unit tests: TvProvider rows (Watch
- * Next, preview channels) and TMDB answers turned into [Shelf.Item]s, and the table of streaming
+ * The Top Shelf's parsing, free of Android calls so it runs in unit tests: TvProvider's Watch Next
+ * rows and TMDB answers turned into [Shelf.Item]s, and the table of streaming
  * apps TMDB can fill. [Shelf] does the reading and the downloading.
  */
 object ShelfFeeds {
@@ -100,8 +100,7 @@ object ShelfFeeds {
     // ------------------------------------------------------------- TvProvider
 
     /**
-     * One Watch Next or preview program, as TvProvider holds it (TvContract column names in the
-     * comments). Ratios are TvContract's ASPECT_RATIO_* constants, -1 when the app left them out.
+     * One Watch Next program, as TvProvider holds it (TvContract column names in the comments). Ratios are TvContract's ASPECT_RATIO_* constants, -1 when the app left them out.
      */
     data class TvRow(
         val title: String?,                 // title
@@ -120,12 +119,7 @@ object ShelfFeeds {
         val releaseDate: String? = null,    // release_date ("2024" or "2024-03-01")
         val engagedAt: Long = 0,            // last_engagement_time_utc_millis (Watch Next)
         val watchNextType: Int = -1,        // watch_next_type (Watch Next)
-        val weight: Int = 0,                // weight (preview programs)
-        val channel: Long = -1,             // channel_id (preview programs)
     )
-
-    /** A preview channel: the row an app publishes to the Android TV home ("Recommandé"). */
-    data class TvChannel(val id: Long, val name: String?, val browsable: Boolean)
 
     // TvContract.PreviewPrograms.ASPECT_RATIO_16_9, _3_2 and _4_3: wide enough to fill the screen.
     private val WIDE = setOf(0, 1, 2)
@@ -143,25 +137,6 @@ object ShelfFeeds {
     fun watchNextLabel(rows: List<TvRow>): String =
         if (rows.isNotEmpty() && rows.filter { it.browsable }.all { it.watchNextType == WATCHLIST }) "Ma liste"
         else "Continuer à regarder"
-
-    /**
-     * The first of the app's channels that has something to show, with its name: the channels the
-     * user (or the TV's own home) made visible, or all of them on a TV whose home never approved
-     * any, since nothing there would ever show them otherwise.
-     */
-    fun preview(channels: List<TvChannel>, rows: List<TvRow>, limit: Int = 12): Pair<String, List<Shelf.Item>>? {
-        val shown = channels.filter { it.browsable }.ifEmpty { channels }.sortedBy { it.id }
-        val byChannel = rows.filter { it.browsable }.groupBy { it.channel }
-        for (ch in shown) {
-            val items = byChannel[ch.id].orEmpty()
-                .sortedByDescending { it.weight }
-                .mapNotNull { item(it, watchNext = false) }
-                .distinctBy { it.title + '\n' + it.image }
-                .take(limit)
-            if (items.isNotEmpty()) return (ch.name?.trim()?.takeIf { it.isNotEmpty() } ?: "À découvrir") to items
-        }
-        return null
-    }
 
     /** A row as a shelf item, or null without a title or a picture. */
     fun item(r: TvRow, watchNext: Boolean): Shelf.Item? {

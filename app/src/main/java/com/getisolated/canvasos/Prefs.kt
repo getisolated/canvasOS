@@ -271,21 +271,28 @@ class Prefs(ctx: Context) {
         set(v) = sp.edit().putString("weather_cache", v).apply()
     /**
      * "Lecture en cours": the Control Center shows what a media session is playing (title, artist,
-     * artwork) with play/pause and skip ([NowPlaying]). Off by default: it reads session metadata.
+     * artwork) with play/pause and skip ([NowPlaying]). On by default (the product owner's choice):
+     * it reads the playback metadata of media sessions, through the notification listener.
      */
     var nowPlaying: Boolean
-        get() = sp.getBoolean("now_playing", false)
+        get() = sp.getBoolean("now_playing", true)
         set(v) = sp.edit().putBoolean("now_playing", v).apply()
 
-    /** tvOS-style banners for the notifications of [bannerApps] ([Banners]). Off by default: it reads notifications. */
+    /**
+     * tvOS-style banners for notifications ([Banners]). On by default (the product owner's choice):
+     * the title and text of every app's notifications are read, except [bannerExcluded]'s.
+     */
     var banners: Boolean
-        get() = sp.getBoolean("banners", false)
+        get() = sp.getBoolean("banners", true)
         set(v) = sp.edit().putBoolean("banners", v).apply()
 
-    /** The only packages whose notifications [Banners] reads (title and text), when [banners] is on. */
-    var bannerApps: Set<String>
-        get() = sp.getStringSet("banner_apps", emptySet())!!.toSet()
-        set(v) = sp.edit().putStringSet("banner_apps", v).apply()
+    /**
+     * The packages whose notifications [Banners] never reads nor shows. The old allowlist
+     * ("banner_apps") is ignored on purpose: its meaning was the opposite.
+     */
+    var bannerExcluded: Set<String>
+        get() = sp.getStringSet("banner_excluded", emptySet())!!.toSet()
+        set(v) = sp.edit().putStringSet("banner_excluded", v).apply()
     /**
      * The user's own TMDB key (v3 API key or v4 read token) for the Top Shelf's popular titles on
      * Netflix, Prime Video… ([ShelfFeeds.SERVICES]); "" = none. Kept on the TV only, never shown back.
@@ -425,6 +432,11 @@ class Prefs(ctx: Context) {
     var shelfMode: String
         get() = sp.getString("shelf_mode", SHELF_ALL)!!.takeIf { it in SHELF_MODES } ?: SHELF_ALL
         set(v) = sp.edit().putString("shelf_mode", v).apply()
+
+    /** "Continuer à regarder": the Top Shelf reads the Watch Next rows apps publish for Android TV ([Shelf]). On by default. */
+    var watchNext: Boolean
+        get() = sp.getBoolean("watch_next", true)
+        set(v) = sp.edit().putBoolean("watch_next", v).apply()
 
     companion object {
         const val SHELF_ALL = "all"

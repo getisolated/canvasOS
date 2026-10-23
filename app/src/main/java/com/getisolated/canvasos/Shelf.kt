@@ -24,18 +24,19 @@ import java.net.URL
 /**
  * Top Shelf content for the focused dock app. An app's items come from the first of these that has
  * something:
- * 1. its Android TV Watch Next programs ("Continuer à regarder"), which Netflix, YouTube, Prime
- *    Video and most Western apps publish to TvProvider for the Android TV home;
- * 2. its preview channel there (YouTube's « Recommandé » row, for instance);
- * 3. TMDB's popular titles on that streaming service in France, with the user's own TMDB key
+ * 1. its Android TV Watch Next programs ("Continuer à regarder", [Prefs.watchNext]), which Netflix,
+ *    YouTube, Prime Video and most Western apps publish to TvProvider for the Android TV home;
+ * 2. TMDB's popular titles on that streaming service in France, with the user's own TMDB key
  *    ([ShelfFeeds.SERVICES]);
- * 4. for two Chinese apps, the service's public web API: B站 popular videos, 斗鱼 live rooms.
+ * 3. for two Chinese apps, the service's public web API: B站 popular videos, 斗鱼 live rooms.
+ * Apps' preview channels (their recommendation rows) are not read: the owner chose to keep the
+ * shelf to what the user was watching, and to the trending titles they asked for with a TMDB key.
  *
  * TvProvider shows one app's programs to another only if the reader holds READ_TV_LISTINGS (a
  * runtime permission TvProvider defines; granted over adb, AGENTS.md step 4) or the system's
  * ACCESS_ALL_EPG_DATA. Without it every query answers the reader's own rows: nothing. It also
- * refuses any selection from such a reader, so packages and channels are picked with the
- * provider's `package` URI parameter and filtered here.
+ * refuses any selection from such a reader, so the package is picked with the provider's
+ * `package` URI parameter.
  */
 object Shelf {
     data class Item(val title: String, val meta: String, val image: String)
@@ -95,11 +96,13 @@ object Shelf {
         val prefs = Prefs(ctx)
         val mode = prefs.shelfMode
         if (mode == Prefs.SHELF_OFF) return false
-        val tv = fresh(tvCache, pkg)
-        // TMDB and the web sources only count while the setting allows them (Réglages → Top Shelf).
+        // Watch Next only counts while "Continuer à regarder" is on; TMDB and the web sources only
+        // while the Top Shelf setting allows them (Réglages → Top Shelf).
+        val watchNext = prefs.watchNext
+        val tv = if (watchNext) fresh(tvCache, pkg) else null
         val remote = if (mode == Prefs.SHELF_ALL) fresh(remoteCache, pkg) else null
         if (tv?.content != null || remote?.content != null) return true
-        val tvMaybe = tv == null && canReadTv(ctx)
+        val tvMaybe = watchNext && tv == null && canReadTv(ctx)
         val remoteMaybe = mode == Prefs.SHELF_ALL && remote == null &&
             (pkg in web || (pkg in ShelfFeeds.SERVICES && prefs.tmdbKey.isNotEmpty()))
         return tvMaybe || remoteMaybe
@@ -111,10 +114,13 @@ object Shelf {
 
     /** What the shelf shows for [pkg], or null when no source has anything. Blocking: network and TvProvider. */
     fun load(ctx: Context, pkg: String): Content? {
-        val mode = Prefs(ctx).shelfMode
+        val prefs = Prefs(ctx)
+        val mode = prefs.shelfMode
         if (mode == Prefs.SHELF_OFF) return null
-        val local = fresh(tvCache, pkg) ?: Cached(0, tv(ctx, pkg)).also { keep(tvCache, pkg, it.content, SHORT_TTL) }
-        local.content?.let { return it }
+        if (prefs.watchNext) {
+            val local = fresh(tvCache, pkg) ?: Cached(0, tv(ctx, pkg)).also { keep(tvCache, pkg, it.content, SHORT_TTL) }
+            local.content?.let { return it }
+        }
         if (mode != Prefs.SHELF_ALL) return null
         fresh(remoteCache, pkg)?.let { return it.content }
         val remote = try {
@@ -142,7 +148,7 @@ object Shelf {
         if (tvMissing) return false
         tvReadable?.let { return it }
         val ok = ctx.checkSelfPermission(READ_TV_LISTINGS) == PackageManager.PERMISSION_GRANTED
-        if (!ok) logTvOnce("READ_TV_LISTINGS not granted: Watch Next and channels of other apps are unavailable")
+        if (!ok) logTvOnce("READ_TV_LISTINGS not granted: other apps' Watch Next rows are unavailable")
         tvReadable = ok
         return ok
     }
@@ -158,12 +164,8 @@ object Shelf {
         return try {
             val next = rows(ctx, TvContract.WatchNextPrograms.CONTENT_URI, pkg, WATCH_NEXT_COLUMNS) ?: return null
             ShelfFeeds.watchNext(next).takeIf { it.isNotEmpty() }?.let {
-                return Content("${appLabel(ctx, pkg)} · ${ShelfFeeds.watchNextLabel(next)}", it)
+                Content("${appLabel(ctx, pkg)} · ${ShelfFeeds.watchNextLabel(next)}", it)
             }
-            val channels = channels(ctx, pkg)
-            if (channels.isEmpty()) return null
-            val programs = rows(ctx, TvContract.PreviewPrograms.CONTENT_URI, pkg, PREVIEW_COLUMNS) ?: return null
-            ShelfFeeds.preview(channels, programs)?.let { (name, items) -> Content("${appLabel(ctx, pkg)} · $name", items) }
         } catch (e: SecurityException) {
             tvMissing = true
             logTvOnce("TvProvider refused: ${e.message}")
@@ -190,6 +192,7 @@ object Shelf {
         return c
     }
 
+    // Program columns Watch Next shares with preview programs: the same names, read from Watch Next only.
     private val PROGRAM_COLUMNS = arrayOf(
         TvContract.PreviewPrograms.COLUMN_TITLE,
         TvContract.PreviewPrograms.COLUMN_EPISODE_TITLE,
@@ -209,10 +212,6 @@ object Shelf {
     private val WATCH_NEXT_COLUMNS = PROGRAM_COLUMNS + arrayOf(
         TvContract.WatchNextPrograms.COLUMN_LAST_ENGAGEMENT_TIME_UTC_MILLIS,
         TvContract.WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE,
-    )
-    private val PREVIEW_COLUMNS = PROGRAM_COLUMNS + arrayOf(
-        TvContract.PreviewPrograms.COLUMN_WEIGHT,
-        TvContract.PreviewPrograms.COLUMN_CHANNEL_ID,
     )
 
     private fun rows(ctx: Context, base: Uri, pkg: String, columns: Array<String>): List<ShelfFeeds.TvRow>? =
@@ -236,31 +235,9 @@ object Shelf {
                 releaseDate = c.str(TvContract.PreviewPrograms.COLUMN_RELEASE_DATE),
                 engagedAt = c.long(TvContract.WatchNextPrograms.COLUMN_LAST_ENGAGEMENT_TIME_UTC_MILLIS, 0),
                 watchNextType = c.long(TvContract.WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE, -1).toInt(),
-                weight = c.long(TvContract.PreviewPrograms.COLUMN_WEIGHT, 0).toInt(),
-                channel = c.long(TvContract.PreviewPrograms.COLUMN_CHANNEL_ID, -1),
             )
             out
         }
-
-    /** The app's preview channels (not the TV tuner's channels, which have other types). */
-    private fun channels(ctx: Context, pkg: String): List<ShelfFeeds.TvChannel> {
-        val columns = arrayOf(
-            TvContract.Channels._ID, TvContract.Channels.COLUMN_TYPE,
-            TvContract.Channels.COLUMN_DISPLAY_NAME, TvContract.Channels.COLUMN_BROWSABLE,
-        )
-        return query(ctx, TvContract.Channels.CONTENT_URI, pkg, columns)?.use { c ->
-            val out = ArrayList<ShelfFeeds.TvChannel>()
-            while (c.moveToNext()) {
-                if (c.str(TvContract.Channels.COLUMN_TYPE) != TvContract.Channels.TYPE_PREVIEW) continue
-                out += ShelfFeeds.TvChannel(
-                    c.long(TvContract.Channels._ID, -1),
-                    c.str(TvContract.Channels.COLUMN_DISPLAY_NAME),
-                    c.long(TvContract.Channels.COLUMN_BROWSABLE, 0) != 0L,
-                )
-            }
-            out
-        }.orEmpty()
-    }
 
     // Cursor.getInt answers 0 for NULL, which is a real value here (ASPECT_RATIO_16_9, TYPE_MOVIE).
     private fun Cursor.str(col: String): String? =

@@ -21,7 +21,7 @@
          - WRITE_SECURE_SETTINGS: switch the home guard back on after the firmware switched it off,
            keep ADB debugging on, keep the photo frame as the screensaver, Xiaomi backlight.
          - SYSTEM_ALERT_WINDOW: Android's exemption for opening the home screen right after boot; also,
-           only when the user turns notification banners on, showing them over the app in front. -->
+           while notification banners are on (the default), showing them over the app in front. -->
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
@@ -29,8 +29,8 @@
     <!-- The sleep timer's alarm (SleepTimer). Granted at install for an app of this target version;
          where Android refuses it, the timer falls back to an inexact alarm. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!-- The Top Shelf (Shelf.kt): the Watch Next programs and preview channels other apps publish to
-         TvProvider, which answers them to the system's home and to holders of this permission only.
+    <!-- The Top Shelf (Shelf.kt): the Watch Next programs ("Continuer à regarder") other apps publish
+         to TvProvider, which answers them to the system's home and to holders of this permission only.
          TvProvider defines it as a runtime ("dangerous") permission: granted over adb (AGENTS.md
          step 4) or through local adb (Guard.grantViaLocalAdb), never asked on screen. -->
     <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
@@ -164,10 +164,11 @@
 
         <!-- Notification listener: Android binds it again after the firmware kills canvasOS, which
              brings the home guard back (Guard.kt), and it lets canvasOS list media sessions (the
-             package and playback state, for the memory cleanup; with "Lecture en cours" on, also the
-             title, artist and artwork). It reads no notification, unless the user turns banners on
-             (Réglages → Lecture et notifications) for apps they choose: then only those apps' title
-             and text, shown 6 seconds and never stored. Approved over adb (AGENTS.md step 4). -->
+             package and playback state, for the memory cleanup; with "Lecture en cours" on, the
+             default, also the title, artist and artwork). With notification banners on, the default
+             (Réglages → Lecture et notifications), it reads the title and text of every app's
+             notifications except the apps the user excluded, shows them 6 seconds and never stores
+             them; with banners off it reads none. Approved over adb (AGENTS.md step 4). -->
         <service
             android:name=".RevivalListener"
             android:exported="true"

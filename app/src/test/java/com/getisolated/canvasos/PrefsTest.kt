@@ -15,10 +15,12 @@ class PrefsTest {
     /** The defaults canvasOS has shipped with; changing one changes every fresh install. */
     @Test fun freshInstallDefaults() {
         val p = prefs()
-        // Opt-in: these read notifications or media sessions, and say so in the manifest and the strings.
-        assertFalse(p.banners)
-        assertFalse(p.nowPlaying)
-        assertTrue(p.bannerApps.isEmpty())
+        // On by default (the product owner's choice), and said so in the manifest and the settings:
+        // banners read every app's notifications but the excluded ones, Lecture en cours reads playback metadata.
+        assertTrue(p.banners)
+        assertTrue(p.nowPlaying)
+        assertTrue(p.bannerExcluded.isEmpty())
+        assertTrue(p.watchNext)
         assertEquals("", p.tmdbKey)
         // Never on by themselves.
         assertFalse(p.shutdownOnPowerKey)
@@ -101,12 +103,18 @@ class PrefsTest {
         assertEquals(setOf("a.b", "c.d"), p.hidden)
         p.removed = setOf("x.y")
         p.pinnedInputs = setOf("input:content://x")
-        p.bannerApps = setOf("com.ring.doorbell")
+        p.bannerExcluded = setOf("com.chatty.ads")
         assertEquals(setOf("x.y"), p.removed)
         assertEquals(setOf("input:content://x"), p.pinnedInputs)
-        assertEquals(setOf("com.ring.doorbell"), p.bannerApps)
+        assertEquals(setOf("com.chatty.ads"), p.bannerExcluded)
         p.hidden = emptySet()
         assertTrue(p.hidden.isEmpty())
+    }
+
+    /** The old allowlist meant the opposite: kept as an exclusion list, it would hide exactly the apps the user wanted. */
+    @Test fun theOldBannerAllowListIsIgnored() {
+        ctx.store.edit().putStringSet("banner_apps", setOf("com.ring.doorbell")).apply()
+        assertTrue(prefs().bannerExcluded.isEmpty())
     }
 
     // ---- the keep list ----

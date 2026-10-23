@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BannersTest {
-    private val allow = setOf("com.ring.doorbell", "io.homeassistant.companion.android")
+    private val excluded = setOf("com.android.vending", "com.chatty.ads")
 
     private fun accept(
         pkg: String = "com.ring.doorbell",
@@ -14,16 +14,19 @@ class BannersTest {
         template: String? = null,
         title: CharSequence? = "Sonnette",
         text: CharSequence? = "Quelqu'un est à la porte",
-    ) = Banners.accept(pkg, ongoing, summary, template, title, text, allow)
+    ) = Banners.accept(pkg, ongoing, summary, template, title, text, excluded)
 
-    @Test fun aChosenAppsNotificationBecomesABanner() {
+    @Test fun anyAppNotExcludedBecomesABanner() {
         assertTrue(accept())
         assertTrue(accept(template = "android.app.Notification\$BigTextStyle"))
     }
 
-    @Test fun appsNotOnTheListAreNeverShown() {
-        assertFalse(accept(pkg = "com.netflix.ninja"))
-        assertFalse(Banners.accept("com.ring.doorbell", false, false, null, "Sonnette", "Porte", emptySet()))
+    @Test fun excludedAppsAreNeverShown() {
+        assertTrue(accept(pkg = "com.netflix.ninja"))
+        assertFalse(accept(pkg = "com.chatty.ads"))
+        assertFalse(accept(pkg = "com.android.vending"))
+        // Nothing excluded (a fresh install): every app's news shows.
+        assertTrue(Banners.accept("com.chatty.ads", false, false, null, "Promo", "-50 %", emptySet()))
     }
 
     @Test fun runningServicesAndGroupSummariesAreSkipped() {
