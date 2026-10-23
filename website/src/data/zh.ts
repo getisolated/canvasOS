@@ -461,7 +461,6 @@ export const zh = {
         { feature: "Veille, minuteur de veille, extinction, redémarrage", any: "—", debug: "Oui", sony: "—" },
         { feature: "Mise à jour de canvasOS", any: "Oui, par adb install -r depuis l'ordinateur", debug: "Oui, depuis la TV (Réglages → Système → Mise à jour)", sony: "—" },
         { feature: "Cadre photo comme économiseur d'écran système, délai d'inactivité", any: "—", debug: "Oui", sony: "—" },
-        { feature: "Curseur de volume", any: "Volume Android standard", debug: "—", sony: "Volume de la TV" },
         { feature: "Changement de source HDMI", any: "La plupart des TV", debug: "—", sony: "Avec affichage de la source actuelle" },
         { feature: "Curseur de luminosité (rétroéclairage)", any: "Xiaomi, avec autorisation ADB", debug: "—", sony: "Oui" },
         { feature: "Protection de l'accueil, relance automatique", any: "Une autorisation ADB depuis l'ordinateur", debug: "Oui", sony: "—" },

@@ -400,7 +400,6 @@ export const en = {
       { feature: "Standby, sleep timer, power off, restart", any: "—", debug: "Yes", sony: "—" },
       { feature: "Updating canvasOS", any: "Yes, with adb install -r from a computer", debug: "Yes, from the TV (Settings → System → Mise à jour)", sony: "—" },
       { feature: "Frame as system screensaver, idle time", any: "—", debug: "Yes", sony: "—" },
-      { feature: "Volume slider", any: "Android standard", debug: "—", sony: "TV volume" },
       { feature: "HDMI input switching", any: "Most TVs", debug: "—", sony: "Plus input status" },
       { feature: "Brightness slider", any: "Xiaomi, after ADB grant", debug: "—", sony: "Yes" },
       { feature: "Home guard, revival after kill", any: "One-time ADB grant", debug: "Yes", sony: "—" },
