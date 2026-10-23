@@ -1135,7 +1135,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             return
         }
         val msg = when {
-            system -> "Cette app est préinstallée sur le téléviseur. Une fois supprimée, elle n'apparaît plus sur l'accueil et ne tourne plus en arrière-plan. Vous pourrez la restaurer dans Réglages de l'accueil → Apps préinstallées supprimées."
+            system -> "Cette app est préinstallée sur le téléviseur. Une fois supprimée, elle n'apparaît plus sur l'accueil et ne tourne plus en arrière-plan. Vous pourrez la restaurer dans Réglages de l'accueil → Apps → Apps préinstallées supprimées."
             repo.isLauncher(app.pkg) -> "Cette app est un écran d'accueil, qui peut prendre le relais si celui-ci a un problème. Sans elle, le téléviseur n'aura plus d'accueil de secours si celui-ci ne démarre pas. L'app et ses données seront supprimées."
             else -> "L'app et ses données seront supprimées."
         }
