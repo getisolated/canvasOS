@@ -19,8 +19,9 @@ import com.getisolated.canvasos.tv.TvControls
 
 /**
  * tvOS-style settings: the title centred on top, a large icon on the left with a
- * description of the focused row under it, and grouped rows on the right.
- * Sub-pages (keep list, hidden apps) reuse the same list.
+ * description of the focused row under it, and rows on the right under small uppercase headers.
+ * The top level lists the groups ([Page.title]); each opens a page of rows, and the list pages
+ * (keep list, hidden apps…) sit one level below their group. All reuse the same list.
  */
 class SettingsActivity : Activity() {
     companion object {
@@ -64,8 +65,11 @@ class SettingsActivity : Activity() {
         private const val ROW_AVATAR_DP = 36
         private const val BIG_AVATAR_DP = 120
         private val IDLE_TEXT = Color.argb(235, 255, 255, 255)
-        private val IDLE_VALUE = Color.argb(130, 255, 255, 255)
+        private val IDLE_VALUE = Color.argb(140, 255, 255, 255)
         private val FOCUS_VALUE = Color.argb(140, 0, 0, 0)
+        /** A row at rest: a light translucent pill over the dark page or the picture behind it. */
+        private val IDLE_ROW = Color.argb(28, 255, 255, 255)
+        private val HEADER = Color.argb(130, 255, 255, 255)
         private const val LISTENER_NEEDED = "Écouteur requis (étape 4)"
         private const val PROFILES_ABOUT = "Chaque profil a son propre accueil : l'ordre des apps, les apps masquées, les dossiers, les noms des apps, " +
             "les entrées épinglées et le fond d'écran. Les autres réglages valent pour tous. Un profil enfant demande le code PIN pour changer de profil, " +
@@ -83,10 +87,43 @@ class SettingsActivity : Activity() {
     private lateinit var backdrop: ImageView
     private lateinit var scroll: ScrollView
     private var page = Page.MAIN
-    /** The main-page row that opened the current sub-page, focused again on the way back. */
-    private var opener = 0
+    /** For each page, the row of its parent page that opened it, focused again on the way back. */
+    private val openers = HashMap<Page, Int>()
 
-    private enum class Page { MAIN, KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS, PROFILES }
+    /**
+     * The top level ([MAIN]) lists the groups, the entries with a [title], in this order; each group
+     * page holds the rows, and the list pages (keep list, hidden apps…) sit one level below their group.
+     */
+    private enum class Page(val title: String? = null, val summary: String? = null) {
+        MAIN,
+        LOOK("Apparence", "L'horloge, le Dock, la photo de profil, la météo, l'effet de sélection, le style du Centre de contrôle " +
+            "et l'animation de démarrage."),
+        WALLPAPER("Fond d'écran et cadre photo", "Le fond de l'écran d'accueil et la fréquence à laquelle il change, " +
+            "et le cadre photo que le téléviseur affiche en économiseur d'écran."),
+        SHELF("Top Shelf", "Les contenus de l'app sélectionnée dans le Dock, en plein écran au-dessus de lui, et d'où ils viennent."),
+        PLAYBACK("Lecture et notifications", "Le lecteur du Centre de contrôle pour ce que lisent les apps, " +
+            "et les bannières de notifications en haut à droite de l'écran."),
+        MEMORY("Mémoire et alimentation", "La libération de la mémoire, en veille, à heures régulières ou tout de suite, les apps qu'elle épargne, " +
+            "et ce que fait le bouton marche/arrêt."),
+        APPS("Apps", "Les apps masquées de l'accueil, les apps préinstallées supprimées et les dossiers."),
+        ACCOUNTS("Profils", "Un accueil par personne, avec ses apps, ses dossiers et son fond d'écran ; un profil enfant est protégé par un code PIN."),
+        PHONE_GROUP("Page téléphone", "Une page web pour un téléphone sur le même Wi-Fi : télécommande avec clavier, fond d'écran, photos, " +
+            "installation d'apps. Son QR code et sa protection."),
+        SYSTEM("Système", "Le débogage local et ADB, l'adresse du téléviseur, la protection de l'accueil, les réglages d'origine du téléviseur, " +
+            "la mise à jour de canvasOS et sa version."),
+        KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS, PROFILES;
+
+        /** Where Back goes; null at the top level. */
+        val parent: Page? get() = when (this) {
+            MAIN -> null
+            KEEP, LAST_CLEAN -> MEMORY
+            HIDDEN, REMOVED, FOLDERS -> APPS
+            PHONE -> PHONE_GROUP
+            BANNER_APPS -> PLAYBACK
+            PROFILES -> ACCOUNTS
+            else -> MAIN
+        }
+    }
 
     /** The page this screen was opened on ([EXTRA_PAGE]); Back from it leaves, as it came from the home screen. */
     private var entry = Page.MAIN
@@ -187,10 +224,21 @@ class SettingsActivity : Activity() {
     }
 
     private fun show(p: Page, focusIndex: Int = 0) {
+        // Another page starts at its top, its first header showing; the same page drawn again stays where it was.
+        if (p != page) scroll.scrollTo(0, 0)
         page = p
         list.removeAllViews()
         when (p) {
             Page.MAIN -> main()
+            Page.LOOK -> lookGroup()
+            Page.WALLPAPER -> wallpaperGroup()
+            Page.SHELF -> shelfGroup()
+            Page.PLAYBACK -> playbackGroup()
+            Page.MEMORY -> memoryGroup()
+            Page.APPS -> appsGroup()
+            Page.ACCOUNTS -> accountsGroup()
+            Page.PHONE_GROUP -> phoneGroup()
+            Page.SYSTEM -> systemGroup()
             Page.KEEP -> appPicker("Apps à conserver", prefs.keep) { pkg, on ->
                 prefs.keep = if (on) prefs.keep + pkg else prefs.keep - pkg
             }
@@ -203,6 +251,11 @@ class SettingsActivity : Activity() {
             Page.BANNER_APPS -> bannerAppsPage()
             Page.FOLDERS -> foldersPage()
             Page.PROFILES -> profilesPage()
+        }
+        p.title?.let {
+            heading.text = it
+            // Under the icon until a row with a description of its own is focused.
+            about.text = p.summary
         }
         pageIcon(p)
         list.post {
@@ -257,56 +310,48 @@ class SettingsActivity : Activity() {
         }
     }
 
+    /** Opens [p] from a row of the current page, which Back from [p] focuses again. */
+    private fun open(p: Page) {
+        openers[p] = list.indexOfChild(list.focusedChild).coerceAtLeast(0)
+        show(p)
+    }
+
     private fun showIcon(v: ImageView) {
         val own = customIcon(this)?.let { decodeIcon(it, dp(380)) }
         if (own != null) v.setImageBitmap(own) else v.setImageResource(R.drawable.banner_settings)
     }
 
+    /** The top level: one row per group ([Page.title]), each opening its page. */
     private fun main() {
         heading.text = "Réglages de l'accueil"
         about.text = ""
+        for (g in Page.values()) g.title?.let { t -> row(t, g.summary, { "" }, chevron = true) { open(g) } }
+    }
 
-        section("Apparence")
+    /** Apparence: the clock, the home screen, the weather, effects and the boot animation. */
+    private fun lookGroup() {
+        section("Horloge")
         row("Format de l'heure", "L'heure sur l'écran d'accueil et dans le Centre de contrôle, au format 12 h (11:49 AM) ou 24 h (23:49).",
             { if (prefs.clock24) "24 h" else "12 h" }) { prefs.clock24 = !prefs.clock24 }
-        row("Dock", "Récents : l'app que vous ouvrez passe en tête, comme aujourd'hui. Fixe : l'ordre que vous avez choisi avec « Modifier l'accueil » est conservé.",
-            { if (prefs.dockRecents) "Récents" else "Fixe" }) { prefs.dockRecents = !prefs.dockRecents }
-        row("Top Shelf", "Les contenus de l'app sélectionnée dans le Dock, en plein écran au-dessus. Complet : la ligne « Continuer à regarder » " +
-            "publiée pour Android TV, puis les tendances TMDB (avec votre clé) et les sources web. Android TV seul : sans TMDB ni web. " +
-            "Désactivé : le fond d'écran reste visible.", {
-            when (prefs.shelfMode) { Prefs.SHELF_TV -> "Android TV seul"; Prefs.SHELF_OFF -> "Désactivé"; else -> "Complet" }
-        }) {
-            prefs.shelfMode = Prefs.SHELF_MODES[(Prefs.SHELF_MODES.indexOf(prefs.shelfMode) + 1) % Prefs.SHELF_MODES.size]
-        }
-        row("Continuer à regarder", "La ligne que les apps (YouTube, Netflix…) publient pour Android TV : ce que vous regardiez, à reprendre. " +
-            "Désactivée, le Top Shelf n'utilise que TMDB et les sources web, quand le mode du Top Shelf les autorise.",
-            { onOff(prefs.watchNext) }) { prefs.watchNext = !prefs.watchNext }
-        row("Météo", "La température et le temps qu'il fait à côté de l'horloge, et les prévisions sur cinq jours dans le Centre de contrôle. " +
-            "Elles viennent d'Open-Meteo et sont mises à jour toutes les 30 minutes pendant que l'accueil est affiché. " +
-            "Tant qu'aucune ville n'est choisie, le lieu est deviné une fois d'après l'adresse IP publique du téléviseur (ip-api.com).",
-            { onOff(prefs.weather) }) { prefs.weather = !prefs.weather }
-        row("Lieu de la météo", "Pour choisir une autre ville : la page téléphone (onglet Réglages, section Météo), ou un ordinateur avec la commande CONFIG (weather_city).",
-            { Weather.placeLabel(prefs).ifEmpty { "Pas encore défini" } }) {}
         row("Horloge", "Une petite horloge en haut à droite, ou une grande horloge avec la date en haut à gauche (l'ancien style), ou aucune.", {
             when (prefs.clockStyle) { Prefs.CLOCK_LARGE -> "Grande, à gauche"; Prefs.CLOCK_OFF -> "Masquée"; else -> "En haut à droite" }
         }) {
             val opts = listOf(Prefs.CLOCK_CORNER, Prefs.CLOCK_LARGE, Prefs.CLOCK_OFF)
             prefs.clockStyle = opts[(opts.indexOf(prefs.clockStyle) + 1) % opts.size]
         }
-        if (backdropFile(this) != null) row("Fond des réglages", "Le fond de cette page : l'image importée, ou le fond sombre standard.", {
-            if (prefs.settingsBg) "Image" else "Standard"
-        }) {
-            prefs.settingsBg = !prefs.settingsBg
-            showBackdrop()
-        }
-        if (iconFile(this) != null) row("Icône des réglages", "L'icône de ces réglages : votre image importée, ou l'engrenage intégré.", {
-            if (prefs.ownIcon) "Image importée" else "Engrenage"
-        }) {
-            prefs.ownIcon = !prefs.ownIcon
-            showIcon(icon)
-        }
+        section("Accueil")
+        row("Dock", "Récents : l'app que vous ouvrez passe en tête, comme aujourd'hui. Fixe : l'ordre que vous avez choisi avec « Modifier l'accueil » est conservé.",
+            { if (prefs.dockRecents) "Récents" else "Fixe" }) { prefs.dockRecents = !prefs.dockRecents }
         row("Photo de profil", "La photo du profil en haut à droite de l'accueil : l'initiale de son nom sur sa couleur, ou une photo importée " +
             "depuis la page téléphone. Appuyez dessus pour changer de profil. Elle reste affichée tant qu'il existe plusieurs profils.", { onOff(prefs.showAvatar) }) { prefs.showAvatar = !prefs.showAvatar }
+        section("Météo")
+        row("Météo", "La température et le temps qu'il fait à côté de l'horloge, et les prévisions sur cinq jours dans le Centre de contrôle. " +
+            "Elles viennent d'Open-Meteo et sont mises à jour toutes les 30 minutes pendant que l'accueil est affiché. " +
+            "Tant qu'aucune ville n'est choisie, le lieu est deviné une fois d'après l'adresse IP publique du téléviseur (ip-api.com).",
+            { onOff(prefs.weather) }) { prefs.weather = !prefs.weather }
+        row("Lieu de la météo", "Pour choisir une autre ville : la page téléphone (onglet Réglages, section Météo), ou un ordinateur avec la commande CONFIG (weather_city).",
+            { Weather.placeLabel(prefs).ifEmpty { "Pas encore défini" } }) {}
+        section("Effets")
         row("Effet de sélection", "tvOS : l'app sélectionnée s'agrandit, s'incline selon la direction et un reflet passe dessus. Simple : elle s'agrandit seulement." +
             "\nAuto choisit Simple sur les téléviseurs peu puissants.", {
             auto(prefs.focusStyle, prefs.focusTvos(this), "tvOS", "Simple")
@@ -319,7 +364,20 @@ class SettingsActivity : Activity() {
         }) {
             prefs.ccStyle = next(prefs.ccStyle, Prefs.CC_GLASS, Prefs.CC_PANEL)
         }
-
+        // Only once a picture of the user's own was uploaded for this page.
+        if (backdropFile(this) != null || iconFile(this) != null) section("Cette page")
+        if (backdropFile(this) != null) row("Fond des réglages", "Le fond de cette page : l'image importée, ou le fond sombre standard.", {
+            if (prefs.settingsBg) "Image" else "Standard"
+        }) {
+            prefs.settingsBg = !prefs.settingsBg
+            showBackdrop()
+        }
+        if (iconFile(this) != null) row("Icône des réglages", "L'icône de ces réglages : votre image importée, ou l'engrenage intégré.", {
+            if (prefs.ownIcon) "Image importée" else "Engrenage"
+        }) {
+            prefs.ownIcon = !prefs.ownIcon
+            showIcon(icon)
+        }
         section("Animation de démarrage")
         val video = Intro.videoFile(this) != null
         row("Animation de démarrage", "Jouée au premier affichage de l'accueil après l'allumage ; à la fin, le logo s'agrandit et ouvre l'accueil. Appuyez sur une touche pour la passer." +
@@ -349,8 +407,11 @@ class SettingsActivity : Activity() {
                 .putExtra(Intro.EXTRA_PREVIEW, true)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
+    }
 
-        section("Fond d'écran et cadre photo")
+    /** Fond d'écran et cadre photo. */
+    private fun wallpaperGroup() {
+        section("Fond d'écran")
         row("Fond d'écran", "Le fond de l'écran d'accueil : un thème, une source de fonds d'écran ou vos propres photos.", {
             Backgrounds.THEMES[prefs.background]?.first ?: Wallpapers.label(Wallpapers.sourceFor(prefs.background)).let {
                 if (prefs.background == Wallpapers.MINE) it else "$it (auto)"
@@ -371,6 +432,7 @@ class SettingsActivity : Activity() {
                 runOnUiThread { v.text = "${w.files().size} photos" }
             }.start()
         }
+        section("Cadre photo")
         row("Cadre photo en économiseur", "Après un moment d'inactivité, le téléviseur affiche en plein écran des photos ou des vues aériennes, à la place de son propre économiseur d'écran.",
             { onOff(prefs.frameScreensaver) }) { v ->
             val on = !prefs.frameScreensaver
@@ -403,8 +465,76 @@ class SettingsActivity : Activity() {
             val opts = listOf(15, 30, 60, 120)
             prefs.frameSeconds = opts[(opts.indexOf(prefs.frameSeconds) + 1) % opts.size]
         }
+    }
 
-        section("Mémoire et alimentation")
+    /** Top Shelf: its mode and its Android TV source. */
+    private fun shelfGroup() {
+        section("Top Shelf")
+        row("Top Shelf", "Les contenus de l'app sélectionnée dans le Dock, en plein écran au-dessus. Complet : la ligne « Continuer à regarder » " +
+            "publiée pour Android TV, puis les tendances TMDB (avec votre clé) et les sources web. Android TV seul : sans TMDB ni web. " +
+            "Désactivé : le fond d'écran reste visible.", {
+            when (prefs.shelfMode) { Prefs.SHELF_TV -> "Android TV seul"; Prefs.SHELF_OFF -> "Désactivé"; else -> "Complet" }
+        }) {
+            prefs.shelfMode = Prefs.SHELF_MODES[(Prefs.SHELF_MODES.indexOf(prefs.shelfMode) + 1) % Prefs.SHELF_MODES.size]
+        }
+        section("Sources")
+        row("Continuer à regarder", "La ligne que les apps (YouTube, Netflix…) publient pour Android TV : ce que vous regardiez, à reprendre. " +
+            "Désactivée, le Top Shelf n'utilise que TMDB et les sources web, quand le mode du Top Shelf les autorise.",
+            { onOff(prefs.watchNext) }) { prefs.watchNext = !prefs.watchNext }
+    }
+
+    /** Lecture et notifications: the Control Center player and the banners. */
+    private fun playbackGroup() {
+        section("Lecture")
+        row("Lecture en cours", "Activée par défaut. Affiche dans le Centre de contrôle ce que lit une app (titre, artiste, pochette) avec lecture/pause et piste suivante. " +
+            "Lit pour cela les informations de lecture des apps (titre, artiste, pochette, état de lecture) via l'écouteur de notifications ; rien n'est enregistré.",
+            { if (!MediaSessions.isAvailable(this)) LISTENER_NEEDED else onOff(prefs.nowPlaying) }) { v ->
+            // On by default: without the listener it shows as needing it, and OK then asks for it rather than switching off.
+            if (prefs.nowPlaying && MediaSessions.isAvailable(this)) { prefs.nowPlaying = false; return@row }
+            v.text = "Réglage…"
+            Thread {
+                val ok = MediaSessions.isAvailable(applicationContext) || (allowListener() && MediaSessions.isAvailable(applicationContext))
+                if (ok) prefs.nowPlaying = true
+                runOnUiThread { v.text = if (ok) onOff(true) else LISTENER_NEEDED }
+            }.start()
+        }
+        row("Lecteur", "Le lecteur du Centre de contrôle. Une ligne : pochette, titre et lecture/pause. Deux lignes : une carte avec les commandes et la progression ; " +
+            "Gauche et Droite changent de piste, maintenues elles reculent ou avancent de 10 s. Dans les deux cas, un appui long sur OK ouvre le grand lecteur.",
+            { if (prefs.playerStyle == Prefs.PLAYER_ONE) "Une ligne" else "Deux lignes" }) {
+            prefs.playerStyle = if (prefs.playerStyle == Prefs.PLAYER_ONE) Prefs.PLAYER_TWO else Prefs.PLAYER_ONE
+        }
+        section("Notifications")
+        row("Bannières de notifications", "Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). " +
+            "Le titre et le texte des notifications de toutes les apps, sauf celles exclues, sont lus, affichés 6 secondes et jamais enregistrés. " +
+            "Désactivées, aucune notification n'est lue.",
+            { if (!Banners.listenerGranted(this)) LISTENER_NEEDED else onOff(prefs.banners) }) { v ->
+            if (prefs.banners && Banners.listenerGranted(this)) {
+                prefs.banners = false
+                show(Page.PLAYBACK, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
+                return@row
+            }
+            v.text = "Réglage…"
+            Thread {
+                val ok = Banners.listenerGranted(applicationContext) || allowListener()
+                // Over the app being watched, banners need the overlay permission the guard also uses.
+                if (ok && !Settings.canDrawOverlays(applicationContext) && prefs.adbAuthorized)
+                    LocalAdb.shell(applicationContext, "appops set $packageName SYSTEM_ALERT_WINDOW allow", 10_000)
+                if (ok) prefs.banners = true
+                runOnUiThread {
+                    if (!ok) v.text = LISTENER_NEEDED
+                    // "Apps exclues des bannières" appears below: the page is rebuilt where the focus is.
+                    else if (page == Page.PLAYBACK && !isDestroyed) show(Page.PLAYBACK, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
+                }
+            }.start()
+        }
+        if (prefs.banners) row("Apps exclues des bannières", "Les notifications des apps cochées ne sont ni lues ni affichées. Toutes les autres s'affichent en bannière." +
+            if (Settings.canDrawOverlays(this)) "" else "\nSans l'autorisation d'affichage par-dessus les autres apps (étape 4), les bannières n'apparaissent que sur l'accueil.",
+            { "${prefs.bannerExcluded.size}" }, chevron = true) { open(Page.BANNER_APPS) }
+    }
+
+    /** Mémoire et alimentation. */
+    private fun memoryGroup() {
+        section("Nettoyage")
         row("Libérer la mémoire en veille", "Ferme les apps en arrière-plan quand le téléviseur passe en veille, pour un redémarrage plus fluide. " +
             "Les apps qui lisent du son ou de la vidéo, ou qui font tourner un service (diffusion, serveur), sont épargnées.", { onOff(prefs.cleanOnStandby) }) {
             prefs.cleanOnStandby = !prefs.cleanOnStandby
@@ -425,16 +555,17 @@ class SettingsActivity : Activity() {
                     // Short: the label must keep its room. The whole summary is on "Dernier nettoyage".
                     cleanResult = if (r.viaAdb) "${r.freedMb} Mo · ${r.closedText}" else r.freedText
                     // "Dernier nettoyage" below changed too, so the page is rebuilt (where the focus is) rather than one value set.
-                    if (page == Page.MAIN && !isDestroyed) show(Page.MAIN, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
+                    if (page == Page.MEMORY && !isDestroyed) show(Page.MEMORY, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
                 }
             }.start()
         }
         row("Dernier nettoyage", if (prefs.lastClean.isEmpty()) "La mémoire n'a pas encore été libérée." else "${lastCleanWhat()}.\nAppuyez pour voir les apps fermées.",
-            { lastCleanWhen() }, chevron = true) { show(Page.LAST_CLEAN) }
+            { lastCleanWhen() }, chevron = true) { open(Page.LAST_CLEAN) }
         row("Apps à conserver", "Apps que la libération de la mémoire ne ferme jamais, comme la diffusion d'écran. " +
             "Celles qui lisent du son ou de la vidéo, ou qui font tourner un service, sont de toute façon épargnées tant qu'elles le font.", { "${prefs.keep.size}" }, chevron = true) {
-            show(Page.KEEP)
+            open(Page.KEEP)
         }
+        section("Alimentation")
         row("Bouton marche/arrêt", "Veille : comme d'habitude. Arrêt complet : économise l'énergie, mais le démarrage est plus long.", {
             if (prefs.shutdownOnPowerKey) "Arrêt complet" else "Veille"
         }) {
@@ -442,24 +573,35 @@ class SettingsActivity : Activity() {
             if (prefs.shutdownOnPowerKey && !prefs.adbAuthorized)
                 Toast.makeText(this, "Autorisez d'abord le débogage local pour l'activer", Toast.LENGTH_LONG).show()
         }
+    }
 
+    /** Apps: hidden and removed apps, folders. */
+    private fun appsGroup() {
         section("Apps")
-        row("Apps masquées", "Apps qui ne s'affichent pas sur l'écran d'accueil.", { "${prefs.hidden.size}" }, chevron = true) { show(Page.HIDDEN) }
+        row("Apps masquées", "Apps qui ne s'affichent pas sur l'écran d'accueil.", { "${prefs.hidden.size}" }, chevron = true) { open(Page.HIDDEN) }
         row("Apps préinstallées supprimées", "Apps préinstallées supprimées depuis le menu d'appui long ; vous pouvez les restaurer ici.", { "${prefs.removed.size}" }, chevron = true) {
-            show(Page.REMOVED)
+            open(Page.REMOVED)
         }
+        section("Dossiers")
         row("Dossiers", "Les dossiers de l'accueil et leurs apps. Ils se créent et se gèrent depuis l'accueil, par un appui long sur une app ou un dossier.",
-            { "${prefs.folderList().size}" }, chevron = true) { show(Page.FOLDERS) }
+            { "${prefs.folderList().size}" }, chevron = true) { open(Page.FOLDERS) }
+    }
 
+    /** Profils. */
+    private fun accountsGroup() {
         section("Profils")
         row("Profil actuel", "Le profil dont l'accueil est affiché. Changez-en avec la photo de profil, en haut à droite de l'accueil.",
             { Profiles.displayName(prefs.current()) }) {}
-        row("Gérer les profils", PROFILES_ABOUT, { "${prefs.profileList().size}" }, chevron = true) { show(Page.PROFILES) }
+        row("Gérer les profils", PROFILES_ABOUT, { "${prefs.profileList().size}" }, chevron = true) { open(Page.PROFILES) }
+    }
 
-        section("Page téléphone")
+    /** Page téléphone. */
+    private fun phoneGroup() {
+        section("Accès")
         row("Afficher le QR code", "Scannez-le avec un téléphone sur le même Wi-Fi. La page qui s'ouvre sert de télécommande avec clavier, choisit le fond d'écran, " +
             "l'économiseur et l'animation de démarrage, importe des photos et installe des apps (APK). La télécommande et l'installation d'apps demandent le débogage local.",
-            { "" }, chevron = true) { show(Page.PHONE) }
+            { "" }, chevron = true) { open(Page.PHONE) }
+        section("Sécurité")
         row("Régénérer le code", "Change le code secret de l'adresse : les téléphones qui connaissaient l'ancienne ne peuvent plus s'en servir et doivent scanner à nouveau. " +
             "Faites-le si un téléphone qui a ouvert la page est perdu.", { if (tokenRenewed) "Nouveau code créé" else "" }) {
             PhoneServer.regenerate(this)
@@ -470,53 +612,11 @@ class SettingsActivity : Activity() {
             prefs.phoneServer = !prefs.phoneServer
             KeeperService.start(this)
         }
+    }
 
-        section("Lecture et notifications")
-        row("Lecture en cours", "Activée par défaut. Affiche dans le Centre de contrôle ce que lit une app (titre, artiste, pochette) avec lecture/pause et piste suivante. " +
-            "Lit pour cela les informations de lecture des apps (titre, artiste, pochette, état de lecture) via l'écouteur de notifications ; rien n'est enregistré.",
-            { if (!MediaSessions.isAvailable(this)) LISTENER_NEEDED else onOff(prefs.nowPlaying) }) { v ->
-            // On by default: without the listener it shows as needing it, and OK then asks for it rather than switching off.
-            if (prefs.nowPlaying && MediaSessions.isAvailable(this)) { prefs.nowPlaying = false; return@row }
-            v.text = "Réglage…"
-            Thread {
-                val ok = MediaSessions.isAvailable(applicationContext) || (allowListener() && MediaSessions.isAvailable(applicationContext))
-                if (ok) prefs.nowPlaying = true
-                runOnUiThread { v.text = if (ok) onOff(true) else LISTENER_NEEDED }
-            }.start()
-        }
-        row("Lecteur", "Le lecteur du Centre de contrôle. Une ligne : pochette, titre et lecture/pause. Deux lignes : une carte avec les commandes et la progression ; " +
-            "Gauche et Droite changent de piste, maintenues elles reculent ou avancent de 10 s. Dans les deux cas, un appui long sur OK ouvre le grand lecteur.",
-            { if (prefs.playerStyle == Prefs.PLAYER_ONE) "Une ligne" else "Deux lignes" }) {
-            prefs.playerStyle = if (prefs.playerStyle == Prefs.PLAYER_ONE) Prefs.PLAYER_TWO else Prefs.PLAYER_ONE
-        }
-        row("Bannières de notifications", "Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). " +
-            "Le titre et le texte des notifications de toutes les apps, sauf celles exclues, sont lus, affichés 6 secondes et jamais enregistrés. " +
-            "Désactivées, aucune notification n'est lue.",
-            { if (!Banners.listenerGranted(this)) LISTENER_NEEDED else onOff(prefs.banners) }) { v ->
-            if (prefs.banners && Banners.listenerGranted(this)) {
-                prefs.banners = false
-                show(Page.MAIN, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
-                return@row
-            }
-            v.text = "Réglage…"
-            Thread {
-                val ok = Banners.listenerGranted(applicationContext) || allowListener()
-                // Over the app being watched, banners need the overlay permission the guard also uses.
-                if (ok && !Settings.canDrawOverlays(applicationContext) && prefs.adbAuthorized)
-                    LocalAdb.shell(applicationContext, "appops set $packageName SYSTEM_ALERT_WINDOW allow", 10_000)
-                if (ok) prefs.banners = true
-                runOnUiThread {
-                    if (!ok) v.text = LISTENER_NEEDED
-                    // "Apps exclues des bannières" appears below: the page is rebuilt where the focus is.
-                    else if (page == Page.MAIN && !isDestroyed) show(Page.MAIN, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
-                }
-            }.start()
-        }
-        if (prefs.banners) row("Apps exclues des bannières", "Les notifications des apps cochées ne sont ni lues ni affichées. Toutes les autres s'affichent en bannière." +
-            if (Settings.canDrawOverlays(this)) "" else "\nSans l'autorisation d'affichage par-dessus les autres apps (étape 4), les bannières n'apparaissent que sur l'accueil.",
-            { "${prefs.bannerExcluded.size}" }, chevron = true) { show(Page.BANNER_APPS) }
-
-        section("Système")
+    /** Système: debugging, the home guard, the TV's own settings, updates, the version. */
+    private fun systemGroup() {
+        section("Débogage")
         row("Débogage local", "Permet à l'accueil d'éteindre le téléviseur, de libérer la mémoire, etc. via le débogage local. Dans la fenêtre qui s'affiche, choisissez « Toujours autoriser ».",
             { if (prefs.adbAuthorized) "Autorisé" else "Non autorisé, appuyez sur OK" }) { v ->
             v.text = "Choisissez Toujours autoriser…"
@@ -525,19 +625,9 @@ class SettingsActivity : Activity() {
                 runOnUiThread { v.text = if (ok) "Autorisé" else "Non autorisé, OK pour réessayer" }
             }.start()
         }
-        // Only where the TV keeps Home for its own launcher; on Sony or stock Android TV canvasOS is the real home.
-        if (Guard.needed(this)) row("Protection de l'accueil", "Quand la touche Accueil ramène au lanceur d'origine du téléviseur, revient automatiquement ici.",
-            { if (!prefs.guard) "Désactivée" else if (HomeGuardService.isRunning) "Activée" else "Activée (inactive)" }) { v ->
-            val on = !prefs.guard
-            v.text = "Réglage…"
-            Thread {
-                val ok = (Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)) && Guard.setEnabled(applicationContext, on)
-                runOnUiThread {
-                    v.text = if (!ok) "Débogage local requis" else if (on) "Activée" else "Désactivée"
-                    if (ok && on) Toast.makeText(this, "La touche Accueil ramènera désormais ici au lieu du lanceur d'origine", Toast.LENGTH_LONG).show()
-                }
-            }.start()
-        }
+        row("Débogage ADB", "Doit être activé pour qu'un ordinateur puisse se connecter au téléviseur : sans lui, pas d'installation ni de mise à jour par le réseau. " +
+            "Il se règle dans les options pour les développeurs du téléviseur.",
+            { onOff(Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1) }) {}
         if (Guard.isXiaomi() || prefs.keepAdb) row("Garder le débogage ADB activé", "Empêche le système de désactiver le débogage ADB.", { onOff(prefs.keepAdb) }) { v ->
             val on = !prefs.keepAdb
             v.text = "Réglage…"
@@ -549,13 +639,29 @@ class SettingsActivity : Activity() {
         }
         row("Adresse IP", "L'adresse du téléviseur sur le réseau local. Un ordinateur sur le même réseau s'en sert pour s'y connecter (adb connect, port 5555), " +
             "par exemple pour installer ou mettre à jour canvasOS.", { Net.lanAddress(this) ?: "Non connecté" }) {}
-        row("Débogage ADB", "Doit être activé pour qu'un ordinateur puisse se connecter au téléviseur : sans lui, pas d'installation ni de mise à jour par le réseau. " +
-            "Il se règle dans les options pour les développeurs du téléviseur.",
-            { onOff(Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1) }) {}
+        // Only where the TV keeps Home for its own launcher; on Sony or stock Android TV canvasOS is the real home.
+        if (Guard.needed(this)) {
+            section("Protection")
+            row("Protection de l'accueil", "Quand la touche Accueil ramène au lanceur d'origine du téléviseur, revient automatiquement ici.",
+                { if (!prefs.guard) "Désactivée" else if (HomeGuardService.isRunning) "Activée" else "Activée (inactive)" }) { v ->
+                val on = !prefs.guard
+                v.text = "Réglage…"
+                Thread {
+                    val ok = (Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)) && Guard.setEnabled(applicationContext, on)
+                    runOnUiThread {
+                        v.text = if (!ok) "Débogage local requis" else if (on) "Activée" else "Désactivée"
+                        if (ok && on) Toast.makeText(this, "La touche Accueil ramènera désormais ici au lieu du lanceur d'origine", Toast.LENGTH_LONG).show()
+                    }
+                }.start()
+            }
+        }
+        section("Téléviseur")
         row("Réglages du téléviseur", "Ouvre les réglages d'origine du téléviseur.", { "" }, chevron = true) { runCatching { startActivity(TvControls(this).settingsIntent()) } }
+        section("Mise à jour")
         row("Mise à jour", "Cherche la dernière version de canvasOS sur GitHub (Releases) et l'installe sur place : les réglages et les autorisations sont conservés. " +
             "Appuyez une première fois pour vérifier, une seconde pour installer. L'installation demande le débogage local. " +
             "canvasOS cherche aussi chaque jour qu'une version existe, sans rien télécharger.", { updateValue() }) { v -> updatePressed(v) }
+        section("À propos")
         row("À propos", "canvasOS, un écran d'accueil Android TV inspiré de tvOS.",
             { "Version " + packageManager.getPackageInfo(packageName, 0).versionName }) {}
     }
@@ -839,13 +945,16 @@ class SettingsActivity : Activity() {
         for (label in labels) row(label, null, { "" }) {}
     }
 
-    /** A small grey group title above a run of rows. */
+    /** A small grey uppercase title above a run of rows, as tvOS splits a settings page ("AUTO-PLAY", "HOME SCREEN"). */
     private fun section(title: String) {
         val first = list.childCount == 0
-        list.addView(text(14f, Color.argb(120, 255, 255, 255), weight = 500).apply { text = title },
-            LinearLayout.LayoutParams(-2, -2).apply {
-                marginStart = dp(18); topMargin = if (first) 0 else dp(22); bottomMargin = dp(8)
-            })
+        list.addView(text(13f, HEADER, weight = 600).apply {
+            text = title.uppercase(java.util.Locale.FRENCH)
+            letterSpacing = 0.02f
+        }, LinearLayout.LayoutParams(-2, -2).apply {
+            // Lined up with the rows' labels.
+            marginStart = dp(20); topMargin = if (first) 0 else dp(22); bottomMargin = dp(8)
+        })
     }
 
     /**
@@ -871,7 +980,7 @@ class SettingsActivity : Activity() {
         r.addView(v, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(12) })
         val arrow = if (chevron) text(24f, IDLE_VALUE, weight = 300).apply { text = "›" } else null
         arrow?.let { r.addView(it, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(10); bottomMargin = dp(2) }) }
-        val idle = rounded(Color.argb(20, 255, 255, 255), dp(14).toFloat())
+        val idle = rounded(IDLE_ROW, dp(14).toFloat())
         val focus = rounded(Color.WHITE, dp(14).toFloat())
         r.background = idle
         r.setOnFocusChangeListener { _, f ->
@@ -883,11 +992,12 @@ class SettingsActivity : Activity() {
             r.tweenScale(if (f) 1.03f else 1f, 160)
         }
         r.setOnClickListener {
-            if (page == Page.MAIN) opener = list.indexOfChild(r)
+            val from = page
             onClick(v)
-            if (page == Page.MAIN && !v.text.endsWith("…")) v.text = value()
+            // On a group page the value shows what the press changed; list pages set their own.
+            if (page == from && from.title != null && !v.text.endsWith("…")) v.text = value()
         }
-        list.addView(r, LinearLayout.LayoutParams(-1, dp(52)).apply { bottomMargin = dp(6) })
+        list.addView(r, LinearLayout.LayoutParams(-1, dp(52)).apply { bottomMargin = dp(8) })
     }
 
     private fun onOff(b: Boolean) = if (b) "Activé" else "Désactivé"
@@ -920,7 +1030,9 @@ class SettingsActivity : Activity() {
             return true
         }
         if (keyCode == KeyEvent.KEYCODE_BACK && page != Page.MAIN) {
-            if (page == entry) finish() else show(Page.MAIN, opener)
+            // Up one level, onto the row that opened this page; the page the screen was opened on leaves.
+            val up = page.parent
+            if (page == entry || up == null) finish() else show(up, openers[page] ?: 0)
             return true
         }
         return super.onKeyUp(keyCode, event)
