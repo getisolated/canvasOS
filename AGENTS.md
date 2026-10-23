@@ -134,21 +134,6 @@ adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com
 
 L'utilisateur peut modifier ces deux options plus tard dans Réglages → Protection de l'accueil / Garder le débogage ADB activé. Ces lignes n'apparaissent que là où elles servent : Protection de l'accueil sur Xiaomi, TCL, ou partout où canvasOS n'est pas l'écran d'accueil par défaut ; Garder le débogage ADB activé sur Xiaomi uniquement.
 
-## 4 bis. Assistant de premier lancement
-
-Sur une nouvelle installation, le premier affichage de l'accueil (la touche Accueil de l'étape 4) ouvre un assistant en plein écran. Il est obligatoire : aucune commande adb ni clé CONFIG ne le saute. Ses pages : Bienvenue (« Commencer »), Horloge (24 h ou 12 h, et sa position), Fond d'écran, Dock (jusqu'à 5 apps, cochées dans l'ordre voulu ; sans choix, l'ordre par défaut est conservé), Météo (Oui / Non), Profil (le nom et la couleur du profil principal), Débogage local (étape 6) et Terminé (« Ouvrir l'accueil »). Un téléviseur mis à jour depuis une version précédente ne l'affiche pas.
-
-L'utilisateur le parcourt avec la télécommande : Gauche et Droite passent d'un choix à l'autre dans une page, OK choisit, Bas mène à « Précédent » / « Continuer », Retour revient à la page précédente. Chaque choix est enregistré aussitôt ; tant que l'assistant n'est pas terminé, la touche Accueil le rouvre. Aidez l'utilisateur avec `screencap` et lisez la page avec `uiautomator dump` (étape 6) : dans l'assistant, le libellé de l'élément sélectionné est dans son attribut `content-desc`. Demandez-lui ce qu'il veut à chaque page ; vous pouvez appuyer sur les touches à sa place (`input keyevent KEYCODE_DPAD_RIGHT`, `KEYCODE_DPAD_DOWN`, `KEYCODE_DPAD_CENTER`, `KEYCODE_BACK`) après avoir vérifié l'élément sélectionné. Le nom se tape au clavier du téléviseur (OK sur le champ), ou depuis l'ordinateur avec `adb -s <TV_IP>:5555 shell input text "<nom>"` quand le champ est sélectionné (sans espaces ni accents : remplacez une espace par `%s`).
-
-Tous ces choix se modifient ensuite dans Réglages de l'accueil, ou par la commande CONFIG (section 8). Pour savoir si l'assistant est terminé :
-
-```sh
-adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com.getisolated.canvasos/.ConfigReceiver
-# la réponse contient setup_done=true une fois l'assistant terminé, setup_done=false tant qu'il reste à faire
-```
-
-Faites les vérifications de l'étape 5 une fois l'assistant terminé : tant qu'il est affiché, `dumpsys activity activities | grep -m1 ResumedActivity` indique `com.getisolated.canvasos/.OnboardingActivity`.
-
 ## 5. Vérifier
 
 Faites une capture d'écran et regardez-la :
@@ -173,7 +158,7 @@ Au premier lancement, l'app télécharge les photos de fond (connexion Internet 
 
 ## 6. Autorisation du débogage local (extinction, veille, nettoyage complet de la mémoire)
 
-Sur une nouvelle installation, c'est la page « Débogage local » de l'assistant de premier lancement (étape 4 bis) qui le propose ; sur un téléviseur mis à jour depuis une version précédente, l'accueil le propose lui-même au démarrage. Si l'utilisateur a choisi « Plus tard », la demande se refait dans Réglages de l'accueil → Système → Débogage local. Quand l'utilisateur appuie sur « Autoriser maintenant » (ou « Commencer »), le téléviseur affiche de nouveau une demande d'autorisation, « Autoriser le débogage ? » (sur les téléviseurs chinois : 允许调试吗？), cette fois du téléviseur vers lui-même. L'utilisateur doit cocher « Toujours autoriser » et appuyer sur « Autoriser ». Vérifiez l'écran avec `screencap` et guidez-le. Vous pouvez vérifier ensuite : le Centre de contrôle (touche Retour sur l'écran d'accueil) n'affiche plus la ligne « Débogage local non autorisé ». Une fois cette autorisation donnée, canvasOS peut aussi s'accorder lui-même les autorisations de l'étape 4 (Réglages → Protection de l'accueil s'en charge).
+Au premier lancement, canvasOS propose d'activer ces fonctions (« Activer l'extinction et la mémoire »). Si l'utilisateur a choisi « Plus tard », la demande se refait dans Réglages de l'accueil → Système → Débogage local. Quand l'utilisateur appuie sur « Commencer » (ou « Autoriser maintenant » dans les réglages), le téléviseur affiche de nouveau une demande d'autorisation, « Autoriser le débogage ? » (sur les téléviseurs chinois : 允许调试吗？), cette fois du téléviseur vers lui-même. L'utilisateur doit cocher « Toujours autoriser » et appuyer sur « Autoriser ». Vérifiez l'écran avec `screencap` et guidez-le. Vous pouvez vérifier ensuite : le Centre de contrôle (touche Retour sur l'écran d'accueil) n'affiche plus la ligne « Débogage local non autorisé ». Une fois cette autorisation donnée, canvasOS peut aussi s'accorder lui-même les autorisations de l'étape 4 (Réglages → Protection de l'accueil s'en charge).
 
 Si vous devez appuyer sur des boutons à la place de l'utilisateur, trouvez d'abord l'élément sélectionné :
 
@@ -247,7 +232,6 @@ adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com
 # --es profile "Enfants" (affiche ce profil, sans code PIN ; "Principal" désigne le profil principal tant qu'il n'a pas de nom)
 # --es profile_pin 1234 (le code PIN des profils enfants, 4 à 6 chiffres ; --es profile_pin "''" le supprime)
 # la réponse indique profile="Enfants" profile_id=abc123 profiles=2 pin=set|unset, plus profile_unknown="…" si le nom n'existe pas et profile_pin=invalid si le code n'a pas 4 à 6 chiffres
-# la réponse indique aussi setup_done=true|false (l'assistant de premier lancement est terminé ou non, étape 4 bis ; en lecture seule, aucune clé ne le saute)
 ```
 
 ## 9. Adapter canvasOS à un téléviseur mal pris en charge

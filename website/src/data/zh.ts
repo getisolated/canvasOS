@@ -13,8 +13,8 @@ const fromV10: Step = {
   cmd: C.upgradeFrom10,
 };
 const firstLaunch: Step = {
-  title: "Premier lancement : suivre l'assistant sur la TV",
-  body: "Au premier lancement, un assistant en huit pages se déroule sur la TV, à la télécommande : horloge, fond d'écran, apps du Dock, météo, nom et couleur du profil, puis le débogage local. Sur cette page, appuyez sur « Autoriser maintenant » : la TV affiche « Autoriser le débogage ? », cette fois de la TV vers elle-même ; cochez « Toujours autoriser » puis « Autoriser ». Tout se modifie ensuite dans Réglages de l'accueil. L'assistant ne peut pas être sauté, mais chaque choix peut être surchargé par CONFIG après coup.",
+  title: "Premier lancement : autoriser le débogage local sur la TV",
+  body: "Au premier lancement, la TV propose d'activer les fonctions qui demandent le débogage local : veille, extinction et nettoyage complet de la mémoire. Appuyez sur « Commencer » : la TV affiche « Autoriser le débogage ? », cette fois de la TV vers elle-même ; cochez « Toujours autoriser » puis « Autoriser ». Si vous choisissez « Plus tard », la demande se refait dans Réglages de l'accueil, sous Système → Débogage local.",
   note: "Au premier lancement, l'app télécharge les photos de fond : un dégradé peut s'afficher pendant la première minute.",
 };
 const afterInstall: Step = {
@@ -177,7 +177,7 @@ export const zh = {
           cards: [
             { title: "Mises à jour sur place", body: "Les APK sont signés avec une clé stable : adb install -r met canvasOS à jour en gardant réglages et autorisations. Seule la 1.0.0, signée avec une clé jetable, demande une dernière désinstallation." },
             { title: "Mise à jour depuis la TV", body: "Réglages de l'accueil → Système → Mise à jour : une première pression cherche la dernière Release, la seconde la télécharge et l'installe sur place. canvasOS vérifie aussi une fois par jour et l'annonce sous le Centre de contrôle ; rien n'est téléchargé sans votre seconde pression." },
-            { title: "Un premier lancement guidé", body: "Un assistant en huit pages règle l'horloge, le fond d'écran, le Dock, la météo et votre profil, puis active le débogage local : vous cochez « Toujours autoriser » une seule fois sur la TV, et c'est fait." },
+            { title: "Un premier lancement simple", body: "La TV propose d'activer les fonctions qui demandent le débogage local (veille, extinction, nettoyage de la mémoire) : appuyez sur Commencer, cochez « Toujours autoriser » une seule fois, et c'est fait." },
             { title: "L'adresse IP à l'écran", body: "L'adresse de la TV et l'état du débogage ADB s'affichent dans Réglages de l'accueil → Système, et l'adresse sous « Réseau » dans le Centre de contrôle : plus besoin de la chercher dans les réglages de la TV." },
           ],
         },

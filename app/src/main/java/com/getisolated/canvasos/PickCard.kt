@@ -10,9 +10,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 
 /**
- * A picture to pick with one press, its name under it: the backgrounds of [WallpaperActivity] and
- * of the first-launch assistant ([OnboardingActivity]), and the assistant's dock apps. Focused, it
- * grows inside a white ring; picked, a blue badge in its corner shows a check (or the dock place).
+ * A picture to pick with one press, its name under it: the backgrounds of [WallpaperActivity].
+ * Focused, it grows inside a white ring; picked, a blue badge in its corner shows a check (or a place number).
  * [w] and [h] are the picture's size in dp.
  */
 class PickCard @JvmOverloads constructor(ctx: Context, w: Int = 128, h: Int = 72) : LinearLayout(ctx) {

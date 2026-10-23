@@ -245,13 +245,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         repo = AppRepo(this)
         shownProfile = prefs.currentProfile
         buildViews()
-        // A fresh install opens on the first-launch assistant, which also asks for local debugging;
-        // no intro and no authorization sheet behind it.
-        val setup = !prefs.setupDone
-        if (setup) startActivity(Intent(this, OnboardingActivity::class.java))
         control = ControlCenter(this, root)
         // Covers the screen before its first frame, so the home screen is never seen ahead of it.
-        if (!setup && Intro.dueAfterBoot(this)) playIntro()
+        if (Intro.dueAfterBoot(this)) playIntro()
         reload()
         registerReceiver(pkgReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -264,7 +260,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(tileReceiver, IntentFilter(AppRepo.ACTION_TILE_CHANGED), RECEIVER_NOT_EXPORTED)
         else registerReceiver(tileReceiver, IntentFilter(AppRepo.ACTION_TILE_CHANGED))
         KeeperService.start(this)
-        if (!setup && !prefs.adbAuthorized) main.postDelayed({ askAdbAuthorization() }, if (intro != null) 8000L else 1500L)
+        if (!prefs.adbAuthorized) main.postDelayed({ askAdbAuthorization() }, if (intro != null) 8000L else 1500L)
     }
 
     // ------------------------------------------------------------------- intro
@@ -1301,8 +1297,6 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Home (or the guard) closed the assistant on its way here (singleTask clears what is above): it comes back until it is finished.
-        if (!prefs.setupDone) { startActivity(Intent(this, OnboardingActivity::class.java)); return }
         if (intent.getBooleanExtra(Intro.EXTRA_PREVIEW, false)) { playIntro(preview = true); return }
         if (intent.getBooleanExtra(EXTRA_WAKE, false)) return  // onResume plays the intro
         checkCustomTiles()

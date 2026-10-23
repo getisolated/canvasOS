@@ -12,8 +12,8 @@ const fromV10: Step = {
   cmd: C.upgradeFrom10,
 };
 const firstLaunch: Step = {
-  title: "First launch: follow the assistant on the TV",
-  body: "On first launch an eight-page assistant runs on the TV, with the remote: clock, wallpaper, Dock apps, weather, profile name and colour, then on-device debugging. On that page press “Autoriser maintenant”: the TV shows “Allow debugging?”, this time from the TV to itself; tick “Always allow”, then Allow. Everything can be changed later in the home settings. The assistant cannot be skipped, but every choice can be overridden by CONFIG afterwards.",
+  title: "First launch: allow on-device debugging on the TV",
+  body: "On first launch the TV offers to enable the features that need on-device debugging: standby, power and deep memory cleanup. Press “Commencer”: the TV shows “Allow debugging?”, this time from the TV to itself; tick “Always allow”, then Allow. If you choose “Plus tard”, the request comes back in the home settings, under System → Débogage local.",
   note: "On first launch the app downloads its background photos: a gradient may show for the first minute.",
 };
 const afterInstall: Step = {
@@ -170,7 +170,7 @@ export const en = {
         cards: [
           { title: "In-place updates", body: "The APKs are signed with a stable key: adb install -r updates canvasOS and keeps its settings and grants. Only 1.0.0, signed with a throwaway key, needs one last uninstall." },
           { title: "Update from the TV", body: "Home settings → System → Mise à jour: the first press looks for the latest Release, the second downloads and installs it in place. canvasOS also checks once a day and announces it under the Control Center; nothing is downloaded without your second press." },
-          { title: "A guided first launch", body: "An eight-page assistant sets the clock, wallpaper, Dock, weather and your profile, then enables on-device debugging: you tick “Always allow” once on the TV, and that is it." },
+          { title: "A simple first launch", body: "The TV offers to enable the features that need on-device debugging (standby, power, memory cleanup): press Commencer, tick “Always allow” once, and that is it." },
           { title: "The IP address on screen", body: "The TV's address and the ADB debugging state show in Home settings → System, and the address under “Network” in the Control Center: no more digging through the TV's own settings." },
         ],
       },
