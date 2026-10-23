@@ -28,7 +28,16 @@ object Installer {
     /** Installs [apk] over the installed version (`-r`); the success value is what `pm` printed ("Success"). Blocking, up to 180 s. */
     fun install(ctx: Context, apk: File): Result<String> = synchronized(this) {
         if (!apk.isFile || apk.length() == 0L) return Result.failure(Failure("Le fichier à installer est introuvable."))
-        val out = LocalAdb.shell(ctx, "pm install -r -S ${apk.length()} < ${PhoneApi.shellQuote(apk.absolutePath)}", TIMEOUT_MS)
+        val src = PhoneApi.shellQuote(apk.absolutePath)
+        // The shell copies the APK to its own /data/local/tmp and installs from there: system_server
+        // cannot open the app's files, and streaming the bytes through `pm install -S` breaks on some
+        // firmwares ("Failure calling service package: Failed transaction", Google TV 14). Streaming
+        // stays as the fallback, for a /data too full for the copy.
+        val tmp = "/data/local/tmp/canvasos-install.apk"
+        var out = LocalAdb.shell(ctx, "cp $src $tmp && pm install -r $tmp; rm -f $tmp", TIMEOUT_MS)
+        if (out != null && "Success" !in out) {
+            out = LocalAdb.shell(ctx, "pm install -r -S ${apk.length()} < $src", TIMEOUT_MS) ?: out
+        }
         when {
             out == null -> Result.failure(Failure("Le débogage local ne répond pas : autorisez-le dans Réglages de l'accueil → Système.", unreachable = true))
             "Success" in out -> Result.success(out.trim())
