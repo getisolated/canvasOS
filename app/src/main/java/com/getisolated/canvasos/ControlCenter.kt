@@ -265,6 +265,12 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         idByView[brightness] = CcLayout.BRIGHTNESS
         // The player's looks share its place; their keys are handled by playerKey.
         nowLine = GlassButton("Lecture", R.drawable.ic_music, Shape.CAPSULE) { togglePlay() }
+        // Its type at iOS's proportions of the capsule ([NowPlaying.capsuleArt]), smaller than the other capsules'.
+        NowPlaying.capsuleArt(cell).let { a ->
+            nowLine.title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, a.titlePx)
+            nowLine.sub.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, a.subPx)
+            (nowLine.sub.layoutParams as? LinearLayout.LayoutParams)?.topMargin = a.gapPx
+        }
         nowLine.trailing(R.drawable.ic_pause)
         nowLine.visibility = View.GONE
         nowLine.onFocus = { on -> if (!on) hold.release(nowLine) }
@@ -1889,15 +1895,16 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             nowCard.bind(n)
             big.bind(n)
             if (old == null || old.art !== n.art || shown.visibility != View.VISIBLE) {
-                nowLine.glyph.setImageDrawable(NowPlaying.Cover(n.art, ctx.dp(8).toFloat(), note()))
+                // The cover as iOS sets it in its capsule: 0.706 of the height, concentric with the capsule's end.
+                val art = NowPlaying.capsuleArt(cell)
+                nowLine.glyph.setImageDrawable(NowPlaying.Cover(n.art, art.radius.toFloat(), note()))
                 val lp = nowLine.glyph.layoutParams as LinearLayout.LayoutParams
-                if (lp.width != ctx.dp(35)) {
-                    lp.width = ctx.dp(35)
-                    lp.height = ctx.dp(35)
-                    lp.marginEnd = ctx.dp(9)
+                if (lp.width != art.size) {
+                    lp.width = art.size
+                    lp.height = art.size
+                    lp.marginEnd = art.inset
                     nowLine.glyph.layoutParams = lp
-                    // Concentric with the capsule's end: (47 - 35) / 2 = 6 dp all around.
-                    nowLine.setPadding(ctx.dp(6), 0, ctx.dp(14), 0)
+                    nowLine.setPadding(art.inset, 0, ctx.dp(14), 0)
                 }
             }
         }

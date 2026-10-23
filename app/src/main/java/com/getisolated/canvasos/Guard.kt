@@ -439,11 +439,13 @@ class ConfigReceiver : BroadcastReceiver() {
             "tmdb_key=${if (prefs.tmdbKey.isNotEmpty()) "set" else "unset"} shelf=${prefs.shelfMode} unsplash_key=${if (prefs.unsplashKey.isNotEmpty()) "set" else "unset"}"
         // Lecture en cours and banners (Réglages → Lecture et notifications); both need the listener.
         if (i.hasExtra("now_playing")) prefs.nowPlaying = i.getBooleanExtra("now_playing", true)
+        if (i.hasExtra("home_player")) prefs.homePlayer = i.getBooleanExtra("home_player", true)
+        if (i.hasExtra("lyrics")) prefs.lyrics = i.getBooleanExtra("lyrics", true)
         if (i.hasExtra("banners")) prefs.banners = i.getBooleanExtra("banners", true)
         i.getStringExtra("banner_excluded")?.let { list ->
             prefs.bannerExcluded = list.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         }
-        resultData += " now_playing=${prefs.nowPlaying} banners=${prefs.banners} banner_excluded=${prefs.bannerExcluded.sorted().joinToString(",")} " +
+        resultData += " now_playing=${prefs.nowPlaying} home_player=${prefs.homePlayer} lyrics=${prefs.lyrics} banners=${prefs.banners} banner_excluded=${prefs.bannerExcluded.sorted().joinToString(",")} " +
             "listener=${Banners.listenerGranted(c)} overlay=${Settings.canDrawOverlays(c)}"
         // Asks GitHub for the latest Release now (a few seconds at most) and says what it found.
         if (i.getBooleanExtra("check_update", false)) resultData += " update=${Updater.checkForConfig(c)}"

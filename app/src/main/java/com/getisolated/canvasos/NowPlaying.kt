@@ -22,6 +22,7 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 
 /**
  * What the Control Center's player shows ([Prefs.nowPlaying], off by default): the media session
@@ -37,6 +38,8 @@ class NowPlaying private constructor(
     val pkg: String,
     val title: String,
     val sub: String,
+    /** The album, when the app says ([Lyrics] asks with it); null otherwise. */
+    val album: String?,
     /** The scaled, square artwork for the one-line and two-line players; the same object for as long as the track does not change. */
     val art: Bitmap?,
     /** The same artwork at the large player's size. */
@@ -62,12 +65,12 @@ class NowPlaying private constructor(
     fun positionNow(): Long = positionAt(position, updatedAt, speed, SystemClock.elapsedRealtime(), duration)
 
     /** This reading as if playback had just been moved to [ms] (shown at once, before the app says so). */
-    fun seeked(ms: Long) = NowPlaying(controller, pkg, title, sub, art, artLarge, artKey, playing, ms, SystemClock.elapsedRealtime(), speed, duration)
+    fun seeked(ms: Long) = NowPlaying(controller, pkg, title, sub, album, art, artLarge, artKey, playing, ms, SystemClock.elapsedRealtime(), speed, duration)
 
     /** This reading as if play or pause had just been pressed. */
     fun toggled(): NowPlaying {
         val at = positionNow()
-        return NowPlaying(controller, pkg, title, sub, art, artLarge, artKey, !playing, at, SystemClock.elapsedRealtime(), if (playing) 0f else 1f, duration)
+        return NowPlaying(controller, pkg, title, sub, album, art, artLarge, artKey, !playing, at, SystemClock.elapsedRealtime(), if (playing) 0f else 1f, duration)
     }
 
     /** Pauses what plays, plays what is paused; the state is read again, the player's may be 2 s old. */
@@ -153,7 +156,7 @@ class NowPlaying private constructor(
                 val moving = ps?.state == PlaybackState.STATE_PLAYING
                 val speed = if (!moving) 0f else ps?.playbackSpeed?.takeIf { it > 0f } ?: 1f
                 val duration = md?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
-                NowPlaying(c, pkg, title ?: app, subtitle(title != null, line, app, playing), artBmp, largeBmp, "$artKey|${artBmp != null}",
+                NowPlaying(c, pkg, title ?: app, subtitle(title != null, line, app, playing), md.text(MediaMetadata.METADATA_KEY_ALBUM), artBmp, largeBmp, "$artKey|${artBmp != null}",
                     playing, ps?.position ?: -1L, ps?.lastPositionUpdateTime ?: SystemClock.elapsedRealtime(), speed, duration)
             }.getOrNull()
         }
@@ -275,7 +278,38 @@ class NowPlaying private constructor(
         override fun getOpacity() = PixelFormat.TRANSLUCENT
     }
 
+    /**
+     * How a cover sits in a capsule, in px: its side, the room between it and the capsule's edges
+     * (the same before the text), and its corner radius. Measured on iOS 26's Now Playing capsule
+     * (a 951 × 204 px screenshot): the cover is 144 px (0.706 of the height), 30 px from the edge
+     * (0.147), with 25 px corners (0.174 of its own side); the text starts another 30 px on. The
+     * title's type is 0.19 of the height (a 28 px capital on 204), the artist's 0.147, with about
+     * 0.04 of the height between the two lines.
+     */
+    class CapsuleArt(val size: Int, val inset: Int, val radius: Int, val titlePx: Float, val subPx: Float, val gapPx: Int)
+
     companion object {
+        /** The cover's side, as a fraction of the capsule's height. */
+        const val ART_RATIO = 0.706f
+        /** The cover's distance from the capsule's edge, as a fraction of the capsule's height. */
+        const val ART_INSET_RATIO = 0.147f
+        /** The cover's corner radius, as a fraction of its own side. */
+        const val ART_CORNER_RATIO = 0.174f
+        /** The title's type size, as a fraction of the capsule's height. */
+        const val TITLE_RATIO = 0.19f
+        /** The artist's type size, as a fraction of the capsule's height. */
+        const val SUB_RATIO = 0.147f
+        /** The room between the title's line and the artist's, as a fraction of the capsule's height. */
+        const val LINE_GAP_RATIO = 0.04f
+
+        /** The cover's and the text's geometry for a capsule [heightPx] tall ([CapsuleArt]); nothing for no height. */
+        fun capsuleArt(heightPx: Int): CapsuleArt {
+            if (heightPx <= 0) return CapsuleArt(0, 0, 0, 0f, 0f, 0)
+            val size = (heightPx * ART_RATIO).roundToInt().coerceAtLeast(1)
+            return CapsuleArt(size, (heightPx * ART_INSET_RATIO).roundToInt(), (size * ART_CORNER_RATIO).roundToInt(),
+                heightPx * TITLE_RATIO, heightPx * SUB_RATIO, (heightPx * LINE_GAP_RATIO).roundToInt())
+        }
+
         /** A press on « back » restarts the track past this point, and goes to the previous one before it. */
         const val RESTART_MS = 3_000L
         /** One step of seeking or of the large player's cursor. */

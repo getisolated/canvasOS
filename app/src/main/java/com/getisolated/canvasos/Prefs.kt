@@ -304,6 +304,24 @@ class Prefs(ctx: Context) {
         set(v) = sp.edit().putBoolean("now_playing", v).apply()
 
     /**
+     * The home screen's small player, top left ([HomePlayer]): the cover, title and artist of what
+     * plays, OK opening the app. On by default; it only shows with [nowPlaying], whose reading it
+     * shares (nothing more is read for it).
+     */
+    var homePlayer: Boolean
+        get() = sp.getBoolean("home_player", true)
+        set(v) = sp.edit().putBoolean("home_player", v).apply()
+
+    /**
+     * Paroles: the button beside the home screen's player and the lyrics it shows ([LyricsView]),
+     * from LRCLIB. On by default: nothing is sent until the user presses the button; then the
+     * track's title, artist, album and length go to lrclib.net ([Lyrics]).
+     */
+    var lyrics: Boolean
+        get() = sp.getBoolean("lyrics", true)
+        set(v) = sp.edit().putBoolean("lyrics", v).apply()
+
+    /**
      * tvOS-style banners for notifications ([Banners]). On by default (the product owner's choice):
      * the title and text of every app's notifications are read, except [bannerExcluded]'s.
      */

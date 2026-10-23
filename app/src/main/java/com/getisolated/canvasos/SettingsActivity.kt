@@ -628,6 +628,20 @@ class SettingsActivity : Activity() {
                 runOnUiThread { v.text = if (ok) onOff(true) else LISTENER_NEEDED }
             }.start()
         }
+        row("Lecteur sur l'accueil", "Activé par défaut, avec Lecture en cours. En haut à gauche de l'accueil, une capsule montre la pochette, le titre et l'artiste " +
+            "de ce qu'une app lit, sans commande : OK ouvre cette app ; lecture, pause et piste suivante restent dans le Centre de contrôle. " +
+            "Rien de plus n'est lu pour elle.",
+            { if (!prefs.nowPlaying) "Lecture en cours requise" else onOff(prefs.homePlayer) }) { v ->
+            if (!prefs.nowPlaying) { Motion.bump(v, 1, 0); return@row }
+            prefs.homePlayer = !prefs.homePlayer
+        }
+        row("Paroles", "Activées par défaut. Quand le lecteur de l'accueil est sélectionné, un bouton Paroles sort à sa droite : OK affiche les paroles du titre, " +
+            "synchronisées quand elles le sont, demandées à LRCLIB (lrclib.net, gratuit, sans clé) au moment de l'appui. " +
+            "Le titre, l'artiste, l'album et la durée du morceau sont alors envoyés, rien d'autre ; rien n'est envoyé sans cet appui, et rien n'est enregistré.",
+            { if (!prefs.nowPlaying || !prefs.homePlayer) "Lecteur sur l'accueil requis" else onOff(prefs.lyrics) }) { v ->
+            if (!prefs.nowPlaying || !prefs.homePlayer) { Motion.bump(v, 1, 0); return@row }
+            prefs.lyrics = !prefs.lyrics
+        }
         section("Notifications")
         row("Bannières de notifications", "Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). " +
             "Le titre et le texte des notifications de toutes les apps, sauf celles exclues, sont lus, affichés 6 secondes et jamais enregistrés. " +

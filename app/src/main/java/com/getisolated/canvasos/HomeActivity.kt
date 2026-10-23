@@ -87,6 +87,12 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private lateinit var avatar: IconButton
     private lateinit var netButton: IconButton
     private lateinit var ccButton: IconButton
+    /** The small player top left ([Prefs.homePlayer]): cover, title and artist of what plays; OK opens its app. */
+    private lateinit var homePlayer: HomePlayer
+    /** The lyrics over the home screen, while open (the Paroles button). */
+    private var lyricsView: LyricsView? = null
+    /** The Top Shelf picture in front, for glass baked over the shelf; null while the shelf is down. */
+    private var shelfPic: Bitmap? = null
     private lateinit var grid: RecyclerView
     private lateinit var adapter: TileAdapter
     private lateinit var repo: AppRepo
@@ -318,6 +324,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     override fun onDestroy() {
         unregisterReceiver(pkgReceiver)
         main.removeCallbacksAndMessages(null)
+        homePlayer.shutdown()
         control.destroy()
         intro?.finish()
         runCatching { unregisterReceiver(screenOn) }
@@ -417,13 +424,31 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         })
         listOf(netButton, ccButton, avatar).forEach { b ->
             b.setOnKeyListener { _, code, e ->
-                if (e.action == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_DPAD_DOWN) { focusAt(focusedPos); true } else false
+                if (e.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                when (code) {
+                    KeyEvent.KEYCODE_DPAD_DOWN -> { focusAt(focusedPos); true }
+                    // Left from the first corner button reaches the small player, when it is up.
+                    KeyEvent.KEYCODE_DPAD_LEFT -> if (b === netButton && homePlayer.shown) { homePlayer.focusCapsule(); true } else false
+                    else -> false
+                }
             }
         }
         netButton.nextFocusRightId = View.generateViewId().also { ccButton.id = it }
         ccButton.nextFocusLeftId = View.generateViewId().also { netButton.id = it }
         ccButton.nextFocusRightId = avatar.id
         avatar.nextFocusLeftId = ccButton.id
+        // The small player, top left, its middle level with the corner buttons' (26 + 8 + 14 dp). Its
+        // glass is baked over what the header stands on: the wallpaper, or the shelf's picture.
+        homePlayer = HomePlayer(this, io, SceneSource(scene, sw, sh) { if (shelfShown) shelfPic ?: bgShown else bgShown }) { pkg -> openPlaying(pkg) }.apply {
+            onLost = { focusAt(focusedPos) }
+            onDown = { focusAt(focusedPos) }
+            onRight = { netButton.requestFocus() }
+            onLyrics = { openLyrics() }
+            onReading = { n -> lyricsView?.update(n) }
+        }
+        header.addView(homePlayer, FrameLayout.LayoutParams(-2, dp(HomePlayer.HEIGHT_DP), Gravity.START or Gravity.TOP).apply {
+            leftMargin = dp(32); topMargin = dp(26)
+        })
         scene.addView(header, match())
 
         adapter = TileAdapter(repo, tileW, tileH, this).apply { setHasStableIds(true); dockCount = cols }
@@ -537,6 +562,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                 val pic = FadeDrawable(bgShown, bmp).also { bg.setImageDrawable(it) }
                 bgFade = pic
                 bgShown = bmp
+                if (!shelfShown) homePlayer.refreshGlass()
                 // Under the shelf the dock refracts the shelf's picture: homeDock waits for the shelf to go.
                 val glassFade = if (shelfShown) null else stageDock(glass)
                 if (!shelfShown) control.backgroundChanging(ms) { drawFinalScene(it) }
@@ -685,6 +711,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     private fun showShelfItem(i: Int, b: Bitmap, glass: Bitmap) {
         val item = shelfItems.getOrNull(i) ?: return
         shelfIndex = i
+        shelfPic = b
+        if (shelfShown) homePlayer.refreshGlass()
         // The new picture fades in over the old one, settling from a slight zoom.
         val old = shelfFront
         val pic = ImageView(this).apply {
@@ -721,6 +749,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (v == shelfShown) return
         shelfShown = v
         if (v) shelf.visibility = View.VISIBLE else bg.visibility = View.VISIBLE
+        // The small player's glass follows the picture under it.
+        if (!v) shelfPic = null
+        homePlayer.refreshGlass()
         // The large clock gives way to the shelf.
         bigClock.animate().alpha(if (v) 0f else dock.alpha).setDuration(350).start()
         // The shelf, the dock's glass and the Control Center's glass change together: staged, then
@@ -1195,8 +1226,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             return true
         }
         if (dy < 0 && pos < cols) {
-            // Up from the first row reaches the buttons in the top-right corner.
-            ccButton.requestFocus()
+            // Up from the first row reaches the corner buttons, or the small player from the two left columns while it is up.
+            if (col < 2 && homePlayer.shown) homePlayer.focusCapsule() else ccButton.requestFocus()
             return true
         }
         if (atEdge) {
@@ -1352,6 +1383,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
 
     /** The top row (clock, weather, network, Control Center and profile buttons) steps aside while the Control Center is open. */
     fun setHeaderShown(shown: Boolean, immediate: Boolean = false) {
+        // Back from the Control Center: the small player catches up at once rather than at its next reading.
+        if (shown && resumed) homePlayer.poll()
         header.animate().cancel()
         if (immediate) { header.alpha = if (shown) 1f else 0f; return }
         header.animate().alpha(if (shown) 1f else 0f).setDuration(if (shown) 220 else 150).start()
@@ -1381,6 +1414,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (event.action == KeyEvent.ACTION_UP && (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU)) {
             when {
                 sheets.isNotEmpty() -> sheets.last().dismiss()
+                lyricsView != null -> closeLyrics()
                 // Before the Control Center: Back from an open folder returns to the grid.
                 folderView != null -> closeFolder()
                 // The large player first: its cursor, then itself, before the panel closes.
@@ -1491,6 +1525,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         ticker.run()
         control.refresh()
         if (shelfShown && !control.isOpen) resumeShelfRotation()
+        homePlayer.lyricsEnabled = prefs.lyrics
+        homePlayer.start(prefs.nowPlaying && prefs.homePlayer)
         // Notification banners (Prefs.banners) show in here while the home screen is in front.
         Banners.attach(root)
     }
@@ -1503,9 +1539,47 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         main.removeCallbacks(idleFrame)
         main.removeCallbacks(ticker)
         main.removeCallbacks(shelfAdvance)
+        closeLyrics()
+        homePlayer.stop()
         Banners.detach(root)
         Foreground.paused(this)
         super.onPause()
+    }
+
+    /** The Paroles button: the lyrics of the track over the home screen, until Back or the end of playback. */
+    private fun openLyrics() {
+        if (lyricsView != null) return
+        val n = homePlayer.now ?: return
+        val v = LyricsView(this, io) { closeLyrics() }
+        lyricsView = v
+        root.addView(v, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        v.alpha = 0f
+        v.animate().alpha(1f).setDuration(220).start()
+        setGridBlocked(true)
+        v.requestFocus()
+        v.update(n)
+    }
+
+    private fun closeLyrics() {
+        val v = lyricsView ?: return
+        lyricsView = null
+        root.removeView(v)
+        setGridBlocked(control.isOpen)
+        if (resumed && !control.isOpen) { if (homePlayer.shown) homePlayer.focusCapsule() else focusAt(focusedPos) }
+    }
+
+    /**
+     * OK on the small player: the app whose session plays opens, as its tile would (its recent
+     * place in the dock included); one without a tile on this home opens as the Control Center's
+     * large player does.
+     */
+    private fun openPlaying(pkg: String) {
+        val app = adapter.apps.firstOrNull { it.pkg == pkg && it.input == null && it.folder == null }
+            ?: adapter.apps.firstNotNullOfOrNull { f -> f.folder?.firstOrNull { it.pkg == pkg } }
+        if (app != null) { launch(app, null, pkg); return }
+        val pm = packageManager
+        val intent = runCatching { pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg) }.getOrNull() ?: return
+        runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 
     private fun askAdbAuthorization() {

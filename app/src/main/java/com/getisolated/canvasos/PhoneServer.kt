@@ -179,6 +179,11 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
                     form(session)["on"]?.let { prefs.weather = it == "true" }
                     json(state())
                 }
+                post && path == "/api/lyrics" -> {
+                    // Paroles: the button beside the home screen's player (Réglages → Lecture et notifications).
+                    form(session)["on"]?.let { prefs.lyrics = it == "true" }
+                    json(state())
+                }
                 post && path == "/api/weather/place" -> {
                     val f = form(session)
                     val lat = f["lat"]?.toDoubleOrNull()
@@ -234,6 +239,8 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
         .put("weather", prefs.weather)
         .put("weatherPlace", prefs.weatherPlace)
         .put("weatherAuto", prefs.weatherAuto)
+        .put("lyrics", prefs.lyrics)
+        .put("homePlayer", prefs.nowPlaying && prefs.homePlayer)
         .put("tmdbKey", prefs.tmdbKey.isNotEmpty())
         .put("unsplashKey", prefs.unsplashKey.isNotEmpty())
         .put("profiles", profiles())
