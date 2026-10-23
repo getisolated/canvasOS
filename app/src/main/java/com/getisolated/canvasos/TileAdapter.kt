@@ -66,6 +66,8 @@ class TileCell(ctx: Context, val tileW: Int, val tileH: Int) : FrameLayout(ctx) 
      * light catching a glass surface. Driven by [Tween], so it plays even with animations off.
      */
     fun setFocusedLook(f: Boolean, fromDx: Int, fromDy: Int, showLabel: Boolean = true, tvos: Boolean = true) {
+        // A folder's mosaic is see-through: the gliding highlight would read as a light slab in its gaps.
+        val tvos = tvos && entry?.folder == null
         val s0 = card.scaleX
         val s1 = if (f) FOCUS_SCALE else 1f
         // Draw the lifted tile above its neighbours.

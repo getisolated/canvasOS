@@ -344,12 +344,7 @@ class AppRepo(private val ctx: Context) {
         val w = h * 16f / 9f
         val left = (TILE_W - w * 2 - gap) / 2
         val r = 11f
-        // Only a hint of depth: with nothing behind the mosaic the shadow falls straight on the
-        // wallpaper, where anything darker reads as a black smudge in the gaps.
-        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(38, 0, 0, 0)
-            maskFilter = android.graphics.BlurMaskFilter(4f, android.graphics.BlurMaskFilter.Blur.NORMAL)
-        }
+        // No shadow under the members: the mosaic sits straight on the wallpaper, like the tiles do.
         // Its own paint: the tiles' paint alpha would also fade the bitmap shader.
         val well = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(30, 255, 255, 255) }
         val m = android.graphics.Matrix()
@@ -359,7 +354,6 @@ class AppRepo(private val ctx: Context) {
             val dst = RectF(x, y, x + w, y + h)
             val app = members.getOrNull(k)
             if (app == null) { c.drawRoundRect(dst, r, r, well); continue }
-            c.drawRoundRect(RectF(dst).apply { offset(0f, 1.5f) }, r, r, shadow)
             val src = tile(app)
             // A shader rather than a clip: Canvas clips are not anti-aliased, the rounded rect is.
             p.shader = android.graphics.BitmapShader(src, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP).apply {

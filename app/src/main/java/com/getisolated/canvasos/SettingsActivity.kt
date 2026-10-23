@@ -289,10 +289,9 @@ class SettingsActivity : Activity() {
             Page.FOLDERS -> foldersPage()
             Page.PROFILES -> profilesPage()
         }
-        // The first row level with the card's top; a header first sits just above it.
-        val first = list.getChildAt(0)
-        val top = CARD_TOP - LIST_TOP - if (first?.tag == HEADER_TAG) HEADER_SIZE * 1.21f + HEADER_BELOW else 0f
-        list.setPadding(list.paddingLeft, u(top), list.paddingRight, list.paddingBottom)
+        // A list shorter than the column is centred in it; a longer one starts at the top and scrolls.
+        list.setPadding(list.paddingLeft, u(8), list.paddingRight, u(48))
+        list.post { centreList() }
         p.title?.let {
             heading.text = it
             // Under the icon until a row with a description of its own is focused.
@@ -366,6 +365,17 @@ class SettingsActivity : Activity() {
     }
 
     /** [v] units of the 960-wide design in pixels. */
+    /** Centres the rows vertically when they do not fill the column; otherwise they start under the title. */
+    private fun centreList() {
+        val content = (0 until list.childCount).sumOf { i ->
+            val v = list.getChildAt(i); val lp = v.layoutParams as LinearLayout.LayoutParams
+            v.measuredHeight + lp.topMargin + lp.bottomMargin
+        }
+        val room = scroll.height - u(8) - u(48)
+        val top = u(8) + maxOf(0, (room - content) / 2)
+        if (list.paddingTop != top) list.setPadding(list.paddingLeft, top, list.paddingRight, list.paddingBottom)
+    }
+
     private fun u(v: Number): Int = (v.toFloat() * unit + 0.5f).toInt()
 
     /** A text sized in design units rather than sp, so the page keeps Apple TV's proportions at any density. */
