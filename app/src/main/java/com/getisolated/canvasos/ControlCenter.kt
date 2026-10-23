@@ -648,10 +648,14 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             val size = ctx.dp(when (shape) { Shape.TILE -> 40; Shape.CAPSULE -> if (narrow) 18 else 20; Shape.ROUND -> 21; Shape.CARD -> 20 })
             glyph.setImageResource(icon)
             glyph.setColorFilter(accent)
+            // Title over subtitle, for the shapes that show both; the tile adds the title on its own,
+            // and a view can only have one parent.
             val column = LinearLayout(ctx).apply {
                 orientation = VERTICAL
-                addView(title)
-                addView(sub, LayoutParams(-1, if (narrow) ctx.dp(13) else -2).apply { topMargin = ctx.dp(1) })
+                if (shape != Shape.TILE && shape != Shape.ROUND) {
+                    addView(title)
+                    addView(sub, LayoutParams(-1, if (narrow) ctx.dp(13) else -2).apply { topMargin = ctx.dp(1) })
+                }
             }
             val glyphLp = LayoutParams(size, size).apply { if (shape == Shape.CAPSULE || shape == Shape.CARD) marginEnd = ctx.dp(if (narrow) 7 else 9) }
             // Round buttons are icon-only, as on tvOS; the label stays for accessibility.
