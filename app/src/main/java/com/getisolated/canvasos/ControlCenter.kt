@@ -57,6 +57,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private val gap = ctx.dp(12)
     private val cell = ctx.dp(47)
     private val width = cell * 4 + gap * 3
+    /** The large player's artwork, and the width of everything under it: the grid's width less its side margins. */
+    private val bigArt = width - ctx.dp(BIG_PAD_DP) * 2
     private var glassStyle = prefs.ccGlass(ctx)
     private val surfaces = ArrayList<GlassSurface>()
     private var destroyed = false
@@ -109,9 +111,16 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         outlineProvider = null
         visibility = View.INVISIBLE
         alpha = 1f
+        // A ViewGroup's clipChildren clips each child to the child's *own* bounds: with it on, every
+        // page was cut at the grid's edge, and a focused control in the outer columns or rows lost
+        // the part that grows into the room around the grid. Off, and the panel itself is clipped
+        // at its own bounds (set in init, once its size is known), which is what keeps a sliding
+        // page within the panel: the grid plus its room.
+        clipChildren = false
+        clipToPadding = false
     }
     private val panelCard = rounded(Color.argb(228, 30, 30, 34), ctx.dp(28).toFloat())
-    private val bigCard = rounded(Color.argb(235, 30, 30, 34), ctx.dp(30).toFloat())
+    private val bigCard = rounded(Color.argb(235, 30, 30, 34), ctx.dp(BIG_RADIUS_DP).toFloat())
 
     private fun invalidateSurfaces() { for (s in surfaces) s.owner.invalidate() }
 
@@ -146,7 +155,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     /** The player ([Prefs.nowPlaying]): what a media session plays; [emptyPlayer] stands in while nothing does. */
     private var now: NowPlaying? = null
     /** Artwork that came from an address is shown as soon as it has loaded, not at the next 2 s poll. */
-    private val nowReader = NowPlaying.Reader(ctx, ctx.dp(84), ctx.dp(BIG_ART_DP)) { host.post { updateNowPlaying() } }
+    private val nowReader = NowPlaying.Reader(ctx, ctx.dp(84), bigArt) { host.post { updateNowPlaying() } }
     private var nowReading = false
     /** When the user last pressed something on the player: a reading begun before it is out of date. */
     private var actedAt = 0L
@@ -158,9 +167,9 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private val nowCard: PlayerCard
     /** The player while nothing plays: an empty glass card of its size. */
     private val emptyPlayer: EmptyPlayer
-    /** State 3, the large player, in place of the whole panel (a long press on OK). */
+    /** State 3, the large player, exactly over the grid (4 × 6 cells), in place of the whole panel (a long press on OK). */
     private val big: PlayerBig
-    /** Holds [big] above the panel; raised itself, so the glass card casts no platform shadow. */
+    /** Holds [big] above the panel, at the grid's place and size; raised itself, so the glass card casts no platform shadow. */
     private val bigHost = FrameLayout(ctx).apply {
         translationZ = ctx.dp(102).toFloat()
         outlineProvider = null
@@ -178,10 +187,6 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private val morphNow = RectF()
     private val morphMatrix = Matrix()
     private val bigClip = Rect()
-    /** The large player's measured size and its resting scale, from the last time it grew. */
-    private var bigW = 0
-    private var bigH = 0
-    private var bigS = 1f
     private var inputs: List<Input> = emptyList()
     /** The inputs have been read once: until then Source says nothing rather than "Aucune entrée". */
     private var inputsRead = false
@@ -274,17 +279,21 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         panel.addView(dots, FrameLayout.LayoutParams(-2, -2, Gravity.START or Gravity.CENTER_VERTICAL).apply {
             leftMargin = (room - ctx.dp(DOT_DP)) / 2
         })
-        // The panel clips at its own bounds: a page sliding away goes no further than the room around the grid.
+        // The panel clips at its own bounds: a page sliding away goes no further than the room around
+        // the grid, while a focused control grows into that room uncut. Said here rather than left to
+        // the host's clipChildren, which is not this class's to rely on.
         host.addView(panel, FrameLayout.LayoutParams(width + room * 2, gridH + room * 2, Gravity.TOP or Gravity.END).apply {
             topMargin = ctx.dp(PANEL_TOP) - room; marginEnd = ctx.dp(32) - room
         })
+        panel.clipBounds = Rect(0, 0, width + room * 2, gridH + room * 2)
         panel.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
             if (l != oldL || t != oldT || r != oldR || b != oldB) refreshGlass()
         }
         applyLayout()
         big = PlayerBig()
-        bigHost.addView(big, FrameLayout.LayoutParams(-2, -2))
-        host.addView(bigHost, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
+        // The grid's own rectangle: the panel stands room further out on every side.
+        bigHost.addView(big, FrameLayout.LayoutParams(width, gridH))
+        host.addView(bigHost, FrameLayout.LayoutParams(width, gridH, Gravity.TOP or Gravity.END).apply {
             topMargin = ctx.dp(PANEL_TOP); marginEnd = ctx.dp(32)
         })
         bigHost.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
@@ -541,7 +550,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private fun sample(scene: (Canvas) -> Unit): Sample? {
         if (destroyed || !glassStyle || host.width == 0 || panel.width == 0) return null
         val margin = ctx.dp(48)
-        // The large player too, which stands where the panel does but may reach further.
+        // The large player too: it stands within the panel now (the grid's place), kept should that change.
         val hasBig = bigHost.width > 0
         val left = (minOf(panel.left, if (hasBig) bigHost.left else panel.left) - margin).coerceAtLeast(0)
         val top = (minOf(panel.top, if (hasBig) bigHost.top else panel.top) - margin).coerceAtLeast(0)
@@ -2022,27 +2031,15 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     }
 
     /**
-     * Where the large player will stand, in host coordinates: measured now, before the layout
-     * that follows its new content (a live stream has no timeline), so the frame is right from
-     * the first step.
+     * Where the large player stands, in host coordinates: the grid's rectangle, whatever it shows
+     * (a live stream has no timeline). PANEL_TOP + 342 dp = 372 dp: it fits a 540 dp screen at its
+     * own size, so it is never scaled down.
      */
     private fun bigFrame(out: RectF) {
-        val any = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        big.measure(any, any)
-        bigW = big.measuredWidth.coerceAtLeast(1)
-        bigH = big.measuredHeight.coerceAtLeast(1)
         val lp = bigHost.layoutParams as FrameLayout.LayoutParams
         val right = (host.width - lp.marginEnd).toFloat()
         val top = lp.topMargin.toFloat()
-        bigS = bigScaleFor(top, bigH)
-        out.set(right - bigW * bigS, top, right, top + bigH * bigS)
-    }
-
-    /** The large player's resting scale: it shrinks from its top right corner to fit a short screen. */
-    private fun bigScaleFor(top: Float, h: Int): Float {
-        if (host.height <= 0 || h <= 0) return 1f
-        val room = host.height - ctx.dp(16) - top
-        return if (h <= room || room <= 0f) 1f else (room / h).coerceIn(0.6f, 1f)
+        out.set(right - width, top, right, top + gridH)
     }
 
     /** The large player's own glass, or its dark card, drawn or left to [morph]. */
@@ -2059,14 +2056,14 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private fun placeBig(frame: RectF) {
         val right = (host.width - (bigHost.layoutParams as FrameLayout.LayoutParams).marginEnd).toFloat()
         val top = (bigHost.layoutParams as FrameLayout.LayoutParams).topMargin.toFloat()
-        val k = (frame.width() / bigW).coerceAtLeast(0.01f)
-        bigHost.pivotX = bigW.toFloat()
+        val k = (frame.width() / width).coerceAtLeast(0.01f)
+        bigHost.pivotX = width.toFloat()
         bigHost.pivotY = 0f
         bigHost.scaleX = k
         bigHost.scaleY = k
         bigHost.translationX = frame.right - right
         bigHost.translationY = frame.top - top
-        bigClip.set(0, 0, bigW, kotlin.math.ceil(frame.height() / k).toInt().coerceAtMost(bigH))
+        bigClip.set(0, 0, width, kotlin.math.ceil(frame.height() / k).toInt().coerceAtMost(gridH))
         big.clipBounds = bigClip
     }
 
@@ -2103,10 +2100,10 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private fun settleBig() {
         bigHost.translationX = 0f
         bigHost.translationY = 0f
-        bigHost.pivotX = bigW.toFloat()
+        bigHost.pivotX = width.toFloat()
         bigHost.pivotY = 0f
-        bigHost.scaleX = bigS
-        bigHost.scaleY = bigS
+        bigHost.scaleX = 1f
+        bigHost.scaleY = 1f
         big.clipBounds = null
         bigBackdrop(true)
     }
@@ -2145,7 +2142,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         bigHost.alpha = contentFrom
         big.firstFocus().requestFocus()
         val panelFrom = panel.alpha
-        runMorph(from, fromR, to, ctx.dp(30) * bigS, { t ->
+        runMorph(from, fromR, to, ctx.dp(BIG_RADIUS_DP).toFloat(), { t ->
             panel.alpha = panelFrom * (1f - clamp01(t / 0.3f))
             bigHost.alpha = lerp(contentFrom, 1f, Motion.ease.getInterpolation(clamp01((t - 0.25f) / 0.6f)))
         }) {
@@ -2174,7 +2171,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             fromR = morph.radius
         } else {
             frameOf(big, from)
-            fromR = ctx.dp(30) * bigS
+            fromR = ctx.dp(BIG_RADIUS_DP).toFloat()
         }
         stopMorph()
         panel.animate().cancel()
@@ -2506,19 +2503,21 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
 
     /**
      * State 3, the large player: artwork, title and artist, the timeline and the three controls,
-     * in place of the panel. Focus moves one element at a time. On the timeline, Left and Right
+     * in place of the panel, laid out in the grid's fixed frame (224 × 342 dp) with Apple's
+     * proportions. Focus moves one element at a time. On the timeline, Left and Right
      * move a cursor 10 s at a time without touching playback, OK seeks there and Back drops it.
      */
     private inner class PlayerBig : LinearLayout(ctx) {
-        val glass = glassFor(this, ctx.dp(30).toFloat())
+        val glass = glassFor(this, ctx.dp(BIG_RADIUS_DP).toFloat())
         private val art = ArtButton()
         private val title = ctx.text(15f, weight = 600).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
         private val artist = ctx.text(13f, SUB, weight = 500).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
         private val timeline = Bar(ctx.dp(5).toFloat(), ctx.dp(9).toFloat())
         private val times = Times(11f)
-        private val rew = RoundGlyph(R.drawable.ic_fast_rewind, 28, "Retour")
-        val play = RoundGlyph(R.drawable.ic_pause, 32, "Lecture ou pause")
-        private val fwd = RoundGlyph(R.drawable.ic_fast_forward, 28, "Suivant")
+        // Focus rings of glyph / 2 + 9 dp: 42 and 46 dp across, inside their 44 and 48 dp boxes.
+        private val rew = RoundGlyph(R.drawable.ic_fast_rewind, 24, "Retour")
+        val play = RoundGlyph(R.drawable.ic_pause, 28, "Lecture ou pause")
+        private val fwd = RoundGlyph(R.drawable.ic_fast_forward, 24, "Suivant")
         /** Where OK on the timeline would seek to, in ms; below 0 without a cursor. */
         private var cursor = -1L
         private var shownArt: Bitmap? = null
@@ -2529,21 +2528,26 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             // The focused artwork grows past its box, over the padding.
             clipChildren = false
             clipToPadding = false
-            val pad = ctx.dp(18)
-            setPadding(pad, pad, pad, ctx.dp(14))
-            addView(art, LayoutParams(ctx.dp(BIG_ART_DP), ctx.dp(BIG_ART_DP)))
-            addView(title, LayoutParams(ctx.dp(BIG_ART_DP), -2).apply { topMargin = ctx.dp(14) })
-            addView(artist, LayoutParams(ctx.dp(BIG_ART_DP), -2).apply { topMargin = ctx.dp(3) })
+            // In the grid's 342 dp: 16 + 192 artwork + 29 title + 17 artist + 18 timeline + 14 times
+            // = 286, then the controls centred in what is left (50 dp over a 6 dp bottom margin;
+            // more for a live stream, which has no timeline). Fonts at 1×; a larger font scale
+            // takes from the controls' share first.
+            val pad = ctx.dp(BIG_PAD_DP)
+            setPadding(pad, pad, pad, ctx.dp(6))
+            addView(art, LayoutParams(bigArt, bigArt))
+            addView(title, LayoutParams(-1, -2).apply { topMargin = ctx.dp(10) })
+            addView(artist, LayoutParams(-1, -2).apply { topMargin = ctx.dp(1) })
             timeline.id = View.generateViewId()
             timeline.isFocusable = true
             timeline.contentDescription = "Position"
-            addView(timeline, LayoutParams(ctx.dp(BIG_ART_DP), ctx.dp(20)).apply { topMargin = ctx.dp(10) })
-            addView(times, LayoutParams(ctx.dp(BIG_ART_DP), -2))
-            val row = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
-            row.addView(rew, LayoutParams(ctx.dp(54), ctx.dp(54)))
-            row.addView(play, LayoutParams(ctx.dp(58), ctx.dp(58)).apply { marginStart = ctx.dp(18); marginEnd = ctx.dp(18) })
-            row.addView(fwd, LayoutParams(ctx.dp(54), ctx.dp(54)))
-            addView(row, LayoutParams(ctx.dp(BIG_ART_DP), -2).apply { topMargin = ctx.dp(8) })
+            addView(timeline, LayoutParams(-1, ctx.dp(14)).apply { topMargin = ctx.dp(4) })
+            addView(times, LayoutParams(-1, -2))
+            // Not clipped: a focused control's ring grows past its box.
+            val row = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER; clipChildren = false; clipToPadding = false }
+            row.addView(rew, LayoutParams(ctx.dp(44), ctx.dp(44)))
+            row.addView(play, LayoutParams(ctx.dp(48), ctx.dp(48)).apply { marginStart = ctx.dp(18); marginEnd = ctx.dp(18) })
+            row.addView(fwd, LayoutParams(ctx.dp(44), ctx.dp(44)))
+            addView(row, LayoutParams(-1, 0, 1f))
             rew.nextFocusRightId = play.id
             play.nextFocusLeftId = rew.id
             play.nextFocusRightId = fwd.id
@@ -2900,8 +2904,10 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private companion object {
         /** Top edge of the panel and of the large player: the header's corner, which they replace. */
         private const val PANEL_TOP = 30
-        /** The large player's artwork, and the width of everything under it. */
-        const val BIG_ART_DP = 220
+        /** The large player's margins around its artwork (sides and top), as in Apple's Now Playing. */
+        const val BIG_PAD_DP = 16
+        /** The large player's corners: a little rounder than a 2 × 2 tile's (24 dp), at 4 × 6 cells. */
+        const val BIG_RADIUS_DP = 28
         /** Left or Right held this long on the two-line player starts seeking, then one step this often. */
         const val SEEK_HOLD_MS = 450L
         const val SEEK_EVERY_MS = 400L
