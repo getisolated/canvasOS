@@ -49,6 +49,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         const val SHELF_SECONDS = 8
         private const val EXTRA_GUARD = "com.getisolated.canvasos.GUARD"
         private const val EXTRA_WAKE = "com.getisolated.canvasos.WAKE"
+        /** From the settings ("Personnaliser le Centre de contrôle"): the home opens with the Control Center in edit mode. */
+        const val EXTRA_EDIT_CC = "com.getisolated.canvasos.EDIT_CC"
         private const val REQUEST_BLUETOOTH = 41
 
         /**
@@ -273,6 +275,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         else registerReceiver(tileReceiver, IntentFilter(AppRepo.ACTION_TILE_CHANGED))
         KeeperService.start(this)
         if (!prefs.adbAuthorized) main.postDelayed({ askAdbAuthorization() }, if (intro != null) 8000L else 1500L)
+        // Started from the settings while no home screen was running.
+        if (intent.getBooleanExtra(EXTRA_EDIT_CC, false)) main.postDelayed({ if (!isDestroyed) control.open(edit = true, first = true) }, 800)
     }
 
     // ------------------------------------------------------------------- intro
@@ -389,6 +393,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             runCatching { startActivity(tv.wifiIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         }
         ccButton = IconButton(this, R.drawable.ic_toggles) { control.open() }
+        // A long press on OK opens it in edit mode, to move, resize, remove or add its controls.
+        ccButton.setOnLongClickListener { control.open(edit = true); true }
         netButton.contentDescription = "Réglages réseau"
         ccButton.contentDescription = "Centre de contrôle"
         icons.addView(clockText, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(10) })
@@ -1297,6 +1303,16 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         reload(first = true)
     }
 
+    /** Back from the settings' "Personnaliser le Centre de contrôle": the panel in edit mode, on its first control. */
+    private fun editControlCenter() {
+        sheets.toList().forEach { it.dismiss() }
+        closeFolder(animate = false)
+        if (moving >= 0) endMove()
+        control.close()
+        // Once the home screen is in front again and laid out.
+        main.postDelayed({ if (!isDestroyed) control.open(edit = true, first = true) }, 350)
+    }
+
     /** Opens the settings, on one of its pages ([SettingsActivity.EXTRA_PAGE]) or the main one. */
     fun openSettings(page: String? = null) {
         startActivity(Intent(this, SettingsActivity::class.java).apply { page?.let { putExtra(SettingsActivity.EXTRA_PAGE, it) } })
@@ -1366,6 +1382,13 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             return true
         }
         if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU) return true
+        // The Control Center's grid: edit mode takes the arrows and OK first; otherwise a control
+        // keeps the keys it uses (the slider's Left and Right) and the panel moves focus with the rest.
+        if (control.isOpen && sheets.isEmpty() && folderView == null) {
+            if (control.preKey(event)) return true
+            if (super.dispatchKeyEvent(event)) return true
+            return control.navKey(event)
+        }
         return super.dispatchKeyEvent(event)
     }
 
@@ -1373,6 +1396,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(Intro.EXTRA_PREVIEW, false)) { playIntro(preview = true); return }
         if (intent.getBooleanExtra(EXTRA_WAKE, false)) return  // onResume plays the intro
+        if (intent.getBooleanExtra(EXTRA_EDIT_CC, false)) { editControlCenter(); return }
         checkCustomTiles()
         // Home pressed while already home: close everything and go back to the top.
         sheets.toList().forEach { it.dismiss() }

@@ -423,10 +423,34 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("watch_next", true)
         set(v) = sp.edit().putBoolean("watch_next", v).apply()
 
-    /** The Control Center's player: [PLAYER_ONE] (one line) or [PLAYER_TWO] (a card with controls and progress); a long press on OK opens the large one from either. */
+    /**
+     * The Control Center's player: [PLAYER_ONE] (one line) or [PLAYER_TWO] (a card with controls and
+     * progress); a long press on OK opens the large one from either. Now the player's size in
+     * [ccLayout] (4 × 1 or 4 × 2), read from there while it is placed; the stored value only picks
+     * the default layout's player. Setting it resizes the player where it fits (CONFIG player_style).
+     */
     var playerStyle: String
+        get() = when (ccLayout.find(CcLayout.PLAYER)?.second?.h) {
+            1 -> PLAYER_ONE
+            2 -> PLAYER_TWO
+            else -> storedPlayerStyle
+        }
+        set(v) {
+            sp.edit().putString("player_style", v).apply()
+            val size = if (v == PLAYER_ONE) CcLayout.Size(4, 1) else CcLayout.Size(4, 2)
+            CcLayout.resize(ccLayout, CcLayout.PLAYER, size)?.let { ccLayout = it }
+        }
+
+    private val storedPlayerStyle: String
         get() = sp.getString("player_style", PLAYER_TWO)!!.takeIf { it == PLAYER_ONE || it == PLAYER_TWO } ?: PLAYER_TWO
-        set(v) = sp.edit().putString("player_style", v).apply()
+
+    /** Where the Control Center's controls stand, on up to three pages ([CcLayout]); the default layout until edited. */
+    var ccLayout: CcLayout.Layout
+        get() = CcLayout.parse(sp.getString("cc_layout", null), storedPlayerStyle == PLAYER_ONE)
+        set(v) = sp.edit().putString("cc_layout", CcLayout.serialize(v)).apply()
+
+    /** Back to [CcLayout.defaultLayout] (with the player at the stored [playerStyle]). */
+    fun resetCcLayout() = sp.edit().remove("cc_layout").apply()
 
     companion object {
         const val SHELF_ALL = "all"

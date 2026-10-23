@@ -28,9 +28,11 @@ class SettingsActivity : Activity() {
     companion object {
         const val SONY_DREAM = "com.sony.dtv.braviashow/com.sony.dtv.braviashow.BraviaDayDreamService"
         const val ICON_FILE = "settings_icon.png"
-        /** Opens the settings on a sub-page rather than the main one: [PAGE_PROFILES]. */
+        /** Opens the settings on a sub-page rather than the main one: [PAGE_PROFILES] or [PAGE_LOOK]. */
         const val EXTRA_PAGE = "com.getisolated.canvasos.PAGE"
         const val PAGE_PROFILES = "profiles"
+        /** Apparence, where the weather is switched on (the Control Center's idle Météo control leads there). */
+        const val PAGE_LOOK = "look"
 
         /**
          * A picture of the user's own for the settings icon (Apple TV's, say), uploaded from the phone
@@ -122,8 +124,8 @@ class SettingsActivity : Activity() {
      */
     private enum class Page(val title: String? = null, val summary: String? = null) {
         MAIN,
-        LOOK("Apparence", "L'horloge, le Dock, la photo de profil, la météo, l'effet de sélection, le style du Centre de contrôle " +
-            "et l'animation de démarrage."),
+        LOOK("Apparence", "L'horloge, le Dock, la photo de profil, la météo, l'effet de sélection, le Centre de contrôle " +
+            "(son style, ses commandes) et l'animation de démarrage."),
         WALLPAPER("Fond d'écran et cadre photo", "Le fond de l'écran d'accueil et la fréquence à laquelle il change, " +
             "et le cadre photo que le téléviseur affiche en économiseur d'écran."),
         SHELF("Top Shelf", "Les contenus de l'app sélectionnée dans le Dock, en plein écran au-dessus de lui, et d'où ils viennent."),
@@ -226,7 +228,7 @@ class SettingsActivity : Activity() {
         })
         root.addView(body, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
-        entry = if (intent.getStringExtra(EXTRA_PAGE) == PAGE_PROFILES) Page.PROFILES else Page.MAIN
+        entry = when (intent.getStringExtra(EXTRA_PAGE)) { PAGE_PROFILES -> Page.PROFILES; PAGE_LOOK -> Page.LOOK; else -> Page.MAIN }
         // A restricted profile reaches the settings only with the PIN, whichever way they were opened
         // (the avatar, the Control Center's gear, the grid's tile, another launcher).
         if (prefs.restricted && prefs.hasPin) {
@@ -446,11 +448,24 @@ class SettingsActivity : Activity() {
         }) {
             prefs.focusStyle = next(prefs.focusStyle, Prefs.FOCUS_TVOS, Prefs.FOCUS_SIMPLE)
         }
+        section("Centre de contrôle")
         row("Style du Centre de contrôle", "Verre : du verre dépoli qui laisse voir l'image derrière ; le bouton sélectionné devient blanc. Panneau : l'ancien panneau sombre." +
             "\nAuto choisit Verre sur tous les téléviseurs.", {
             auto(prefs.ccStyle, prefs.ccGlass(this), "Verre", "Panneau")
         }) {
             prefs.ccStyle = next(prefs.ccStyle, Prefs.CC_GLASS, Prefs.CC_PANEL)
+        }
+        row("Personnaliser le Centre de contrôle", "Ouvre le Centre de contrôle en mode modification. Ses commandes sont sur une grille " +
+            "de 4 × 6 cases, sur trois pages au plus (Bas depuis la dernière ligne passe à la page suivante). OK sur une commande : " +
+            "la déplacer, changer sa taille, la retirer, ajouter une commande ou une page. Retour pour terminer. " +
+            "Ailleurs, un appui long sur OK sur le bouton du Centre de contrôle, en haut à droite de l'accueil, fait de même.", { "" }, chevron = true) {
+            startActivity(Intent(this, HomeActivity::class.java).putExtra(HomeActivity.EXTRA_EDIT_CC, true))
+        }
+        row("Réinitialiser le panneau", "Remet les commandes du Centre de contrôle à leur place et à leur taille d'origine, sur deux pages.", { "" }) {
+            showSheet(Sheet(root).title("Réinitialiser le Centre de contrôle ?")
+                .message("Les commandes reprennent leur place et leur taille d'origine, sur deux pages.")
+                .button("Réinitialiser") { prefs.resetCcLayout() }
+                .button("Annuler") {})
         }
         // Only once a picture of the user's own was uploaded for this page.
         if (iconFile(this) != null) section("Cette page")
@@ -579,11 +594,6 @@ class SettingsActivity : Activity() {
                 if (ok) prefs.nowPlaying = true
                 runOnUiThread { v.text = if (ok) onOff(true) else LISTENER_NEEDED }
             }.start()
-        }
-        row("Lecteur", "Le lecteur du Centre de contrôle. Une ligne : pochette, titre et lecture/pause. Deux lignes : une carte avec les commandes et la progression ; " +
-            "Gauche et Droite changent de piste, maintenues elles reculent ou avancent de 10 s. Dans les deux cas, un appui long sur OK ouvre le grand lecteur.",
-            { if (prefs.playerStyle == Prefs.PLAYER_ONE) "Une ligne" else "Deux lignes" }) {
-            prefs.playerStyle = if (prefs.playerStyle == Prefs.PLAYER_ONE) Prefs.PLAYER_TWO else Prefs.PLAYER_ONE
         }
         section("Notifications")
         row("Bannières de notifications", "Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). " +

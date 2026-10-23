@@ -20,6 +20,7 @@ import android.os.SystemClock
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewConfiguration
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
@@ -37,6 +38,12 @@ import kotlin.math.roundToInt
  * The Control Center, in one of two looks ([Prefs.ccGlass]): independent liquid-glass controls
  * floating over the home screen (the default everywhere), or the same controls on one plain dark
  * panel when chosen in settings. The focused control turns white; its neighbours are left alone.
+ *
+ * The controls stand on a grid of 4 × 6 cells, on up to three pages stacked vertically
+ * ([CcLayout], [Prefs.ccLayout]): each at its place and at one of its sizes, holes allowed. A
+ * control with nothing to do (no inputs, no forecast, nothing playing) stays at its place, idle.
+ * Edit mode (a long press on the home screen's Control Center button, or the settings) moves,
+ * resizes, removes and adds them.
  *
  * The glass is cheap to draw: the home screen behind the controls is captured once at a quarter
  * of its size and blurred when the Control Center opens (and again only if the screen behind
@@ -95,11 +102,9 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         // screen-sized shadow under it, redrawn every frame: about 5 ms of GPU time on a BRAVIA.
         outlineProvider = null
     }
-    // Glass: layout only, the gaps between controls show the actual wallpaper. Panel: one dark card.
-    private val panel = LinearLayout(ctx).apply {
-        orientation = LinearLayout.VERTICAL
-        clipChildren = false
-        clipToPadding = false
+    // Glass: layout only, the gaps between controls show the actual wallpaper. Panel: one dark card ([backing]).
+    // Pages of the grid ([CcLayout]) stand in it at absolute places.
+    private val panel = FrameLayout(ctx).apply {
         translationZ = ctx.dp(101).toFloat()
         outlineProvider = null
         visibility = View.INVISIBLE
@@ -128,22 +133,31 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
     }
 
-    private val memButton: GlassButton
     private val brightness: Slider
-    private val inputModule: GlassButton
-    /** The player ([Prefs.nowPlaying]): what a media session plays; gone while nothing plays or is paused. */
+    // The controls built at the size their place asks for ([widget]); null while not placed yet.
+    private var inputModule: GlassButton? = null
+    private var networkModule: GlassButton? = null
+    private var sleepModule: GlassButton? = null
+    private var weatherModule: GlassButton? = null
+    private var bluetoothModule: GlassButton? = null
+    private var settingsModule: GlassButton? = null
+    /** The 4 × 2 Météo card's next three days; empty at 4 × 1. */
+    private var weatherDays: List<DayCell> = emptyList()
+    /** The player ([Prefs.nowPlaying]): what a media session plays; [emptyPlayer] stands in while nothing does. */
     private var now: NowPlaying? = null
     /** Artwork that came from an address is shown as soon as it has loaded, not at the next 2 s poll. */
     private val nowReader = NowPlaying.Reader(ctx, ctx.dp(84), ctx.dp(BIG_ART_DP)) { host.post { updateNowPlaying() } }
     private var nowReading = false
     /** When the user last pressed something on the player: a reading begun before it is out of date. */
     private var actedAt = 0L
-    /** [Prefs.playerStyle] is [Prefs.PLAYER_ONE]: the panel shows [nowLine] rather than [nowCard]. */
-    private var playerOne = prefs.playerStyle == Prefs.PLAYER_ONE
+    /** The player stands at 4 × 1 ([Prefs.playerStyle] one): it shows [nowLine] rather than [nowCard]. */
+    private var playerOne = false
     /** State 1, one line: artwork, title and artist, play/pause. */
     private val nowLine: GlassButton
     /** State 2, two lines: artwork, title, artist, transport and progress. */
     private val nowCard: PlayerCard
+    /** The player while nothing plays: an empty glass card of its size. */
+    private val emptyPlayer: EmptyPlayer
     /** State 3, the large player, in place of the whole panel (a long press on OK). */
     private val big: PlayerBig
     /** Holds [big] above the panel; raised itself, so the glass card casts no platform shadow. */
@@ -168,13 +182,11 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private var bigW = 0
     private var bigH = 0
     private var bigS = 1f
-    private val networkModule: GlassButton
-    private val sleepModule: GlassButton
-    private val weatherModule: GlassButton
-    private val bluetoothModule: GlassButton
     private var inputs: List<Input> = emptyList()
-    private val status = ctx.text(11f, Color.argb(190, 255, 255, 255))
-    private val focusables = ArrayList<View>()
+    /** The inputs have been read once: until then Source says nothing rather than "Aucune entrée". */
+    private var inputsRead = false
+    private var inputCurrent: String? = null
+    private var inputSummary = ""
     private val io = Executors.newSingleThreadExecutor()
     private val tv = TvControls(ctx)
 
@@ -187,8 +199,46 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     private var btBusy = false
     private var btCheckedAt = 0L
     private var btAsked = false
-    /** Below 1 only when the panel is taller than the screen; see [fitScale]. */
-    private var restScale = 1f
+
+    // ---- the grid ([CcLayout]): pages of 4 × 6 cells, each control at its place and size ----
+    private val span = cell + gap
+    private val gridH = cell * CcLayout.ROWS + gap * (CcLayout.ROWS - 1)
+    /** Around the grid inside [panel]: room for focused controls to grow into, and the page dots. */
+    private val room = ctx.dp(16)
+    private var layout = prefs.ccLayout
+    private var layoutJson = CcLayout.serialize(layout)
+    /** One container per page, all at the grid's place in [panel]; only [page] shows, but while sliding. */
+    private val pageViews = ArrayList<FrameLayout>()
+    /** Each page's "Page vide" capsule, the only thing to focus on an empty page in edit mode. */
+    private val blanks = ArrayList<Blank>()
+    private var page = 0
+    private val pageTween = Tween()
+    private val dots = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+    /** The panel look's dark card, down to the lowest row in use. */
+    private val backing = View(ctx)
+    /** Each control's view (but the player's), the size it was built at, and the other way round. */
+    private val views = HashMap<String, View>()
+    private val builtAt = HashMap<String, CcLayout.Size>()
+    private val idByView = HashMap<View, String>()
+    /** Holds the player's looks ([nowLine], [nowCard], [emptyPlayer]), one shown at a time. */
+    private val playerSlot = FrameLayout(ctx).apply { clipChildren = false; clipToPadding = false }
+    /** The control focus last came from: going back the other way returns to it. */
+    private var cameFrom: String? = null
+    /** The control last focused in the grid ("" for an empty page's capsule) and its page, for focus after a sheet. */
+    private var focusedId: String? = null
+    private var focusedPage = 0
+
+    // ---- edit mode: a long press on the home screen's Control Center button, or the settings ----
+    private var editing = false
+    /** A control being moved: where it was, where it stands now, and its alpha to give back. */
+    private class Moving(val id: String, val from: CcLayout.Pos, var at: CcLayout.Pos, val w: Int, val h: Int, val alpha: Float)
+    private var moving: Moving? = null
+    /** Where OK went down in edit mode: only a press that also ends there opens a sheet. */
+    private var okDownOn: View? = null
+    private var wiggling: View? = null
+    private val wiggle = Tween()
+    private val slideStep = Tween()
+    private val focusWatch = android.view.ViewTreeObserver.OnGlobalFocusChangeListener { _, new -> focusMoved(new) }
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -206,77 +256,32 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         private set
 
     init {
-        // tvOS layout: a square power tile beside two capsules, then a row of round buttons.
-        val top = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
-        val power = GlassButton("Éteindre", R.drawable.ic_power, Shape.TILE) {
-            confirm("Éteindre", "Le téléviseur s'éteint complètement. Rallumez-le avec le bouton marche/arrêt de la télécommande.") { Cleaner.shutdown(ctx) }
-        }
-        // The tile is narrower than it is tall so the capsules have room for an IP address (about
-        // 55 to 75 dp at their subtitle size) and "Dans 27 min": at half the panel each had 54 dp.
-        top.addView(power, LinearLayout.LayoutParams(0, cell * 2 + gap, 0.8f).apply { marginEnd = gap })
-        val right = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; clipChildren = false }
-        networkModule = GlassButton("Réseau", R.drawable.ic_wifi, Shape.CAPSULE, accent = Color.rgb(48, 222, 239)) {
-            close()
-            runCatching { ctx.startActivity(tv.wifiIntent()) }
-        }
-        right.addView(networkModule, LinearLayout.LayoutParams(-1, cell))
-        sleepModule = GlassButton("Veille", R.drawable.ic_moon, Shape.CAPSULE) { needAdb { close(); sleepSheet() } }
-        right.addView(sleepModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
-        top.addView(right, LinearLayout.LayoutParams(0, -2, 1.2f))
-        panel.addView(top)
-
-        val utilities = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
-        fun utility(label: String, icon: Int, action: () -> Unit): GlassButton =
-            GlassButton(label, icon, Shape.ROUND, action = action).also {
-                utilities.addView(it, LinearLayout.LayoutParams(cell, cell).apply {
-                    if (utilities.childCount > 0) marginStart = (this@ControlCenter.width - cell * 4) / 3
-                })
-            }
-        memButton = utility("Libérer la mémoire", R.drawable.ic_memory) { cleanNow() }
-        utility("Photo suivante", R.drawable.ic_photo) { ctx.nextWallpaper { status.text = it; status.visibility = View.VISIBLE } }
-        utility("Cadre photo", R.drawable.ic_screensaver) {
-            close()
-            ctx.openFrame()
-        }
-        utility("Réglages", R.drawable.ic_gear) {
-            close()
-            ctx.startActivity(Intent(ctx, SettingsActivity::class.java))
-        }
-        panel.addView(utilities, LinearLayout.LayoutParams(-1, -2).apply { topMargin = gap })
-
-        brightness = Slider(R.drawable.ic_sun, "Luminosité") { v -> tv.setBrightness(v) }.also { focusables += it }
-        panel.addView(brightness, LinearLayout.LayoutParams(-1, ctx.dp(38)).apply { topMargin = gap })
-        // Only on a TV that has inputs to choose from: a box has none, and the first refresh says so.
-        inputModule = GlassButton("Source", R.drawable.ic_input, Shape.CAPSULE) { pickInput() }
-        inputModule.visibility = View.GONE
-        panel.addView(inputModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
-        // The player, one of two looks ([Prefs.playerStyle]); its keys are handled by playerKey.
+        brightness = Slider(R.drawable.ic_sun, "Luminosité") { v -> tv.setBrightness(v) }
+        idByView[brightness] = CcLayout.BRIGHTNESS
+        // The player's looks share its place; their keys are handled by playerKey.
         nowLine = GlassButton("Lecture", R.drawable.ic_music, Shape.CAPSULE) { togglePlay() }
         nowLine.trailing(R.drawable.ic_pause)
         nowLine.visibility = View.GONE
         nowLine.onFocus = { on -> if (!on) hold.release(nowLine) }
         nowLine.setOnKeyListener { v, code, e -> playerKey(v, code, e, skips = false) }
-        panel.addView(nowLine, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
         nowCard = PlayerCard()
         nowCard.visibility = View.GONE
         nowCard.setOnKeyListener { v, code, e -> playerKey(v, code, e, skips = true) }
-        panel.addView(nowCard, LinearLayout.LayoutParams(-1, -2).apply { topMargin = gap })
-        weatherModule = GlassButton("Météo", R.drawable.ic_wx_partly_cloudy, Shape.CAPSULE) { weatherSheet() }
-        panel.addView(weatherModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
-        // Hidden until the first refresh finds a Bluetooth adapter: a TV without one never shows it.
-        bluetoothModule = GlassButton("Bluetooth", R.drawable.ic_bluetooth, Shape.CAPSULE) { bluetoothPressed() }
-        bluetoothModule.visibility = View.GONE
-        panel.addView(bluetoothModule, LinearLayout.LayoutParams(-1, cell).apply { topMargin = gap })
-        panel.addView(status, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ctx.dp(10) })
-        // The host clips the panel to its bounds; the padding is room for focused controls to grow into.
-        val room = ctx.dp(16)
-        panel.setPadding(room, room, room, room)
-        host.addView(panel, FrameLayout.LayoutParams(width + room * 2, -2, Gravity.TOP or Gravity.END).apply {
+        emptyPlayer = EmptyPlayer()
+        for (v in listOf(nowLine, nowCard, emptyPlayer)) playerSlot.addView(v, FrameLayout.LayoutParams(-1, -1))
+        idByView[playerSlot] = CcLayout.PLAYER
+        panel.addView(backing, FrameLayout.LayoutParams(-1, 0))
+        panel.addView(dots, FrameLayout.LayoutParams(-2, -2, Gravity.START or Gravity.CENTER_VERTICAL).apply {
+            leftMargin = (room - ctx.dp(DOT_DP)) / 2
+        })
+        // The panel clips at its own bounds: a page sliding away goes no further than the room around the grid.
+        host.addView(panel, FrameLayout.LayoutParams(width + room * 2, gridH + room * 2, Gravity.TOP or Gravity.END).apply {
             topMargin = ctx.dp(PANEL_TOP) - room; marginEnd = ctx.dp(32) - room
         })
         panel.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
             if (l != oldL || t != oldT || r != oldR || b != oldB) refreshGlass()
         }
+        applyLayout()
         big = PlayerBig()
         bigHost.addView(big, FrameLayout.LayoutParams(-2, -2))
         host.addView(bigHost, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
@@ -286,31 +291,27 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             if (l != oldL || t != oldT || r != oldR || b != oldB) refreshGlass()
         }
         host.addView(morph, FrameLayout.LayoutParams(-1, -1))
+        host.viewTreeObserver.addOnGlobalFocusChangeListener(focusWatch)
         panel.post { refresh() }
         // A timer started before this screen was recreated still owes its one-minute warning.
         armSleepWarning()
-        // Report cleanup without expanding the button and moving every control below it.
-        status.setShadowLayer(ctx.dp(3).toFloat(), 0f, 0f, Color.BLACK)
         applyStyle()
     }
 
-    /** Picks up a change of [Prefs.ccStyle] or [Prefs.playerStyle] made in settings. */
+    /** Picks up a change of [Prefs.ccStyle], or of [Prefs.ccLayout] made in settings or over adb ([Prefs.playerStyle]). */
     fun applyStyle() {
-        val one = prefs.playerStyle == Prefs.PLAYER_ONE
-        if (one != playerOne) {
-            playerOne = one
-            // Shown again from scratch in the other look.
-            val n = now
-            now = null
-            nowLine.visibility = View.GONE
-            nowCard.visibility = View.GONE
-            showNow(n)
+        val saved = prefs.ccLayout
+        val json = CcLayout.serialize(saved)
+        if (json != layoutJson && moving == null) {
+            layout = saved
+            layoutJson = json
+            applyLayout()
         }
         val glass = prefs.ccGlass(ctx)
         if (glass == glassStyle && panel.tag != null) return
         panel.tag = true
         glassStyle = glass
-        panel.background = if (glass) null else panelCard
+        backing.background = if (glass) null else panelCard
         big.background = if (glass) big.glass else bigCard
         if (!glass) { endBlurFade(); blur = null; blurShader = null }
         blurDirty = true
@@ -569,21 +570,35 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         return Sample(bmp, left.toFloat(), top.toFloat())
     }
 
-    private enum class Shape { TILE, CAPSULE, ROUND }
+    /** ROUND: 1 × 1, icon only. CAPSULE: N × 1. TILE: 2 × 2, glyph over label. CARD: 4 × 2, a capsule's header over [GlassButton.extra]. */
+    private enum class Shape { TILE, CAPSULE, ROUND, CARD }
 
+    private fun shapeOf(s: CcLayout.Size) = when {
+        s.w == 1 && s.h == 1 -> Shape.ROUND
+        s.h == 1 -> Shape.CAPSULE
+        s.w == 2 && s.h == 2 -> Shape.TILE
+        else -> Shape.CARD
+    }
+
+    /**
+     * A glass control. [narrow]: a 2 × 1 capsule, with tighter margins and a subtitle that shrinks to
+     * fit an IP address; [wrap]: its label may take two lines ("Libérer la / mémoire").
+     */
     private inner class GlassButton(
         label: String,
         icon: Int,
         shape: Shape,
         accent: Int = Color.WHITE,
+        narrow: Boolean = false,
+        wrap: Boolean = false,
         action: () -> Unit,
     ) : LinearLayout(ctx) {
         // Capsules and circles clamp this to half their height.
-        private val glass = glassFor(this, ctx.dp(if (shape == Shape.TILE) 24 else 100).toFloat())
+        private val glass = glassFor(this, ctx.dp(when (shape) { Shape.TILE -> 24; Shape.CARD -> 22; else -> 100 }).toFloat())
         val glyph = ImageView(ctx)
-        val title = ctx.text(12.5f, weight = 600).apply {
+        val title = ctx.text(if (narrow) 12f else 12.5f, weight = 600).apply {
             text = label
-            maxLines = 1
+            maxLines = if (wrap) 2 else 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
         val sub = ctx.text(10.5f, Color.argb(205, 255, 255, 255), weight = 500).apply {
@@ -591,6 +606,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
+        /** A CARD's content under its header (the weather's next days). */
+        val extra = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         /** A new glyph, such as the weather's; it keeps its colour. */
         fun setIcon(res: Int) = glyph.setImageResource(res)
         /** A glyph at the far end (the one-line player's play/pause), white like the title. */
@@ -598,6 +615,17 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             private set
         /** Told when focus comes or goes, after the control has lit or dimmed. */
         var onFocus: ((Boolean) -> Unit)? = null
+        /**
+         * Nothing to do right now (no inputs, no forecast, no Bluetooth): glyph and text dimmed, the
+         * glass as it is, so an idle control reads the same everywhere and keeps its place.
+         */
+        var idle = false
+            set(v) {
+                if (field == v) return
+                field = v
+                val a = if (v) IDLE_ALPHA else 1f
+                for (x in listOfNotNull(glyph, title, sub, trail, extra)) x.alpha = a
+            }
 
         fun trailing(res: Int): ImageView = (trail ?: ImageView(ctx).also {
             trail = it
@@ -607,28 +635,47 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         init {
             id = View.generateViewId()
             contentDescription = label
-            focusables += this
             orientation = if (shape == Shape.CAPSULE) HORIZONTAL else VERTICAL
-            gravity = if (shape == Shape.CAPSULE) Gravity.CENTER_VERTICAL else Gravity.CENTER
+            gravity = when (shape) { Shape.CAPSULE -> Gravity.CENTER_VERTICAL; Shape.CARD -> Gravity.TOP; else -> Gravity.CENTER }
             isFocusable = true
             isClickable = true
-            if (shape == Shape.CAPSULE) setPadding(ctx.dp(13), 0, ctx.dp(10), 0)
-            val size = ctx.dp(when (shape) { Shape.TILE -> 40; Shape.CAPSULE -> 20; Shape.ROUND -> 21 })
-            addView(glyph.apply { setImageResource(icon); setColorFilter(accent) },
-                LayoutParams(size, size).apply { if (shape == Shape.CAPSULE) marginEnd = ctx.dp(9) })
+            if (shape == Shape.CAPSULE) setPadding(ctx.dp(if (narrow) 11 else 13), 0, ctx.dp(if (narrow) 8 else 10), 0)
+            if (shape == Shape.CARD) setPadding(ctx.dp(13), ctx.dp(12), ctx.dp(13), ctx.dp(10))
+            if (narrow) {
+                // An address such as 192.168.100.200 in about 60 dp: the subtitle shrinks rather than cut it.
+                sub.setAutoSizeTextTypeUniformWithConfiguration(8, 10, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+            }
+            val size = ctx.dp(when (shape) { Shape.TILE -> 40; Shape.CAPSULE -> if (narrow) 18 else 20; Shape.ROUND -> 21; Shape.CARD -> 20 })
+            glyph.setImageResource(icon)
+            glyph.setColorFilter(accent)
+            val column = LinearLayout(ctx).apply {
+                orientation = VERTICAL
+                addView(title)
+                addView(sub, LayoutParams(-1, if (narrow) ctx.dp(13) else -2).apply { topMargin = ctx.dp(1) })
+            }
+            val glyphLp = LayoutParams(size, size).apply { if (shape == Shape.CAPSULE || shape == Shape.CARD) marginEnd = ctx.dp(if (narrow) 7 else 9) }
             // Round buttons are icon-only, as on tvOS; the label stays for accessibility.
             when (shape) {
-                Shape.TILE -> addView(title, LayoutParams(-2, -2).apply { topMargin = ctx.dp(8) })
-                Shape.CAPSULE -> addView(LinearLayout(ctx).apply {
-                    orientation = VERTICAL
-                    addView(title)
-                    addView(sub, LayoutParams(-1, -2).apply { topMargin = ctx.dp(1) })
-                }, LayoutParams(0, -2, 1f))
-                Shape.ROUND -> {}
+                Shape.TILE -> {
+                    addView(glyph, glyphLp)
+                    addView(title, LayoutParams(-2, -2).apply { topMargin = ctx.dp(8) })
+                }
+                Shape.CAPSULE -> {
+                    addView(glyph, glyphLp)
+                    addView(column, LayoutParams(0, -2, 1f))
+                }
+                Shape.ROUND -> addView(glyph, glyphLp)
+                Shape.CARD -> {
+                    val header = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                    header.addView(glyph, glyphLp)
+                    header.addView(column, LayoutParams(0, -2, 1f))
+                    addView(header, LayoutParams(-1, -2))
+                    addView(extra, LayoutParams(-1, 0, 1f).apply { topMargin = ctx.dp(6) })
+                }
             }
             setOnClickListener { action() }
             setOnFocusChangeListener { _, on ->
-                focus(this, glass, on, when (shape) { Shape.TILE -> 1.06f; Shape.CAPSULE -> 1.05f; Shape.ROUND -> 1.1f })
+                focus(this, glass, on, when (shape) { Shape.TILE -> 1.06f; Shape.CAPSULE -> 1.05f; Shape.ROUND -> 1.1f; Shape.CARD -> 1.04f })
                 // Lit glass is bright: dark glyphs keep the focused control readable on any wallpaper.
                 val ink = Color.argb(225, 0, 0, 0)
                 glyph.setColorFilter(if (on) ink else accent)
@@ -640,6 +687,69 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
     }
 
+    /** One of the 4 × 2 Météo card's next days: its short name, its glyph, its low and high. */
+    private inner class DayCell : LinearLayout(ctx) {
+        val day = ctx.text(10f, SUB, weight = 600).apply { gravity = Gravity.CENTER; maxLines = 1 }
+        val glyph = ImageView(ctx)
+        val temps = ctx.text(10f, weight = 500).apply { gravity = Gravity.CENTER; maxLines = 1 }
+
+        init {
+            orientation = VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            addView(day, LayoutParams(-1, -2))
+            addView(glyph, LayoutParams(ctx.dp(16), ctx.dp(16)).apply { topMargin = ctx.dp(3); bottomMargin = ctx.dp(3) })
+            addView(temps, LayoutParams(-1, -2))
+        }
+
+        fun ink(on: Boolean) {
+            day.setTextColor(if (on) INK_SUB else SUB)
+            temps.setTextColor(if (on) INK else Color.WHITE)
+        }
+    }
+
+    /** The player while nothing plays: an empty glass card at the player's size, a faint note in its middle; OK only bumps. */
+    private inner class EmptyPlayer : FrameLayout(ctx) {
+        val glass = glassFor(this, ctx.dp(22).toFloat())
+        private val note = ImageView(ctx).apply { setImageResource(R.drawable.ic_music); alpha = 0.3f }
+
+        init {
+            isFocusable = true
+            isClickable = true
+            contentDescription = "Lecture : rien en cours"
+            addView(note, LayoutParams(ctx.dp(22), ctx.dp(22), Gravity.CENTER))
+            setOnClickListener { Motion.bump(this, 1, 0) }
+            setOnFocusChangeListener { _, on ->
+                focus(this, glass, on, if (playerOne) 1.05f else 1.04f)
+                note.setColorFilter(if (on) INK else Color.WHITE)
+            }
+        }
+    }
+
+    /** An empty page's place-holder in edit mode: a dashed capsule; OK offers to fill the page or delete it. */
+    private inner class Blank : TextView(ctx) {
+        private val idle = GradientDrawable().apply {
+            cornerRadius = cell / 2f
+            setColor(Color.argb(20, 255, 255, 255))
+            setStroke(ctx.dp(1.5f), Color.argb(150, 255, 255, 255), ctx.dp(6).toFloat(), ctx.dp(4).toFloat())
+        }
+        private val lit = rounded(Color.argb(235, 255, 255, 255), cell / 2f)
+
+        init {
+            text = "Page vide"
+            textSize = 12.5f
+            typeface = Fonts.inter(ctx, 600)
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            isFocusable = true
+            visibility = View.GONE
+            background = idle
+            setOnFocusChangeListener { _, on ->
+                background = if (on) lit else idle
+                setTextColor(if (on) INK else Color.WHITE)
+                tweenScale(if (on) 1.05f else 1f, if (on) 260 else 200, if (on) Motion.spring else Motion.ease)
+            }
+        }
+    }
     /**
      * iOS-style capsule slider: the white fill is the value. Left/right change it,
      * and the TV follows while the key is held.
@@ -650,7 +760,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         private val steps: Int = 25,
         private val send: (Int) -> Unit,
     ) : FrameLayout(ctx) {
-        private val corner = ctx.dp(19).toFloat()
+        // A capsule as tall as a cell, as the controls around it.
+        private val corner = cell / 2f
         private val glass = glassFor(this, corner).apply { focusWash = 0 }
         private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val fillClip = android.graphics.Path()
@@ -695,6 +806,11 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
                 draw()
             }
             setOnKeyListener { _, code, e ->
+                // No brightness to set (no API on this TV): OK only bumps, as on any idle control.
+                if (isConfirm(code)) {
+                    if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0 && !ready) Motion.bump(this, 1, 0)
+                    return@setOnKeyListener !ready
+                }
                 if (code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) return@setOnKeyListener false
                 if (e.action == KeyEvent.ACTION_DOWN && ready) {
                     val dir = if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1
@@ -809,9 +925,14 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
 
     // ---- open / close -------------------------------------------------------------
 
-    fun open() {
-        if (isOpen) return
+    /**
+     * Opens the panel; [edit] in edit mode, from a long press on the home screen's Control Center
+     * button or the settings ([first]: on page 1's first control rather than the one last focused).
+     */
+    fun open(edit: Boolean = false, first: Boolean = false) {
+        if (isOpen) { if (edit && !editing) startEdit(first); return }
         isOpen = true
+        editing = edit
         home.pauseShelfRotation()
         panel.animate().cancel()
         scrim.animate().cancel()
@@ -822,57 +943,58 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         panel.bringToFront()
         // The clock, weather and corner buttons give way to the panel, which takes their corner.
         home.setHeaderShown(false, immediate = true)
+        applyLayout()
+        val (p, id) = if (first) firstPlaced() else openFocus()
+        page = p
+        settlePages()
+        updateDots()
         // Sampled before the first frame, so the glass never shows up empty.
         if (glassStyle && (blurDirty || blur == null)) sampleBehind()
         panel.visibility = View.VISIBLE
         panel.alpha = 0f
         // It slides down from the top edge.
         panel.translationY = -ctx.dp(24).toFloat()
-        restScale = fitScale()
-        panel.scaleX = 0.97f * restScale
-        panel.scaleY = 0.97f * restScale
-        panel.pivotX = panel.width - panel.paddingRight.toFloat()
-        panel.pivotY = panel.paddingTop.toFloat()
+        panel.scaleX = 0.97f
+        panel.scaleY = 0.97f
+        panel.pivotX = panel.width - room.toFloat()
+        panel.pivotY = room.toFloat()
         scrim.animate().alpha(1f).setDuration(220).start()
-        panel.animate().alpha(1f).translationY(0f).scaleX(restScale).scaleY(restScale).setDuration(320)
+        panel.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(320)
             .setInterpolator(Motion.ease).setUpdateListener { if (glassStyle) invalidateSurfaces() }.start()
-        openFocus().requestFocus()
+        if (!focusOn(id, p)) focusFirst()
+        if (edit) editHint()
         host.removeCallbacks(ticker)
         host.post(ticker)
     }
 
     /**
      * Where focus goes on opening: the control focused when the panel last closed, for as long as
-     * the app lives and that control is still shown; "Libérer la mémoire" the first time.
+     * the app lives and that control is still placed; page 1's first control otherwise.
      */
-    private fun openFocus(): View {
-        val v = focusables.getOrNull(lastFocus) ?: return memButton
-        // The player in whichever look it has now.
-        val target = if (v === nowLine || v === nowCard) (if (playerOne) nowLine else nowCard) else v
-        return if (shown(target)) target else memButton
+    private fun openFocus(): Pair<Int, String> {
+        val id = lastFocusId
+        if (id != null) layout.find(id)?.let { return it.first to id }
+        return firstPlaced()
     }
 
-    /** [v] and every parent up to the panel are visible, so focus can land on it. */
-    private fun shown(v: View): Boolean {
-        var cur: View? = v
-        while (cur != null && cur !== panel) {
-            if (cur.visibility != View.VISIBLE) return false
-            cur = cur.parent as? View
-        }
-        return v.isFocusable
+    /** The first control in reading order, page 1 first. */
+    private fun firstPlaced(): Pair<Int, String> {
+        layout.pages.forEachIndexed { p, items -> CcLayout.first(items)?.let { return p to it.id } }
+        return 0 to ""
     }
 
     /** Remembers the focused control for the next opening; the large player counts as its player. */
     private fun rememberFocus() {
-        val f = if (expanded || morphing) (if (playerOne) nowLine else nowCard) else focusables.firstOrNull { it.isFocused }
-        val i = if (f == null) -1 else focusables.indexOf(f)
-        if (i >= 0) lastFocus = i
+        val id = if (expanded || morphing) CcLayout.PLAYER else idOf(panel.findFocus())
+        if (!id.isNullOrEmpty()) lastFocusId = id
     }
 
     fun close() {
         if (!isOpen) return
         rememberFocus()
         isOpen = false
+        if (moving != null) cancelMove()
+        if (editing) { editing = false; wiggleOn(null); for (b in blanks) b.visibility = View.GONE }
         host.removeCallbacks(ticker)
         host.removeCallbacks(progressTick)
         hold.cancel()
@@ -887,7 +1009,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         brightness.finishAnimation()
         scrim.animate().alpha(0f).setDuration(180).start()
         home.setHeaderShown(true)
-        panel.animate().alpha(0f).translationY(-ctx.dp(24).toFloat()).scaleX(0.97f * restScale).scaleY(0.97f * restScale).setDuration(200)
+        panel.animate().alpha(0f).translationY(-ctx.dp(24).toFloat()).scaleX(0.97f).scaleY(0.97f).setDuration(200)
             .setUpdateListener { if (glassStyle) invalidateSurfaces() }
             .withEndAction {
                 host.removeView(scrim)
@@ -903,9 +1025,13 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         host.removeCallbacks(ticker)
         host.removeCallbacks(resample)
         host.removeCallbacks(sleepWarning)
+        runCatching { host.viewTreeObserver.removeOnGlobalFocusChangeListener(focusWatch) }
         panel.animate().cancel()
         scrim.animate().cancel()
         bigHost.animate().cancel()
+        pageTween.cancel()
+        slideStep.cancel()
+        wiggle.cancel()
         hold.cancel()
         stopMorph()
         endBlurFade()
@@ -917,27 +1043,32 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         bt.shutdownNow()
     }
 
+    /** Focus back on the panel after a sheet: the control it was on, else the first one. */
     fun refocus() {
         if (expanded) { (big.findFocus() ?: big.firstFocus()).requestFocus(); return }
-        (focusables.firstOrNull { it.isFocused && shown(it) } ?: memButton).requestFocus()
+        val id = focusedId
+        val p = if (id == "") focusedPage else id?.let { layout.find(it)?.first }
+        if (id != null && p != null && focusOn(id, p)) return
+        focusFirst()
     }
 
-    /** Back (or Menu) while open: the large player's cursor goes first, then the large player itself, then the panel. */
+    /**
+     * Back (or Menu) while open: a control being moved goes back to its place, then edit mode ends;
+     * otherwise the large player's cursor goes first, then the large player itself, then the panel.
+     */
     fun back() {
-        if (!expanded) close() else if (!big.cancelCursor()) collapse()
+        when {
+            moving != null -> cancelMove()
+            editing -> endEdit()
+            !expanded -> close()
+            !big.cancelCursor() -> collapse()
+        }
     }
 
     fun refresh() {
         if (destroyed) return
-        // Only when nothing more pressing is said: the update hint comes second.
-        status.text = if (!prefs.adbAuthorized) "Débogage local non autorisé : extinction, veille et nettoyage complet indisponibles"
-        else Updater.pending(prefs)?.let { "canvasOS $it disponible : Réglages → Mise à jour" }.orEmpty()
-        status.visibility = if (status.text.isEmpty()) View.GONE else View.VISIBLE
-        // The address is the subtitle by itself: "Connecté · 192.168.1.20" does not fit the capsule,
-        // and what a computer needs to reach the TV (AGENTS.md steps 0 and 1) is the address.
-        networkModule.title.text = (if (Net.isWired(ctx)) "Ethernet" else "Wi-Fi") + (Net.ssid(ctx)?.let { " · $it" } ?: "")
-        networkModule.sub.text = if (!Net.isConnected(ctx)) "Déconnecté" else Net.lanAddress(ctx) ?: "Connecté"
-        networkModule.sub.visibility = View.VISIBLE
+        updateNetwork()
+        updateSettings()
         updateSleep()
         updateWeather()
         updateNowPlaying()
@@ -954,20 +1085,609 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             host.post {
                 refreshing = false
                 if (destroyed) return@post
+                // Without a brightness API the slider stays, dimmed, with "—" (Slider.set).
                 brightness.set(b)
-                if (b == null && brightness.hasFocus()) memButton.requestFocus()
-                brightness.visibility = if (b == null) View.GONE else View.VISIBLE
                 inputs = list
-                // A box (or a TV whose inputs cannot be read) has nothing to switch to: no capsule.
-                val vis = if (list.isEmpty()) View.GONE else View.VISIBLE
-                if (inputModule.visibility != vis) {
-                    if (vis == View.GONE && inputModule.hasFocus()) memButton.requestFocus()
-                    inputModule.visibility = vis
-                }
-                inputModule.sub.visibility = View.VISIBLE
-                inputModule.sub.text = list.firstOrNull { it.uri == cur }?.name ?: summary
+                inputsRead = true
+                inputCurrent = list.firstOrNull { it.uri == cur }?.name
+                inputSummary = summary
+                updateInput()
             }
         }
+    }
+
+    /**
+     * The Réseau control. The address is the subtitle by itself: "Connecté · 192.168.1.20" does not
+     * fit the capsule, and what a computer needs to reach the TV (AGENTS.md steps 0 and 1) is the address.
+     */
+    private fun updateNetwork() {
+        val m = networkModule ?: return
+        m.title.put((if (Net.isWired(ctx)) "Ethernet" else "Wi-Fi") + (Net.ssid(ctx)?.let { " · $it" } ?: ""))
+        m.sub.put(if (!Net.isConnected(ctx)) "Déconnecté" else Net.lanAddress(ctx) ?: "Connecté")
+        m.sub.visibility = View.VISIBLE
+    }
+
+    /** The Réglages capsule (2 × 1) says when an update is waiting; the round button has no room to. */
+    private fun updateSettings() {
+        val m = settingsModule ?: return
+        val t = Updater.pending(prefs)?.let { "canvasOS $it disponible" }.orEmpty()
+        m.sub.put(t)
+        m.sub.visibility = if (t.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    /**
+     * The Source control: the current input, or how many there are. A box (or a TV whose inputs
+     * cannot be read) has none to switch to: the control stays, idle, and says so.
+     */
+    private fun updateInput() {
+        val m = inputModule ?: return
+        val none = inputsRead && inputs.isEmpty()
+        m.idle = none
+        val narrow = builtAt[CcLayout.INPUT]?.w == 2
+        val t = when {
+            !inputsRead -> ""
+            none -> "Aucune entrée"
+            narrow -> inputCurrent ?: inputs.singleOrNull()?.name ?: "${inputs.size} entrées"
+            else -> inputCurrent ?: inputSummary
+        }
+        m.sub.put(t)
+        m.sub.visibility = if (t.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun toast(text: String, long: Boolean = false) =
+        Toast.makeText(ctx, text, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
+
+    // ---- the grid ---------------------------------------------------------------------
+
+    /** A span of [n] cells, gaps between them included. */
+    private fun len(n: Int) = n * cell + (n - 1) * gap
+
+    /**
+     * Puts every placed control on its page at its place and size, building those whose size
+     * changed; takes off those no longer placed. Pages come and go with the layout.
+     */
+    private fun applyLayout() {
+        val n = layout.pages.size
+        while (pageViews.size < n) addPageView()
+        while (pageViews.size > n) {
+            panel.removeView(pageViews.removeAt(pageViews.size - 1))
+            blanks.removeAt(blanks.size - 1)
+        }
+        val placed = HashSet<String>()
+        layout.pages.forEachIndexed { p, items ->
+            for (it in items) {
+                put(slot(it), p, it)
+                placed += it.id
+            }
+        }
+        for ((id, v) in views) if (id !in placed) (v.parent as? ViewGroup)?.removeView(v)
+        if (CcLayout.PLAYER !in placed) (playerSlot.parent as? ViewGroup)?.removeView(playerSlot)
+        layout.pages.forEachIndexed { p, items ->
+            blanks[p].visibility = if (editing && items.isEmpty()) View.VISIBLE else View.GONE
+        }
+        page = page.coerceIn(0, n - 1)
+        settlePages()
+        updateDots()
+        (backing.layoutParams as FrameLayout.LayoutParams).let { lp ->
+            val h = len(CcLayout.usedRows(layout)) + room * 2
+            if (lp.height != h) { lp.height = h; backing.layoutParams = lp }
+        }
+    }
+
+    private fun addPageView() {
+        val pv = FrameLayout(ctx).apply { clipChildren = false; clipToPadding = false }
+        panel.addView(pv, FrameLayout.LayoutParams(width, gridH).apply { leftMargin = room; topMargin = room })
+        val blank = Blank()
+        pv.addView(blank, FrameLayout.LayoutParams(width, cell))
+        pageViews += pv
+        blanks += blank
+    }
+
+    /** [v] on page [p] at [it]'s cells. */
+    private fun put(v: View, p: Int, it: CcLayout.Item) {
+        val pv = pageViews[p]
+        val w = len(it.w)
+        val h = len(it.h)
+        val x = it.x * span
+        val y = it.y * span
+        if (v.parent !== pv) {
+            (v.parent as? ViewGroup)?.removeView(v)
+            pv.addView(v, FrameLayout.LayoutParams(w, h).apply { leftMargin = x; topMargin = y })
+        } else {
+            val lp = v.layoutParams as FrameLayout.LayoutParams
+            if (lp.width != w || lp.height != h || lp.leftMargin != x || lp.topMargin != y) {
+                lp.width = w; lp.height = h; lp.leftMargin = x; lp.topMargin = y
+                v.layoutParams = lp
+            }
+        }
+    }
+
+    /** The view standing in [it]'s place: built (again) at its size, the player in its matching look. */
+    private fun slot(it: CcLayout.Item): View {
+        if (it.id == CcLayout.PLAYER) { setPlayerLook(it.h == 1); return playerSlot }
+        val size = it.size
+        val have = views[it.id]
+        if (have != null && builtAt[it.id] == size) return have
+        if (have != null) {
+            // Its glass goes with it: the surface list is walked on every invalidation.
+            surfaces.removeAll { s -> s.owner === have }
+            (have.parent as? ViewGroup)?.removeView(have)
+            idByView.remove(have)
+        }
+        builtAt[it.id] = size
+        val v = widget(it.id, size)
+        views[it.id] = v
+        idByView[v] = it.id
+        when (it.id) {
+            CcLayout.NETWORK -> updateNetwork()
+            CcLayout.SETTINGS -> updateSettings()
+            CcLayout.SLEEP -> updateSleep()
+            CcLayout.WEATHER -> updateWeather()
+            CcLayout.BLUETOOTH -> updateBluetooth()
+            CcLayout.INPUT -> updateInput()
+        }
+        return v
+    }
+
+    /** The view of the control at an existing place, by id. */
+    private fun slotOf(id: String): View? = if (id == CcLayout.PLAYER) playerSlot else views[id]
+
+    /** Builds control [id] at [s]: its shape follows the size (round, capsule, tile or card). */
+    private fun widget(id: String, s: CcLayout.Size): View {
+        val shape = shapeOf(s)
+        val narrow = shape == Shape.CAPSULE && s.w == 2
+        return when (id) {
+            CcLayout.POWER -> GlassButton("Éteindre", R.drawable.ic_power, shape, narrow = narrow) {
+                confirm("Éteindre", "Le téléviseur s'éteint complètement. Rallumez-le avec le bouton marche/arrêt de la télécommande.") { Cleaner.shutdown(ctx) }
+            }
+            CcLayout.NETWORK -> GlassButton("Réseau", R.drawable.ic_wifi, shape, accent = Color.rgb(48, 222, 239), narrow = narrow) {
+                close()
+                runCatching { ctx.startActivity(tv.wifiIntent()) }
+            }.also { networkModule = it }
+            CcLayout.SLEEP -> GlassButton("Veille", R.drawable.ic_moon, shape, narrow = narrow) { needAdb { close(); sleepSheet() } }
+                .also { sleepModule = it }
+            CcLayout.MEMORY -> GlassButton("Libérer la mémoire", R.drawable.ic_memory, shape, narrow = narrow, wrap = true) { cleanNow() }
+            CcLayout.PHOTO -> GlassButton("Photo suivante", R.drawable.ic_photo, shape, narrow = narrow, wrap = true) {
+                // Only the outcome: "Photo suivante…" would be one toast too many for a quick change.
+                ctx.nextWallpaper { if (it.isNotEmpty() && !it.endsWith("…")) toast(it) }
+            }
+            CcLayout.FRAME -> GlassButton("Cadre photo", R.drawable.ic_screensaver, shape, narrow = narrow, wrap = true) {
+                close()
+                ctx.openFrame()
+            }
+            CcLayout.SETTINGS -> GlassButton("Réglages", R.drawable.ic_gear, shape, narrow = narrow) {
+                close()
+                ctx.startActivity(Intent(ctx, SettingsActivity::class.java))
+            }.also { settingsModule = it }
+            CcLayout.BRIGHTNESS -> brightness
+            CcLayout.INPUT -> GlassButton("Source", R.drawable.ic_input, shape, narrow = narrow) {
+                if (inputs.isEmpty()) views[CcLayout.INPUT]?.let { v -> Motion.bump(v, 1, 0) } else pickInput()
+            }.also { inputModule = it }
+            CcLayout.WEATHER -> GlassButton("Météo", R.drawable.ic_wx_partly_cloudy, shape, narrow = narrow) { weatherPressed() }.also { m ->
+                weatherModule = m
+                weatherDays = if (shape != Shape.CARD) emptyList() else List(3) { DayCell() }.onEach {
+                    m.extra.addView(it, LinearLayout.LayoutParams(0, -2, 1f))
+                }
+                val days = weatherDays
+                m.onFocus = { on -> for (d in days) d.ink(on) }
+            }
+            CcLayout.BLUETOOTH -> GlassButton("Bluetooth", R.drawable.ic_bluetooth, shape, narrow = narrow) { bluetoothPressed() }
+                .also { bluetoothModule = it }
+            else -> View(ctx)
+        }
+    }
+
+    /** The player's look for its size: one line at 4 × 1, the card at 4 × 2. */
+    private fun setPlayerLook(one: Boolean) {
+        emptyPlayer.glass.radius = ctx.dp(if (one) 100 else 22).toFloat()
+        if (one == playerOne && playerSlot.tag != null) return
+        playerSlot.tag = true
+        val had = playerSlot.hasFocus()
+        if (expanded) collapse(animate = false)
+        playerOne = one
+        // Shown again from scratch in the other look.
+        val n = now
+        now = null
+        showNow(n)
+        if (had) playerLook().requestFocus()
+    }
+
+    /** The player's view on show now: its look, or the empty card. */
+    private fun playerLook(): View = listOf(nowLine, nowCard).firstOrNull { it.visibility == View.VISIBLE } ?: emptyPlayer
+
+    /** Every page but [page] hidden, and nothing left mid-slide. */
+    private fun settlePages() {
+        pageTween.cancel()
+        pageViews.forEachIndexed { p, pv ->
+            pv.translationY = 0f
+            pv.alpha = 1f
+            pv.visibility = if (p == page) View.VISIBLE else View.INVISIBLE
+        }
+    }
+
+    /**
+     * Page [p] slides in from below ([dir] 1) or above (-1) while the page shown slides out the
+     * other way, the whole grid moving by its height. Only render properties change on the way;
+     * the glass is drawn again each frame, as when the panel opens, since it maps through the
+     * page's translation.
+     */
+    private fun slideTo(p: Int, dir: Int) {
+        if (p == page || p !in pageViews.indices) return
+        settlePages()
+        val from = pageViews[page]
+        val to = pageViews[p]
+        page = p
+        updateDots()
+        if (!isOpen) { settlePages(); return }
+        val d = (gridH + gap).toFloat()
+        to.visibility = View.VISIBLE
+        pageTween.start(PAGE_MS, Motion.ease, end = {
+            from.visibility = View.INVISIBLE
+            from.translationY = 0f
+            from.alpha = 1f
+            if (glassStyle) invalidateSurfaces()
+        }) { f ->
+            from.translationY = -dir * d * f
+            from.alpha = 1f - f
+            to.translationY = dir * d * (1f - f)
+            to.alpha = f
+            if (glassStyle) invalidateSurfaces()
+        }
+    }
+
+    /** Small vertical dots at the panel's left edge, one per page focus can reach, while there are two or more. */
+    private fun updateDots() {
+        val reachable = layout.pages.indices.filter { navItems(it).isNotEmpty() }
+        if (reachable.size < 2) { dots.visibility = View.GONE; return }
+        dots.visibility = View.VISIBLE
+        while (dots.childCount < reachable.size) dots.addView(View(ctx).apply { background = rounded(Color.WHITE, ctx.dp(DOT_DP) / 2f) },
+            LinearLayout.LayoutParams(ctx.dp(DOT_DP), ctx.dp(DOT_DP)).apply { topMargin = ctx.dp(3); bottomMargin = ctx.dp(3) })
+        while (dots.childCount > reachable.size) dots.removeViewAt(dots.childCount - 1)
+        reachable.forEachIndexed { i, p -> dots.getChildAt(i).alpha = if (p == page) 1f else 0.35f }
+    }
+
+    /** The control [v] belongs to ("" for an empty page's capsule); null outside the grid. */
+    private fun idOf(v: View?): String? {
+        var cur: View? = v
+        while (cur != null && cur !== panel) {
+            idByView[cur]?.let { return it }
+            if (cur is Blank) return ""
+            cur = cur.parent as? View
+        }
+        return null
+    }
+
+    /** The places focus moves among on page [p]: an empty page in edit mode has its capsule. */
+    private fun navItems(p: Int): List<CcLayout.Item> {
+        val items = layout.pages.getOrNull(p) ?: return emptyList()
+        return if (items.isEmpty() && editing) listOf(CcLayout.Item("", 0, 0, CcLayout.COLS, 1)) else items
+    }
+
+    /** What takes focus for [id] on page [p]: the player's look on show, an empty page's capsule. */
+    private fun target(id: String, p: Int): View? = when (id) {
+        "" -> blanks.getOrNull(p)?.takeIf { it.visibility == View.VISIBLE }
+        CcLayout.PLAYER -> if (playerSlot.parent != null) playerLook() else null
+        else -> views[id]?.takeIf { it.parent != null }
+    }
+
+    /** Focus on [id], on page [p] (sliding there first); false when it is not there. */
+    private fun focusOn(id: String, p: Int): Boolean {
+        if (p !in pageViews.indices) return false
+        if (p != page) slideTo(p, if (p > page) 1 else -1)
+        return target(id, p)?.requestFocus() == true
+    }
+
+    private fun focusFirst() {
+        val (p, id) = firstPlaced()
+        focusOn(id, p)
+    }
+
+    /** Focus moved: remembered for after a sheet, and in edit mode the focused control wiggles. */
+    private fun focusMoved(v: View?) {
+        if (!isOpen || v == null) return
+        val id = idOf(v) ?: return
+        focusedId = id
+        focusedPage = page
+        if (editing) wiggleOn(if (id == "") null else slotOf(id), strong = moving?.id == id)
+    }
+
+    /**
+     * Arrows in the panel, once the focused control has not used them (the slider and the two-line
+     * player keep Left and Right): the nearest control that way on the page, holes skipped
+     * ([CcLayout.neighbour]); past the last row, the next page that has a control slides up and
+     * focus lands in the same columns ([CcLayout.entry]); nothing that way, a bump.
+     */
+    private fun navigate(code: Int): Boolean {
+        val dx = when (code) { KeyEvent.KEYCODE_DPAD_LEFT -> -1; KeyEvent.KEYCODE_DPAD_RIGHT -> 1; else -> 0 }
+        val dy = when (code) { KeyEvent.KEYCODE_DPAD_UP -> -1; KeyEvent.KEYCODE_DPAD_DOWN -> 1; else -> 0 }
+        if (dx == 0 && dy == 0) return false
+        val f = panel.findFocus()
+        val id = idOf(f)
+        val from = navItems(page).firstOrNull { it.id == id }
+        if (f == null || from == null) { focusFirst(); return true }
+        CcLayout.neighbour(navItems(page), from, dx, dy, cameFrom)?.let {
+            cameFrom = from.id
+            focusOn(it.id, page)
+            return true
+        }
+        if (dy != 0) {
+            var p = page + dy
+            while (p in layout.pages.indices && navItems(p).isEmpty()) p += dy
+            val to = if (p in layout.pages.indices) CcLayout.entry(navItems(p), from, dy > 0) else null
+            if (to != null) {
+                cameFrom = null
+                focusOn(to.id, p)
+                return true
+            }
+        }
+        Motion.bump(f, dx, dy)
+        return true
+    }
+
+    /** Arrows that reached the activity unused while the panel is open: see [navigate]. */
+    fun navKey(e: KeyEvent): Boolean {
+        if (!isOpen || expanded || morphing || e.action != KeyEvent.ACTION_DOWN) return false
+        return navigate(e.keyCode)
+    }
+
+    /**
+     * Keys in edit mode, before the focused control sees them: arrows move focus (or the control
+     * being moved), and OK, pressed and let go on the same control, opens its sheet (or drops the
+     * control being moved). The controls' own actions do not run while editing.
+     */
+    fun preKey(e: KeyEvent): Boolean {
+        if (!isOpen || !editing || expanded || morphing) return false
+        val code = e.keyCode
+        val arrow = code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT ||
+            code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN
+        if (!arrow && !isConfirm(code)) return false
+        val down = e.action == KeyEvent.ACTION_DOWN
+        if (arrow) {
+            if (down) { if (moving != null) nudge(code) else navigate(code) }
+            return true
+        }
+        val f = panel.findFocus()
+        if (down) {
+            if (e.repeatCount == 0) okDownOn = f
+        } else if (f != null && okDownOn === f) {
+            okDownOn = null
+            if (moving != null) drop() else idOf(f)?.let { editSheet(it) }
+        }
+        return true
+    }
+
+    // ---- edit mode --------------------------------------------------------------------
+
+    private fun startEdit(first: Boolean) {
+        editing = true
+        applyLayout()
+        if (first) focusFirst()
+        focusMoved(panel.findFocus())
+        editHint()
+    }
+
+    private fun editHint() = toast("OK sur une commande pour la déplacer, changer sa taille ou la retirer. Retour pour terminer.", long = true)
+
+    private fun endEdit() {
+        if (moving != null) cancelMove()
+        editing = false
+        wiggleOn(null)
+        applyLayout()
+        refocus()
+    }
+
+    /** The focused control wiggles a little while editing, as the home grid's tiles do; more while it is being moved. */
+    private fun wiggleOn(v: View?, strong: Boolean = false) {
+        val old = wiggling
+        if (old === v && !strong) return
+        wiggle.cancel()
+        old?.rotation = 0f
+        wiggling = v
+        if (v == null) return
+        // Degrees: a wide control turns less, or its ends would swing by several dp.
+        val amp = (if (v.width > cell * 3) 0.6f else 1.3f) * (if (strong) 1.8f else 1f)
+        fun loop() {
+            wiggle.start(WIGGLE_MS, LinearInterpolator(), end = { if (wiggling === v) loop() }) { f ->
+                v.rotation = amp * kotlin.math.sin(f * 2 * Math.PI).toFloat()
+            }
+        }
+        loop()
+    }
+
+    private fun nameOf(id: String) = when (id) {
+        CcLayout.POWER -> "Éteindre"
+        CcLayout.SLEEP -> "Veille"
+        CcLayout.NETWORK -> "Réseau"
+        CcLayout.MEMORY -> "Libérer la mémoire"
+        CcLayout.PHOTO -> "Photo suivante"
+        CcLayout.FRAME -> "Cadre photo"
+        CcLayout.SETTINGS -> "Réglages"
+        CcLayout.BRIGHTNESS -> "Luminosité"
+        CcLayout.INPUT -> "Source"
+        CcLayout.PLAYER -> "Lecteur"
+        CcLayout.WEATHER -> "Météo"
+        CcLayout.BLUETOOTH -> "Bluetooth"
+        else -> id
+    }
+
+    private fun sizeName(s: CcLayout.Size) = "${s.w} × ${s.h}"
+
+    /** The sheet of a control in edit mode ("" for an empty page's capsule). */
+    private fun editSheet(id: String) {
+        if (id == "") { pageSheet(page); return }
+        val (p, item) = layout.find(id) ?: return
+        val sheet = Sheet(host).title(nameOf(id)).message("Page ${p + 1} · ${sizeName(item.size)}")
+        sheet.button("Déplacer") { startMove(id) }
+        CcLayout.nextSize(id, item.size)?.let { next -> sheet.button("Taille : ${sizeName(next)}") { resize(id, next) } }
+        sheet.button("Retirer") { removeWidget(id) }
+        layoutButtons(sheet, p)
+        home.showSheet(sheet)
+    }
+
+    /** An empty page's sheet in edit mode. */
+    private fun pageSheet(p: Int) {
+        val sheet = Sheet(host).title("Page vide").message("Page ${p + 1} : ajoutez-y une commande, ou supprimez-la.")
+        if (layout.pages.size > 1) sheet.button("Supprimer cette page") { removePage(p) }
+        layoutButtons(sheet, p)
+        home.showSheet(sheet)
+    }
+
+    private fun layoutButtons(sheet: Sheet, p: Int) {
+        if (layout.unplaced.isNotEmpty()) sheet.button("Ajouter une commande…") { addSheet(p) }
+        if (layout.pages.size < CcLayout.MAX_PAGES) sheet.button("Ajouter une page") { addPage() }
+        sheet.button("Réinitialiser le panneau") { resetSheet() }
+        sheet.button("Terminer") { endEdit() }
+        sheet.button("Annuler") {}
+    }
+
+    /** [l] becomes the layout, saved at once, and the grid follows. */
+    private fun save(l: CcLayout.Layout) {
+        layout = l
+        layoutJson = CcLayout.serialize(l)
+        prefs.ccLayout = l
+        applyLayout()
+    }
+
+    private fun startMove(id: String) {
+        val (p, it) = layout.find(id) ?: return
+        val v = slotOf(id) ?: return
+        val at = CcLayout.Pos(p, it.x, it.y)
+        moving = Moving(id, at, at, it.w, it.h, v.alpha)
+        focusedId = id
+        // Over its neighbours while it passes them.
+        v.bringToFront()
+        wiggleOn(v, strong = true)
+    }
+
+    /** The control being moved, one cell; on to the next or previous page past the last or first row. */
+    private fun nudge(code: Int) {
+        val m = moving ?: return
+        val v = slotOf(m.id) ?: return
+        val dx = when (code) { KeyEvent.KEYCODE_DPAD_LEFT -> -1; KeyEvent.KEYCODE_DPAD_RIGHT -> 1; else -> 0 }
+        val dy = when (code) { KeyEvent.KEYCODE_DPAD_UP -> -1; KeyEvent.KEYCODE_DPAD_DOWN -> 1; else -> 0 }
+        val to = CcLayout.nudge(layout.pages.size, m.at, m.w, m.h, dx, dy)
+        if (to == null) { Motion.bump(v, dx, dy); return }
+        val turn = to.page != m.at.page
+        m.at = to
+        put(v, to.page, CcLayout.Item(m.id, to.x, to.y, m.w, m.h))
+        v.bringToFront()
+        if (turn) slideTo(to.page, dy) else {
+            // Glides the one cell rather than jumping; only its own glass is drawn again on the way.
+            val ox = -dx * span.toFloat()
+            val oy = -dy * span.toFloat()
+            slideStep.start(MOVE_MS, Motion.ease) { f ->
+                v.translationX = ox * (1f - f)
+                v.translationY = oy * (1f - f)
+                if (glassStyle) invalidateSurfaces()
+            }
+        }
+        // Where it would cover another control it shows faded: OK cannot drop it there.
+        val fits = CcLayout.fits(layout.pages[to.page], to.x, to.y, m.w, m.h, ignore = m.id)
+        v.alpha = if (fits) m.alpha else m.alpha * 0.45f
+        if (panel.findFocus() == null || idOf(panel.findFocus()) != m.id) target(m.id, to.page)?.requestFocus()
+        if (wiggling !== v) wiggleOn(v, strong = true)
+    }
+
+    /** OK while moving: dropped where it stands if it fits there; a bump otherwise. */
+    private fun drop() {
+        val m = moving ?: return
+        val v = slotOf(m.id)
+        val l = CcLayout.move(layout, m.id, m.at.page, m.at.x, m.at.y)
+        if (l == null) {
+            v?.let { Motion.bump(it, 0, 1) }
+            toast("Une autre commande occupe cette place.")
+            return
+        }
+        moving = null
+        slideStep.cancel()
+        v?.alpha = m.alpha
+        v?.translationX = 0f
+        v?.translationY = 0f
+        save(l)
+        // Back to the gentle wiggle of a control that is only focused.
+        wiggleOn(null)
+        if (!focusOn(m.id, m.at.page)) focusFirst()
+        wiggleOn(slotOf(m.id))
+    }
+
+    /** Back while moving: the control returns to where it was. */
+    private fun cancelMove() {
+        val m = moving ?: return
+        moving = null
+        slideStep.cancel()
+        slotOf(m.id)?.let { it.alpha = m.alpha; it.translationX = 0f; it.translationY = 0f }
+        applyLayout()
+        wiggleOn(null)
+        if (isOpen && !focusOn(m.id, m.from.page)) focusFirst()
+        if (editing && isOpen) wiggleOn(slotOf(m.id))
+    }
+
+    /** The next size, its top left corner where it is; a bump when it does not fit there. */
+    private fun resize(id: String, size: CcLayout.Size) {
+        val l = CcLayout.resize(layout, id, size)
+        if (l == null) {
+            host.postDelayed({ slotOf(id)?.let { Motion.bump(it, 1, 0) } }, 200)
+            toast("Pas assez de place ici pour cette taille : déplacez d'abord la commande.", long = true)
+            return
+        }
+        focusedId = id
+        save(l)
+    }
+
+    private fun removeWidget(id: String) {
+        val (p, item) = layout.find(id) ?: return
+        val l = CcLayout.remove(layout, id)
+        if (l == null) { toast("Le Centre de contrôle garde au moins une commande."); return }
+        val next = CcLayout.nearest(l.pages[p], item)
+        focusedId = next?.id ?: ""
+        focusedPage = p
+        save(l)
+    }
+
+    /** The controls not placed; the chosen one takes the first free place that fits ([CcLayout.add]). */
+    private fun addSheet(p: Int) {
+        val sheet = Sheet(host).title("Ajouter une commande")
+            .message("Elle prend la première place libre de cette page, sinon d'une autre page, sinon d'une nouvelle page.")
+        for (id in layout.unplaced) sheet.button(nameOf(id)) { add(id, p) }
+        sheet.button("Annuler") {}
+        home.showSheet(sheet)
+    }
+
+    private fun add(id: String, p: Int) {
+        val r = CcLayout.add(layout, id, p)
+        if (r == null) { toast("Plus de place : retirez une commande ou réduisez-en une.", long = true); return }
+        focusedId = id
+        save(r.first)
+    }
+
+    private fun addPage() {
+        val l = CcLayout.addPage(layout) ?: return
+        focusedId = ""
+        focusedPage = l.pages.size - 1
+        save(l)
+    }
+
+    private fun removePage(p: Int) {
+        val l = CcLayout.removePage(layout, p) ?: return
+        val q = (p - 1).coerceAtLeast(0)
+        focusedId = CcLayout.first(l.pages[q])?.id ?: ""
+        focusedPage = q
+        save(l)
+    }
+
+    private fun resetSheet() {
+        home.showSheet(Sheet(host).title("Réinitialiser le Centre de contrôle ?")
+            .message("Les commandes reprennent leur place et leur taille d'origine, sur deux pages.")
+            .button("Réinitialiser") {
+                prefs.resetCcLayout()
+                val l = prefs.ccLayout
+                layout = l
+                layoutJson = CcLayout.serialize(l)
+                focusedId = CcLayout.first(l.pages[0])?.id
+                focusedPage = 0
+                applyLayout()
+            }
+            .button("Annuler") {})
     }
 
     private fun pickInput() {
@@ -996,26 +1716,53 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     }
 
     /**
-     * The Météo capsule, from the forecast the home screen keeps ([Weather.cached]); a quick
-     * preference read, safe on the UI thread. Gone while the weather is off.
+     * The Météo control, from the forecast the home screen keeps ([Weather.cached]); a quick
+     * preference read, safe on the UI thread. Idle while the weather is off or has no forecast;
+     * at 4 × 2 it adds the next three days.
      */
     private fun updateWeather() {
+        val m = weatherModule ?: return
         val on = prefs.weather
-        weatherModule.visibility = if (on) View.VISIBLE else View.GONE
-        if (!on) return
-        val f = Weather.cached(ctx)
+        val f = if (on) Weather.cached(ctx) else null
         val place = prefs.weatherPlace
         // Unchanged text and glyph are left alone, so reopening does not relayout and redraw the glass.
-        fun TextView.show(t: String) { if (text.toString() != t) text = t }
-        weatherModule.title.show(if (place.isEmpty()) "Météo" else "Météo · $place")
-        weatherModule.sub.show(when {
+        m.title.put(if (place.isEmpty() || !on) "Météo" else "Météo · $place")
+        m.sub.put(when {
+            !on -> "Météo désactivée"
             f != null -> Weather.summary(f)
             !Net.isConnected(ctx) -> "Hors connexion"
             else -> "Pas encore de prévisions"
         })
-        weatherModule.sub.visibility = View.VISIBLE
+        m.sub.visibility = View.VISIBLE
+        m.idle = f == null
         val icon = if (f != null) Weather.icon(f) else R.drawable.ic_wx_partly_cloudy
-        if (weatherModule.tag != icon) { weatherModule.setIcon(icon); weatherModule.tag = icon }
+        if (m.tag != icon) { m.setIcon(icon); m.tag = icon }
+        if (weatherDays.isEmpty()) return
+        val days = if (f != null) Weather.upcoming(f).drop(1).take(weatherDays.size) else emptyList()
+        weatherDays.forEachIndexed { i, cell ->
+            val d = days.getOrNull(i)
+            cell.visibility = if (d == null) View.INVISIBLE else View.VISIBLE
+            if (d == null) return@forEachIndexed
+            cell.day.put(shortDay(d.date))
+            cell.temps.put("${Weather.degrees(d.min)} / ${Weather.degrees(d.max)}")
+            val g = Weather.icon(Weather.kind(d.code))
+            if (cell.glyph.tag != g) { cell.glyph.setImageResource(g); cell.glyph.tag = g }
+        }
+    }
+
+    /** "Sam.", a day's short name in French, for the 4 × 2 Météo card. */
+    private fun shortDay(date: String): String = runCatching {
+        java.time.LocalDate.parse(date).dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.FRANCE)
+            .replaceFirstChar { it.titlecase(java.util.Locale.FRANCE) }
+    }.getOrDefault(date)
+
+    /** OK on Météo: the forecast; while off, the settings page where it is switched on; offline, a bump. */
+    private fun weatherPressed() {
+        when {
+            !prefs.weather -> { close(); home.openSettings(SettingsActivity.PAGE_LOOK) }
+            Weather.cached(ctx) == null -> weatherModule?.let { Motion.bump(it, 1, 0) }
+            else -> weatherSheet()
+        }
     }
 
     /** Five days of forecast, read from the kept answer: nothing is fetched here. */
@@ -1043,7 +1790,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
      */
     private fun updateNowPlaying() {
         if (destroyed) return
-        if (!prefs.nowPlaying) { showNow(null); return }
+        // Not read at all while off, or while the player is not in the panel.
+        if (!prefs.nowPlaying || playerSlot.parent == null) { showNow(null); return }
         if (nowReading) return
         nowReading = true
         val started = SystemClock.elapsedRealtime()
@@ -1059,34 +1807,23 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
     }
 
-    /**
-     * The panel's resting scale: 1 unless its capsules stack taller than the screen (about 540 dp
-     * on a 1080p TV that runs at 320 dpi, once the weather and Bluetooth capsules are both shown),
-     * in which case it shrinks to fit, from its top right corner, rather than cut off the last one.
-     */
-    private fun fitScale(): Float {
-        if (host.height <= 0 || panel.height <= 0) return 1f
-        val top = panel.top + panel.paddingTop
-        val content = panel.height - panel.paddingTop - panel.paddingBottom
-        val room = host.height - ctx.dp(16) - top
-        return if (content <= room || room <= 0) 1f else (room.toFloat() / content).coerceIn(0.7f, 1f)
-    }
-
     // ---- Bluetooth ------------------------------------------------------------------
 
     /** The Bluetooth capsule's subtitle, from what the last refresh found: formatting only, safe on the UI thread. */
     private fun updateBluetooth() {
+        val m = bluetoothModule ?: return
         val state = btState
-        bluetoothModule.visibility = if (state == Bluetooth.State.NONE) View.GONE else View.VISIBLE
-        if (state == Bluetooth.State.NONE) return
         val text = btPending ?: when (state) {
+            // No adapter (or none found yet): the control stays, idle, rather than leave a hole.
+            Bluetooth.State.NONE -> "Indisponible"
             Bluetooth.State.NEEDS_PERMISSION -> "Autorisation requise"
             Bluetooth.State.OFF -> "Désactivé"
             else -> Bluetooth.summary(btDevices)
         }
         // Unchanged text is left alone, so the 2 s ticker does not relayout and redraw the glass.
-        if (bluetoothModule.sub.text.toString() != text) bluetoothModule.sub.text = text
-        bluetoothModule.sub.visibility = View.VISIBLE
+        m.sub.put(text)
+        m.sub.visibility = View.VISIBLE
+        m.idle = btPending == null && state != Bluetooth.State.READY
     }
 
     /**
@@ -1126,11 +1863,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         if (n == null) {
             if (expanded) collapse(animate = false)
             host.removeCallbacks(progressTick)
-            if (nowLine.visibility == View.GONE && nowCard.visibility == View.GONE) return
-            // Focus must not vanish with the player: it goes to the control above it.
-            if (nowLine.hasFocus() || nowCard.hasFocus()) listOf(inputModule, brightness).firstOrNull { shown(it) }.let { (it ?: memButton).requestFocus() }
-            nowLine.visibility = View.GONE
-            nowCard.visibility = View.GONE
+            // The player keeps its place, as an empty card: nothing moves, focus stays on it.
+            showPlayerLook(emptyPlayer)
             return
         }
         // Text and artwork only when they changed: the 2 s poll must not relayout and redraw the glass.
@@ -1153,9 +1887,19 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
                     nowLine.setPadding(ctx.dp(6), 0, ctx.dp(14), 0)
                 }
             }
-            shown.visibility = View.VISIBLE
         }
+        showPlayerLook(shown)
         showPlayback()
+    }
+
+    /** [v] (a look of the player, or the empty card) shown in the player's place; focus goes with it. */
+    private fun showPlayerLook(v: View) {
+        val all = listOf(nowLine, nowCard, emptyPlayer)
+        if (v.visibility == View.VISIBLE && all.none { it !== v && it.visibility == View.VISIBLE }) return
+        val had = playerSlot.hasFocus()
+        v.visibility = View.VISIBLE
+        if (had) v.requestFocus()
+        for (o in all) if (o !== v) o.visibility = View.GONE
     }
 
     private fun note() = ctx.getDrawable(R.drawable.ic_music)
@@ -1290,7 +2034,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         out.set(right - bigW * bigS, top, right, top + bigH * bigS)
     }
 
-    /** As [fitScale], for the large player: it shrinks from its top right corner to fit a short screen. */
+    /** The large player's resting scale: it shrinks from its top right corner to fit a short screen. */
     private fun bigScaleFor(top: Float, h: Int): Float {
         if (host.height <= 0 || h <= 0) return 1f
         val room = host.height - ctx.dp(16) - top
@@ -1438,7 +2182,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             player.scaleX = playerGrow(player)
             player.scaleY = player.scaleX
             player.requestFocus()
-        } else memButton.requestFocus()
+        } else focusOn(CcLayout.PLAYER, layout.find(CcLayout.PLAYER)?.first ?: page) || run { focusFirst(); true }
         if (!hasPlayer) {
             panel.animate().alpha(1f).setDuration(240).setInterpolator(Motion.ease).setUpdateListener(null).start()
             bigHost.animate().alpha(0f).setDuration(180).setUpdateListener(null)
@@ -1606,7 +2350,6 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             isFocusable = true
             isClickable = true
             contentDescription = "Lecture"
-            focusables += this
             val pad = ctx.dp(10)
             setPadding(pad, pad, ctx.dp(12), pad)
             addView(art, LayoutParams(ctx.dp(84), ctx.dp(84)))
@@ -1952,7 +2695,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
 
     private fun bluetoothPressed() {
         when {
-            btState == Bluetooth.State.NONE -> {}
+            btState == Bluetooth.State.NONE -> bluetoothModule?.let { Motion.bump(it, 1, 0) }
             // Checked afresh: it may have been granted over adb since the last refresh.
             !Bluetooth.hasPermission(ctx) -> if (btAsked) bluetoothDenied() else {
                 btAsked = true
@@ -2067,7 +2810,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     /** The Veille capsule's subtitle: time left on the sleep timer, nothing when none is running. */
     private fun updateSleep() {
         val left = SleepTimer.remainingMs(ctx)
-        val sub = sleepModule.sub
+        val sub = (sleepModule ?: return).sub
         val text = if (left > 0) "Dans " + SleepTimer.span(left) else ""
         // Polled every 2 s: an unchanged subtitle must not relayout and redraw the glass.
         if (sub.text.toString() != text) sub.text = text
@@ -2127,13 +2870,12 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     }
 
     private fun cleanNow() {
-        status.text = "Libération de la mémoire…"
-        status.visibility = View.VISIBLE
+        toast("Libération de la mémoire…")
         Thread {
             val r = Cleaner.clean(ctx.applicationContext)
             host.post {
                 // "312 Mo libérés · 4 apps fermées · 2 en cours d'utilisation épargnées", or "(cache uniquement)" without adb.
-                status.text = r.summary()
+                if (!destroyed) toast(r.summary(), long = true)
             }
         }.start()
     }
@@ -2173,10 +2915,18 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         /** The player growing into the large player, or shrinking back. */
         const val MORPH_MS = 350L
         /**
-         * Index in [focusables] of the control focused when a panel last closed, for as long as the
-         * process lives (a recreated home screen keeps it); -1 before the first close.
+         * The control ([CcLayout] id) focused when a panel last closed, for as long as the process
+         * lives (a recreated home screen keeps it); null before the first close.
          */
-        var lastFocus = -1
+        var lastFocusId: String? = null
+        /** A page of the grid sliding in, a control being moved one cell, one turn of the edit-mode wiggle. */
+        const val PAGE_MS = 300L
+        const val MOVE_MS = 140L
+        const val WIGGLE_MS = 300L
+        /** The page dots' size. */
+        const val DOT_DP = 5
+        /** Glyph and text of a control with nothing to do (no inputs, no forecast…). */
+        const val IDLE_ALPHA = 0.45f
 
         /** OK on a remote, or Enter on a keyboard (View's own confirm keys). */
         fun isConfirm(code: Int) = code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER
