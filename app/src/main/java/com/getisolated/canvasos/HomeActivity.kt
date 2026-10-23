@@ -1327,6 +1327,13 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         return s.show()
     }
 
+    /** The top row (clock, weather, network, Control Center and profile buttons) steps aside while the Control Center is open. */
+    fun setHeaderShown(shown: Boolean, immediate: Boolean = false) {
+        header.animate().cancel()
+        if (immediate) { header.alpha = if (shown) 1f else 0f; return }
+        header.animate().alpha(if (shown) 1f else 0f).setDuration(if (shown) 220 else 150).start()
+    }
+
     /** Keeps D-pad focus from wandering from an overlay onto the screen behind it. */
     fun setGridBlocked(blocked: Boolean) {
         val mode = if (blocked) ViewGroup.FOCUS_BLOCK_DESCENDANTS else ViewGroup.FOCUS_AFTER_DESCENDANTS

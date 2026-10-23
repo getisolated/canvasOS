@@ -272,7 +272,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         val room = ctx.dp(16)
         panel.setPadding(room, room, room, room)
         host.addView(panel, FrameLayout.LayoutParams(width + room * 2, -2, Gravity.TOP or Gravity.END).apply {
-            topMargin = ctx.dp(66) - room; marginEnd = ctx.dp(32) - room
+            topMargin = ctx.dp(PANEL_TOP) - room; marginEnd = ctx.dp(32) - room
         })
         panel.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
             if (l != oldL || t != oldT || r != oldR || b != oldB) refreshGlass()
@@ -280,7 +280,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         big = PlayerBig()
         bigHost.addView(big, FrameLayout.LayoutParams(-2, -2))
         host.addView(bigHost, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
-            topMargin = ctx.dp(66); marginEnd = ctx.dp(32)
+            topMargin = ctx.dp(PANEL_TOP); marginEnd = ctx.dp(32)
         })
         bigHost.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
             if (l != oldL || t != oldT || r != oldR || b != oldB) refreshGlass()
@@ -820,18 +820,21 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         // A full-screen pass every frame: only the panel look, which hides less of the screen, uses it.
         if (scrim.parent == null && !glassStyle) host.addView(scrim, FrameLayout.LayoutParams(-1, -1))
         panel.bringToFront()
+        // The clock, weather and corner buttons give way to the panel, which takes their corner.
+        home.setHeaderShown(false, immediate = true)
         // Sampled before the first frame, so the glass never shows up empty.
         if (glassStyle && (blurDirty || blur == null)) sampleBehind()
         panel.visibility = View.VISIBLE
         panel.alpha = 0f
-        panel.translationX = ctx.dp(24).toFloat()
+        // It slides down from the top edge.
+        panel.translationY = -ctx.dp(24).toFloat()
         restScale = fitScale()
         panel.scaleX = 0.97f * restScale
         panel.scaleY = 0.97f * restScale
         panel.pivotX = panel.width - panel.paddingRight.toFloat()
         panel.pivotY = panel.paddingTop.toFloat()
         scrim.animate().alpha(1f).setDuration(220).start()
-        panel.animate().alpha(1f).translationX(0f).scaleX(restScale).scaleY(restScale).setDuration(320)
+        panel.animate().alpha(1f).translationY(0f).scaleX(restScale).scaleY(restScale).setDuration(320)
             .setInterpolator(Motion.ease).setUpdateListener { if (glassStyle) invalidateSurfaces() }.start()
         openFocus().requestFocus()
         host.removeCallbacks(ticker)
@@ -883,7 +886,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         }
         brightness.finishAnimation()
         scrim.animate().alpha(0f).setDuration(180).start()
-        panel.animate().alpha(0f).translationX(ctx.dp(24).toFloat()).scaleX(0.97f * restScale).scaleY(0.97f * restScale).setDuration(200)
+        home.setHeaderShown(true)
+        panel.animate().alpha(0f).translationY(-ctx.dp(24).toFloat()).scaleX(0.97f * restScale).scaleY(0.97f * restScale).setDuration(200)
             .setUpdateListener { if (glassStyle) invalidateSurfaces() }
             .withEndAction {
                 host.removeView(scrim)
@@ -2148,6 +2152,8 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     }
 
     private companion object {
+        /** Top edge of the panel and of the large player: the header's corner, which they replace. */
+        private const val PANEL_TOP = 30
         /** The large player's artwork, and the width of everything under it. */
         const val BIG_ART_DP = 220
         /** Left or Right held this long on the two-line player starts seeking, then one step this often. */
