@@ -2,7 +2,7 @@
 
 Vous installez canvasOS, un lanceur Android TV, sur le téléviseur de l'utilisateur depuis son ordinateur. Suivez les étapes ci-dessous dans l'ordre. Parlez à l'utilisateur dans sa langue (la plupart des utilisateurs écrivent en français). Le téléviseur est l'appareil d'un foyer : chaque fois qu'une étape dit de demander, demandez d'abord.
 
-Ce dépôt (getisolated/canvasOS) est privé ; l'interface de l'app est en français. Dans l'app, l'écran d'accueil s'appelle « Accueil ».
+Ce dépôt (getisolated/canvasOS) est public ; l'interface de l'app est en français. Dans l'app, l'écran d'accueil s'appelle « Accueil ».
 
 ## Règles absolues
 
@@ -15,7 +15,7 @@ Ce dépôt (getisolated/canvasOS) est privé ; l'interface de l'app est en fran�
 ## 0. Ce qu'il faut
 
 - Un ordinateur sur le même réseau local que le téléviseur, avec `adb` installé (Android SDK Platform-Tools). Vérifiez avec `adb version`. S'il manque, installez-le : Windows `winget install Google.PlatformTools`, macOS `brew install android-platform-tools`, Debian/Ubuntu `apt install adb`.
-- L'accès à ce dépôt privé : la CLI GitHub (`gh`, vérifiez avec `gh auth status`) connectée à un compte qui a accès à `getisolated/canvasOS`, ou un clone local du dépôt. Sans cela, les APK ne peuvent pas être téléchargés (étape 3).
+- `curl` (ou un navigateur) pour télécharger les APK depuis les Releases publiques du dépôt (étape 3). La CLI GitHub (`gh`) et un clone local sont facultatifs.
 - L'adresse IP du téléviseur. Demandez-la à l'utilisateur. Elle se trouve dans Paramètres → Réseau ou À propos sur la plupart des téléviseurs. Une fois canvasOS installé, l'adresse et l'état du débogage ADB s'affichent aussi dans Réglages de l'accueil → Système (l'adresse également sous « Réseau » dans le Centre de contrôle).
 - Le débogage ADB activé sur le téléviseur. La plupart des utilisateurs ne l'ont jamais fait : si `adb connect` échoue à l'étape 1, guidez-les selon leur marque. Demandez la marque si vous ne la connaissez pas.
 
@@ -57,20 +57,20 @@ Il existe deux versions :
 - `canvasOS.apk` (standard) se déclare écran d'accueil. Utilisez-la partout sauf sur TCL.
 - `canvasOS-guard.apk` ne déclare aucun écran d'accueil et apparaît comme une app ordinaire. TCL refuse tout APK qui en déclare un, sauf s'il est signé par TCL. La version guard est identique pour le reste ; la protection de l'accueil (section 10) la garde au premier plan.
 
-Le dépôt étant privé, les URL de téléchargement directes ne fonctionnent pas. Téléchargez les APK avec la CLI GitHub, connectée à un compte qui a accès au dépôt :
+Le dépôt est public : téléchargez l'APK de la dernière Release par son URL directe (ou, si vous préférez, avec `gh release download --repo getisolated/canvasOS --pattern canvasOS.apk`) :
 
 ```sh
-gh release download --repo getisolated/canvasOS --pattern canvasOS.apk
+curl -fLo canvasOS.apk https://github.com/getisolated/canvasOS/releases/latest/download/canvasOS.apk
 adb -s <TV_IP>:5555 install -r canvasOS.apk
 ```
 
 **Signature : une seule clé pour toutes les Releases.** Les APK sont compilés par GitHub Actions et signés avec la clé stable du projet : toutes les Releases publiées avec cette clé ont la même signature, donc `adb install -r` met canvasOS à jour sur place et l'app garde ses réglages et ses autorisations. `INSTALL_FAILED_UPDATE_INCOMPATIBLE` n'apparaît plus que si la version installée est une ancienne Release signée avec la clé debug jetable du runner, ou un APK compilé localement (signé avec la clé de l'ordinateur qui l'a compilé). Il faut alors d'abord `adb -s <TV_IP>:5555 uninstall com.getisolated.canvasos`, ce qui efface les réglages et les autorisations de l'app : demandez l'accord de l'utilisateur avant, puis refaites l'étape 4, et l'utilisateur devra de nouveau autoriser le débogage local (étape 6). Avant de désinstaller, désactivez la protection comme indiqué dans la section « Désinstaller ». (Mainteneurs : la clé se crée une seule fois avec `tools/make-keystore.sh`.)
 
-**Si l'installation échoue avec `INSTALL_FAILED_VERIFICATION_FAILURE`** (TCL : son vérificateur refuse toute installation par adb), installez plutôt la version guard via l'« Interaction multi-écrans » (多屏互动, T-Cast) de TCL. Il faut Python 3 et le script `tools/tcast-push.py` du dépôt (dans le clone local, ou récupéré avec `gh`) :
+**Si l'installation échoue avec `INSTALL_FAILED_VERIFICATION_FAILURE`** (TCL : son vérificateur refuse toute installation par adb), installez plutôt la version guard via l'« Interaction multi-écrans » (多屏互动, T-Cast) de TCL. Il faut Python 3 et le script `tools/tcast-push.py` du dépôt (dans le clone local, ou téléchargé directement) :
 
 ```sh
-gh release download --repo getisolated/canvasOS --pattern canvasOS-guard.apk
-gh api repos/getisolated/canvasOS/contents/tools/tcast-push.py -H "Accept: application/vnd.github.raw" > tcast-push.py   # inutile si vous avez un clone : utilisez tools/tcast-push.py
+curl -fLo canvasOS-guard.apk https://github.com/getisolated/canvasOS/releases/latest/download/canvasOS-guard.apk
+curl -fLo tcast-push.py https://raw.githubusercontent.com/getisolated/canvasOS/main/tools/tcast-push.py   # inutile si vous avez un clone : utilisez tools/tcast-push.py
 python3 tcast-push.py <TV_IP> canvasOS-guard.apk
 ```
 
@@ -274,7 +274,7 @@ Une nouvelle marque, c'est un nouveau `<Marque>Adapter.kt` qui hérite d'`Androi
 
 ### 9.1 Préparer une compilation
 
-- Clonez https://github.com/getisolated/canvasOS (dépôt privé : `gh repo clone getisolated/canvasOS` avec un compte qui y a accès). Il faut JDK 17+ (`java -version`) et un SDK Android avec `platforms;android-36` et `build-tools` (installez-les avec `sdkmanager`). Mettez `sdk.dir=<chemin>` dans `local.properties`. Compilez avec `./gradlew assembleStandardRelease` (ou `assembleGuardRelease` pour TCL).
+- Clonez https://github.com/getisolated/canvasOS (`git clone https://github.com/getisolated/canvasOS.git`). Il faut JDK 17+ (`java -version`) et un SDK Android avec `platforms;android-36` et `build-tools` (installez-les avec `sdkmanager`). Mettez `sdk.dir=<chemin>` dans `local.properties`. Compilez avec `./gradlew assembleStandardRelease` (ou `assembleGuardRelease` pour TCL).
 - Votre version est signée avec la clé debug de cet ordinateur, pas avec la clé stable des Releases : elle ne peut pas se mettre à jour par-dessus l'APK d'une Release installé. `adb install -r` échouera avec `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Demandez à l'utilisateur avant de faire d'abord `adb uninstall com.getisolated.canvasos` : cela efface les réglages et les autorisations de l'app, et ensuite vous devez refaire l'étape 4 et l'utilisateur doit de nouveau autoriser le débogage local (étape 6). Pour repasser plus tard à une Release, la même désinstallation sera nécessaire.
 
 ### 9.2 Trouver ce que propose le téléviseur
