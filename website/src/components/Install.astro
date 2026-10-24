@@ -9,7 +9,8 @@ interface Props {
 
 const { locale } = Astro.props;
 const s = getCopy(locale).install;
-const apks = [brand.apk, brand.apkGuard];
+/* the APK, then the releases page */
+const hrefs = [brand.apk, brand.releases];
 ---
 <section class="section install" id="install">
   <div class="wrap">
@@ -21,7 +22,7 @@ const apks = [brand.apk, brand.apkGuard];
 
     <div class="downloads reveal">
       {s.downloads.map((d, i) => (
-        <a class="download" href={apks[i]} rel="noopener">
+        <a class="download" href={hrefs[i]} rel="noopener">
           <span class="name">{d.name}</span>
           <span class="use">{d.use}</span>
           <span class="arrow">{d.cta} <svg aria-hidden="true"><use href="#i-arrow"></use></svg></span>

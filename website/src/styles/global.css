@@ -2317,3 +2317,9 @@ details.advanced .table-wrap {
   font-size: 0.9em;
   color: var(--text);
 }
+
+/* A FAQ answer with a long command scrolls inside its code block instead of widening the page
+   (grid items default to min-width: auto). */
+.faq-list > details {
+  min-width: 0;
+}

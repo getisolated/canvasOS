@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 # canvasOS installer for macOS and Linux. Follows AGENTS.md (https://canvasos.pages.dev/agent.md).
 #
-#   curl -fsSL https://canvasos.pages.dev/install.sh | TV=192.168.x.x bash
-#   curl -fsSL https://canvasos.pages.dev/install.sh | TV=192.168.x.x KEEP_ADB=1 bash      # Xiaomi: keep ADB on after standby
-#   curl -fsSL https://canvasos.pages.dev/install.sh | TV=192.168.x.x bash -s -- restore   # give the original home back
-#   curl -fsSL https://canvasos.pages.dev/install.sh | TV=192.168.x.x bash -s -- restore --uninstall
+#   curl -fsSL https://canvasos.pages.dev/install.sh | bash                          # finds the TV, asks which one
+#   curl -fsSL https://canvasos.pages.dev/install.sh | TV=192.168.x.x bash             # a given TV
+#   curl -fsSL https://canvasos.pages.dev/install.sh | bash -s -- restore               # give the original home back
+#   curl -fsSL https://canvasos.pages.dev/install.sh | bash -s -- restore --uninstall
 #
 # Environment:
-#   TV        the TV's IPv4 address (port 5555 by default), or an adb serial already listed by `adb devices`
-#   KEEP_ADB  1 = keep ADB debugging on after standby (Xiaomi only; ignored elsewhere)
-#   FLAVOR    standard | guard (default: guard on TCL / FFalcon, standard everywhere else)
+#   TV        optional: the TV's IPv4 address (port 5555 by default), or an adb serial listed by
+#             `adb devices`. Unset, the script looks for Android TVs on the local network (adb
+#             devices, mDNS, port 5555 on the local /24) and asks which one to use.
 #   APK       install this local APK file instead of downloading the latest Release
 #   DRY_RUN   1 = print every command that would change the TV, change nothing
 #
 # What it never does (AGENTS.md, "Règles absolues"): power off, sleep or reboot the TV, uninstall
-# a system app, or disable a launcher. It uninstalls canvasOS only with `restore --uninstall`.
+# a system app, or disable a launcher (never the Xiaomi / Redmi one, com.mitv.tvhome: the TV
+# would boot to a black screen). It uninstalls canvasOS only with `restore --uninstall`.
+# Discovery only reads: it never runs `adb connect` on a TV you did not choose.
 # Before changing anything it saves the TV's original state under ~/.canvasos/<TV>/.
-# Requires bash 3.2+, adb and curl (Python 3 as well for the TCL multi-screen push).
+# Requires bash 3.2+, adb and curl (dns-sd or avahi-browse and nc help discovery, all optional).
 
 set -euo pipefail
 # fd 3: dry-run lines, unaffected by the >/dev/null and 2>/dev/null on individual commands.
@@ -25,7 +27,6 @@ exec 3>&1
 main() {
   PKG=com.getisolated.canvasos
   RELEASES=https://github.com/getisolated/canvasOS/releases/latest/download
-  TCAST=https://raw.githubusercontent.com/getisolated/canvasOS/main/tools/tcast-push.py
 
   MODE=install
   UNINSTALL=0
@@ -33,7 +34,7 @@ main() {
     case "$1" in
       install|restore) MODE=$1 ;;
       --uninstall) UNINSTALL=1 ;;
-      -h|--help) sed -n '2,20p' "${BASH_SOURCE[0]:-/dev/null}" 2>/dev/null || true; exit 0 ;;
+      -h|--help) sed -n '2,22p' "${BASH_SOURCE[0]:-/dev/null}" 2>/dev/null || true; exit 0 ;;
       *) fail "unknown argument: $1 (use install, restore or restore --uninstall)" ;;
     esac
     shift
@@ -42,10 +43,12 @@ main() {
 
   DRY=${DRY_RUN:-0}
   [ "$DRY" = 0 ] || [ "$DRY" = 1 ] || fail "DRY_RUN must be 0 or 1"
-  KEEP_ADB=${KEEP_ADB:-0}
-  [ "$KEEP_ADB" = 0 ] || [ "$KEEP_ADB" = 1 ] || fail "KEEP_ADB must be 0 or 1"
+  [ "$DRY" = 1 ] && say "DRY_RUN=1: nothing on the TV will change; commands that would are printed with +"
 
-  [ -n "${TV:-}" ] || fail "set TV to your TV's IP address, for example: curl -fsSL https://canvasos.pages.dev/install.sh | TV=192.168.1.20 bash"
+  if ! command -v adb >/dev/null 2>&1 && [ "$DRY" = 0 ]; then
+    fail "adb is missing. macOS: brew install android-platform-tools · Debian/Ubuntu: sudo apt install adb"
+  fi
+  [ -n "${TV:-}" ] || discover
   if [[ "$TV" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}(:[0-9]{1,5})?$ ]]; then
     SERIAL=$TV
     case "$SERIAL" in *:*) ;; *) SERIAL="$SERIAL:5555" ;; esac
@@ -58,10 +61,8 @@ main() {
   fi
 
   STATE="$HOME/.canvasos/${SERIAL//:/_}"
-  [ "$DRY" = 1 ] && say "DRY_RUN=1: nothing on the TV will change; commands that would are printed with +"
 
   if ! command -v adb >/dev/null 2>&1; then
-    [ "$DRY" = 1 ] || fail "adb is missing. macOS: brew install android-platform-tools · Debian/Ubuntu: sudo apt install adb"
     warn "adb is missing (dry run continues without a TV)"
     ONLINE=0
   else
@@ -81,8 +82,16 @@ fail() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 ad() { adb -s "$SERIAL" "$@" </dev/null; }
 # Read-only query: runs even in a dry run when the TV is reachable; prints nothing otherwise.
 q() { if [ "${ONLINE:-0}" = 1 ]; then { ad shell "$@" 2>/dev/null | tr -d '\r'; } || true; fi; }
-# Anything that changes the TV goes through run.
+# Anything that changes the TV goes through run, which refuses what this script must never do.
 run() {
+  case " $* " in
+    *com.mitv.tvhome*" disable"*|*" disable"*com.mitv.tvhome*|*com.mitv.tvhome*" hide "*|*" uninstall "*com.mitv.tvhome*)
+      fail "refusing 'adb $*': never disable the Xiaomi / Redmi stock launcher (com.mitv.tvhome), the TV would boot to a black screen" ;;
+    *" disable "*|*" disable-user "*|*" disable-until-used "*|*" hide "*)
+      fail "refusing 'adb $*': this script never disables or hides an app" ;;
+    *" uninstall "*)
+      case " $* " in *" uninstall $PKG "*) ;; *) fail "refusing 'adb $*': this script only ever uninstalls canvasOS" ;; esac ;;
+  esac
   if [ "$DRY" = 1 ]; then printf '  + adb -s %s %s\n' "$SERIAL" "$*" >&3; return 0; fi
   ad "$@"
 }
@@ -140,35 +149,319 @@ config() {
 
 installed() { q pm path "$PKG" | grep -q '^package:'; }
 
+# ---------- discovery (TV unset) ----------
+# Read-only: adb's own list of network devices, an mDNS browse and a probe of port 5555 on the
+# local /24. It never runs `adb connect`: no TV shows an authorisation prompt before you choose it.
+DISC=""
+discover() {
+  DISC=$(mktemp -d "${TMPDIR:-/tmp}/canvasos-scan.XXXXXX")
+  trap 'disc_cleanup' EXIT
+  trap 'disc_cleanup; exit 130' INT TERM
+  : >"$DISC/rec"
+  NC=bash
+  if command -v nc >/dev/null 2>&1; then
+    if [ "$(uname -s)" = Darwin ]; then NC=mac
+    elif nc -h 2>&1 | grep -q -- '-z'; then NC=nc; fi
+  fi
+  say "TV is not set: looking for Android TVs on the local network (a few seconds)"
+  disc_scan </dev/null >/dev/null 2>&1 &
+  local scan=$!
+  disc_adb
+  disc_mdns
+  wait "$scan" 2>/dev/null || true
+  disc_probe_others
+  disc_choose
+  disc_cleanup
+  trap - EXIT INT TERM
+}
+
+disc_cleanup() {
+  [ -n "$DISC" ] || return 0
+  # shellcheck disable=SC2046
+  disc_kill $(jobs -p)
+  rm -rf "$DISC"
+  DISC=""
+}
+
+# Stop background jobs without the shell's "Terminated" notices.
+disc_kill() {
+  local p
+  for p in "$@"; do kill "$p" 2>/dev/null || true; done
+  for p in "$@"; do wait "$p" 2>/dev/null || true; done
+}
+
+# The computer's IPv4 address on the LAN (not a VPN tunnel).
+disc_local_ip() {
+  local ip="" i
+  if [ "$(uname -s)" = Darwin ]; then
+    for i in $(route -n get default 2>/dev/null | awk '/interface:/ {print $2; exit}') en0 en1; do
+      case "$i" in utun*|ipsec*|ppp*|lo*) continue ;; esac
+      ip=$(ipconfig getifaddr "$i" 2>/dev/null || true)
+      [ -z "$ip" ] || break
+    done
+  else
+    ip=$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n 1)
+    [ -n "$ip" ] || ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  fi
+  printf '%s' "$ip"
+}
+
+# Exit 0 if $1 accepts a TCP connection on 5555 within about a second.
+disc_probe() {
+  case "$NC" in
+    mac) nc -z -G 1 -w 1 "$1" 5555 </dev/null >/dev/null 2>&1 ;;
+    nc) nc -z -w 1 "$1" 5555 </dev/null >/dev/null 2>&1 ;;
+    *)
+      (exec 9<>"/dev/tcp/$1/5555") </dev/null >/dev/null 2>&1 &
+      local p=$! k
+      (sleep 1; kill "$p") </dev/null >/dev/null 2>&1 &
+      k=$!
+      if wait "$p" 2>/dev/null; then disc_kill "$k"; return 0; fi
+      disc_kill "$k"
+      return 1 ;;
+  esac
+}
+
+disc_scan() {
+  local me prefix mine i=1
+  me=$(disc_local_ip)
+  [[ "$me" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.([0-9]+)$ ]] || return 0
+  prefix=${BASH_REMATCH[1]}
+  mine=${BASH_REMATCH[2]}
+  printf '%s\n' "$prefix" >"$DISC/prefix"
+  while [ "$i" -le 254 ]; do
+    if [ "$i" != "$mine" ]; then
+      { if disc_probe "$prefix.$i"; then printf '%s\topen\t1\n' "$prefix.$i" >>"$DISC/rec"; fi; } &
+    fi
+    [ $((i % 128)) != 0 ] || wait
+    i=$((i + 1))
+  done
+  wait
+}
+
+disc_adb() {
+  command -v adb >/dev/null 2>&1 || return 0
+  local serial state _
+  while read -r serial state _; do
+    [[ "$serial" =~ ^([0-9]{1,3}(\.[0-9]{1,3}){3}):[0-9]+$ ]] || continue
+    printf '%s\tserial\t%s\n%s\tadb\t%s\n' "${BASH_REMATCH[1]}" "$serial" "${BASH_REMATCH[1]}" "$state" >>"$DISC/rec"
+  done < <(adb devices </dev/null 2>/dev/null | tr -d '\r')
+}
+
+# Wait up to $1 tenths of a second until every file in the rest of the arguments contains $2.
+disc_wait_for() {
+  local n=$1 pat=$2 f all
+  shift 2
+  while [ "$n" -gt 0 ]; do
+    all=1
+    for f in "$@"; do grep -q -- "$pat" "$f" 2>/dev/null || { all=0; break; }; done
+    [ "$all" = 0 ] || return 0
+    sleep 0.1
+    n=$((n - 1))
+  done
+}
+
+# A TXT value from a `dns-sd -L` answer: $1 key, $2 file. "\ " escapes are undone.
+disc_txt() {
+  local line
+  line=" $(grep -m 1 '^ ' "$2" 2>/dev/null | sed 's/^ *//')"
+  case "$line" in *" $1="*) ;; *) return 0 ;; esac
+  line=${line#*" $1="}
+  printf '%s' "$line" | sed -E 's/(^|[^\\]) .*/\1/; s/\\(.)/\1/g'
+}
+
+disc_mdns() {
+  if command -v dns-sd >/dev/null 2>&1; then disc_mdns_dnssd
+  elif command -v avahi-browse >/dev/null 2>&1; then disc_mdns_avahi; fi
+  return 0
+}
+
+# _androidtvremote2 marks an Android TV / Google TV; _googlecast adds its name (fn) and model (md).
+disc_mdns_dnssd() {
+  local t n=0 pids="" files="" name f host ip i
+  for t in _androidtvremote2._tcp _googlecast._tcp; do
+    dns-sd -B "$t" local. </dev/null >"$DISC/browse$t" 2>/dev/null &
+    pids="$pids $!"
+  done
+  sleep 3   # dns-sd never exits on its own
+  # shellcheck disable=SC2086
+  disc_kill $pids
+  pids=""
+  for t in _androidtvremote2._tcp _googlecast._tcp; do
+    sed -nE 's/^[0-9:.]+ +Add +([^ ]+ +){4}//p' "$DISC/browse$t" | sort -u >"$DISC/names$t"
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      n=$((n + 1))
+      printf '%s\n%s\n' "$t" "$name" >"$DISC/svc$n"
+      dns-sd -L "$name" "$t" local. </dev/null >"$DISC/res$n" 2>/dev/null &
+      pids="$pids $!"
+      files="$files $DISC/res$n"
+    done <"$DISC/names$t"
+  done
+  [ "$n" -gt 0 ] || return 0
+  # shellcheck disable=SC2086
+  disc_wait_for 20 'can be reached at' $files
+  # shellcheck disable=SC2086
+  disc_kill $pids
+  pids=""
+  files=""
+  i=1
+  while [ "$i" -le "$n" ]; do
+    host=$(sed -nE 's/.* can be reached at ([^ ]+):[0-9]+.*/\1/p' "$DISC/res$i" | head -n 1)
+    if [ -n "$host" ]; then
+      dns-sd -G v4 "$host" </dev/null >"$DISC/addr$i" 2>/dev/null &
+      pids="$pids $!"
+      files="$files $DISC/addr$i"
+    fi
+    i=$((i + 1))
+  done
+  [ -n "$files" ] || return 0
+  # shellcheck disable=SC2086
+  disc_wait_for 15 ' Add ' $files
+  # shellcheck disable=SC2086
+  disc_kill $pids
+  i=1
+  while [ "$i" -le "$n" ]; do
+    f="$DISC/addr$i"
+    ip=$(grep ' Add ' "$f" 2>/dev/null | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
+    if [ -n "$ip" ]; then
+      t=$(sed -n 1p "$DISC/svc$i")
+      name=$(sed -n 2p "$DISC/svc$i")
+      case "$t" in
+        _androidtvremote2._tcp) printf '%s\tatv\t1\n%s\tlabel\t%s\n' "$ip" "$ip" "$name" ;;
+        *) printf '%s\tname\t%s\n%s\tmodel\t%s\n' "$ip" "$(disc_txt fn "$DISC/res$i")" "$ip" "$(disc_txt md "$DISC/res$i")" ;;
+      esac >>"$DISC/rec"
+    fi
+    i=$((i + 1))
+  done
+}
+
+disc_mdns_avahi() {
+  local t p n
+  for t in _androidtvremote2._tcp _googlecast._tcp; do
+    avahi-browse -rpt "$t" </dev/null >"$DISC/avahi$t" 2>/dev/null &
+    p=$!
+    n=50
+    while [ "$n" -gt 0 ] && kill -0 "$p" 2>/dev/null; do sleep 0.1; n=$((n - 1)); done
+    disc_kill "$p"
+    awk -F';' -v t="$t" '$1 == "=" && $3 == "IPv4" {
+        name = $4; gsub(/\\032/, " ", name); gsub(/\\\\/, "\\", name)
+        if (t == "_androidtvremote2._tcp") { print $8 "\tatv\t1"; print $8 "\tlabel\t" name; next }
+        fn = $10; md = $10
+        if (sub(/.*"fn=/, "", fn)) { sub(/".*/, "", fn); print $8 "\tname\t" fn }
+        if (sub(/.*"md=/, "", md)) { sub(/".*/, "", md); print $8 "\tmodel\t" md }
+      }' "$DISC/avahi$t" >>"$DISC/rec"
+  done
+}
+
+# Android TVs seen by mDNS outside the scanned /24 still get their port 5555 checked.
+disc_probe_others() {
+  local prefix ip
+  prefix=$(cat "$DISC/prefix" 2>/dev/null || true)
+  while read -r ip; do
+    if [ -n "$prefix" ] && [[ "$ip" == "$prefix".* ]]; then continue; fi
+    { if disc_probe "$ip"; then printf '%s\topen\t1\n' "$ip" >>"$DISC/rec"; fi; } </dev/null >/dev/null 2>&1 &
+  done < <(awk -F'\t' '$2 == "atv" {print $1}' "$DISC/rec" | sort -u)
+  wait
+}
+
+disc_adb_help() {
+  cat <<EOF
+ADB debugging is not on for $1 (port 5555 is closed). Turn it on with the remote, then run this again:
+  Android TV / Google TV (boxes, Thomson, Philips, Hisense…):
+    Paramètres (Settings) → Préférences de l'appareil (Device Preferences) → À propos (About):
+    press Build 7 times, then Options pour les développeurs (Developer options) →
+    Débogage USB (USB debugging), or Débogage réseau / sans fil if it is there.
+  Sony BRAVIA:
+    Settings → System → About: press OK on Build 7 times,
+    then Settings → System → Developer options → USB debugging.
+The first connection then asks "Allow USB debugging?": tick "Always allow" and choose Allow.
+More: https://canvasos.pages.dev/#install
+EOF
+}
+
+# One line per Android TV: ip, adb target, adb open (1/0), label.
+disc_choose() {
+  local list="$DISC/list" n open i line ip target ok label first="" ans
+  awk -F'\t' '
+    !($1 in seen) { seen[$1] = 1; order[++n] = $1 }
+    $2 == "atv" { atv[$1] = 1 }
+    $2 == "open" { open[$1] = 1 }
+    $2 == "serial" { serial[$1] = $3 }
+    $2 == "adb" { known[$1] = 1; state[$1] = $3; if ($3 != "offline") open[$1] = 1 }   # adb already reaches it
+    $2 == "label" && $3 != "" && label[$1] == "" { label[$1] = $3 }
+    $2 == "name" && $3 != "" && name[$1] == "" { name[$1] = $3 }
+    $2 == "model" && $3 != "" && model[$1] == "" { model[$1] = $3 }
+    END {
+      for (i = 1; i <= n; i++) {
+        ip = order[i]
+        if (!atv[ip] && !open[ip] && !known[ip]) continue   # a Cast speaker or a Chromecast without ADB
+        l = name[ip] != "" ? name[ip] : label[ip]
+        if (model[ip] != "" && model[ip] != l) l = (l != "" ? l " (" model[ip] ")" : model[ip])
+        if (state[ip] != "" && state[ip] != "device") l = l (l != "" ? ", " : "") "adb: " state[ip]
+        print ip "\t" (serial[ip] != "" ? serial[ip] : ip) "\t" (open[ip] ? 1 : 0) "\t" l
+      }
+    }' "$DISC/rec" | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n >"$list"
+  n=$(wc -l <"$list" | tr -d ' ')
+  open=$(awk -F'\t' '$3 == 1' "$list" | wc -l | tr -d ' ')
+  if [ "$n" = 0 ]; then
+    fail "no Android TV found on this network. Check that the TV is on, on the same network as this computer,
+       and that ADB debugging is on (https://canvasos.pages.dev/#install), or give its address:
+         curl -fsSL https://canvasos.pages.dev/install.sh | TV=192.168.1.20 bash"
+  fi
+  say "Android TVs on this network:"
+  i=0
+  while IFS="$(printf '\t')" read -r ip target ok label; do
+    i=$((i + 1))
+    [ "$ok" = 1 ] && ok=yes || ok=no
+    [ -n "$first" ] || { [ "$ok" = no ] || first=$ip; }
+    printf '  %d) %-15s  ADB open: %-3s  %s\n' "$i" "$ip" "$ok" "${label:-(no name)}"
+  done <"$list"
+  if [ "$open" = 0 ]; then
+    disc_adb_help "$(awk -F'\t' 'NR == 1 {print $1}' "$list")"
+    exit 1
+  fi
+  if ! { : </dev/tty; } 2>/dev/null; then
+    fail "no terminal to ask which TV to use: run this again with its address, for example
+         curl -fsSL https://canvasos.pages.dev/install.sh | TV=$first bash"
+  fi
+  if [ "$n" = 1 ]; then
+    printf 'Use this TV? [Y/n] '
+    read -r ans </dev/tty || ans=n
+    case "$ans" in ""|[Yy]*) i=1 ;; *) fail "cancelled: nothing was changed" ;; esac
+  else
+    while :; do
+      printf 'Which TV? [1-%d, q to quit] ' "$n"
+      read -r ans </dev/tty || ans=q
+      case "$ans" in [Qq]*) fail "cancelled: nothing was changed" ;; esac
+      if [[ "$ans" =~ ^[0-9]+$ ]] && [ "$ans" -ge 1 ] && [ "$ans" -le "$n" ]; then i=$ans; break; fi
+    done
+  fi
+  line=$(sed -n "${i}p" "$list")
+  IFS="$(printf '\t')" read -r ip target ok label <<EOF
+$line
+EOF
+  if [ "$ok" != 1 ]; then disc_adb_help "$ip"; exit 1; fi
+  TV=$target
+  say "Using $TV${label:+ ($label)}"
+}
+
 # ---------- install ----------
 install() {
-  local sdk maker model brand
+  local sdk maker model
   sdk=$(q getprop ro.build.version.sdk)
   maker=$(q getprop ro.product.manufacturer)
   model=$(q getprop ro.product.model)
-  brand=$(printf '%s %s' "$maker" "$(q getprop ro.product.brand)" | tr '[:upper:]' '[:lower:]')
   if [ "${ONLINE:-0}" = 1 ]; then
     [[ "$sdk" =~ ^[0-9]+$ ]] || fail "could not read the Android version"
     [ "$sdk" -ge 28 ] || fail "canvasOS needs Android 9 (API 28) or later; this TV reports API $sdk"
     say "TV: $maker $model, API $sdk"
   fi
 
-  local is_tcl=0 is_xiaomi=0
-  case "$brand" in *tcl*|*ffalcon*) is_tcl=1 ;; esac
-  case "$brand" in *xiaomi*|*redmi*) is_xiaomi=1 ;; esac
-  local flavor=${FLAVOR:-}
-  [ -n "$flavor" ] || { [ "$is_tcl" = 1 ] && flavor=guard || flavor=standard; }
-  [ "$flavor" = standard ] || [ "$flavor" = guard ] || fail "FLAVOR must be standard or guard"
-  if [ "$KEEP_ADB" = 1 ] && [ "$is_xiaomi" = 0 ] && [ "${ONLINE:-0}" = 1 ]; then
-    warn "KEEP_ADB=1 only matters on Xiaomi / Redmi; ignored on this TV"
-    KEEP_ADB=0
-  fi
-
   snapshot "$maker" "$model" "$sdk"
 
   # Download (or take APK=…).
-  local apk_name apk
-  [ "$flavor" = guard ] && apk_name=canvasOS-guard.apk || apk_name=canvasOS.apk
+  local apk_name=canvasOS.apk apk
   TMPD=$(mktemp -d "${TMPDIR:-/tmp}/canvasos.XXXXXX")
   trap 'rm -rf "$TMPD"' EXIT
   if [ -n "${APK:-}" ]; then
@@ -190,7 +483,7 @@ install() {
   fi
 
   # Install, never uninstalling anything.
-  say "Installing canvasOS ($flavor)"
+  say "Installing canvasOS"
   local out=""
   if [ "$DRY" = 1 ]; then
     run install -r "$apk"
@@ -206,18 +499,13 @@ install() {
        Nothing was changed. If you accept that, run:
          curl -fsSL https://canvasos.pages.dev/install.sh | TV=$TV bash -s -- restore --uninstall
        then this install again." ;;
-    *INSTALL_FAILED_VERIFICATION_FAILURE*)
-      if [ "$is_tcl" = 1 ] || [ "$flavor" = guard ]; then tcast_push "$TMPD"
-      else fail "the TV's verifier refused the install (INSTALL_FAILED_VERIFICATION_FAILURE). See AGENTS.md step 3."; fi ;;
     *) fail "adb install failed: $(printf '%s\n' "$out" | tail -n 1)" ;;
   esac
   if [ "$DRY" = 0 ]; then installed || fail "canvasOS is not installed after all (pm path is empty)"; fi
 
   # Home screen and the grants only adb can give (AGENTS.md step 4).
-  if [ "$flavor" = standard ]; then
-    say "Making canvasOS the home screen"
-    run shell cmd package set-home-activity "$PKG/.HomeActivity" >/dev/null || warn "set-home-activity refused"
-  fi
+  say "Making canvasOS the home screen"
+  run shell cmd package set-home-activity "$PKG/.HomeActivity" >/dev/null || warn "set-home-activity refused"
   say "Granting permissions"
   run shell pm grant "$PKG" android.permission.WRITE_SECURE_SETTINGS || warn "WRITE_SECURE_SETTINGS not granted"
   if [ -z "$sdk" ] || [ "$sdk" -ge 31 ]; then
@@ -225,30 +513,16 @@ install() {
   fi
   run shell cmd notification allow_listener "$PKG/$PKG.RevivalListener" || warn "notification listener not allowed"
   run shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow || true
-  if [ "$is_tcl" = 1 ]; then
-    run shell appops set "$PKG" APP_AUTO_START allow 2>/dev/null || true
-    run shell appops set "$PKG" APP_ASSOC_START allow 2>/dev/null || true
-  fi
   run shell pm grant "$PKG" android.permission.READ_TV_LISTINGS 2>/dev/null || true
 
-  # Xiaomi / TCL (and the guard build) need the home guard; elsewhere only if Home still opens the stock launcher.
-  local guard=0
-  if [ "$flavor" = guard ] || [ "$is_tcl" = 1 ] || [ "$is_xiaomi" = 1 ]; then guard=1; fi
-  if [ "$guard" = 1 ]; then
-    say "Turning on the home guard"
-    if [ "$KEEP_ADB" = 1 ]; then config --ez guard true --ez keep_adb true; else config --ez guard true; fi
-    start_canvasos
-  elif [ "$KEEP_ADB" = 1 ]; then
-    config --ez keep_adb true
-  fi
-
+  # The home guard only where Home still opens the stock launcher (TVs whose system keeps the Home key).
   say "Pressing Home and checking what is in front"
   if [ "$DRY" = 1 ]; then
     press_home_and_check
     say "(dry run) if the stock launcher came back: set-home-activity again, then the home guard; never disable a launcher"
   elif press_home_and_check; then
     say "canvasOS is the home screen."
-  elif [ "$guard" = 0 ]; then
+  else
     say "The stock launcher came back; trying again, then the home guard (AGENTS.md step 5)"
     run shell cmd package set-home-activity "$PKG/.HomeActivity" >/dev/null || true
     if press_home_and_check; then
@@ -263,9 +537,6 @@ install() {
          No launcher was disabled. See AGENTS.md section 10, or ask an AI agent to follow it."
       fi
     fi
-  else
-    warn "Home did not bring canvasOS to the front yet. The guard may need a few seconds after first launch:
-         press Home on the remote, then check again. See AGENTS.md section 10."
   fi
 
   if [ "$DRY" = 1 ]; then say "Dry run finished: nothing on the TV was changed."; return 0; fi
@@ -302,21 +573,6 @@ snapshot() {
   say "Original state saved in $STATE (home: ${home:-unknown})"
 }
 
-tcast_push() {
-  # TCL refuses every adb install: push the guard APK through its multi-screen interaction (T-Cast).
-  local dir=$1 guard_apk script ip
-  [ "$NETWORK" = 1 ] || fail "the TCL push needs the TV's IP address in TV="
-  ip=${SERIAL%%:*}
-  command -v python3 >/dev/null 2>&1 || fail "python3 is needed for the TCL push"
-  guard_apk="$dir/canvasOS-guard.apk"
-  script="$dir/tcast-push.py"
-  if [ -n "${APK:-}" ]; then cp "$APK" "$guard_apk"; else curl -fL -o "$guard_apk" "$RELEASES/canvasOS-guard.apk" </dev/null; fi
-  curl -fsSL -o "$script" "$TCAST" </dev/null
-  say "TCL refuses adb installs: sending canvasOS-guard.apk through multi-screen interaction (port 6553)"
-  say "On the TV, choose 同意 (Accept) when the push prompt appears; allow port 8765 if the firewall asks"
-  python3 "$script" "$ip" "$guard_apk" </dev/null || fail "the multi-screen push did not finish. Without it, copy the APK to /sdcard/Download/ and install it with a file manager on the TV (AGENTS.md step 3)."
-}
-
 # ---------- restore ----------
 restore() {
   local home="" saver_saved="" current_saver
@@ -333,8 +589,8 @@ restore() {
   if [ "${ONLINE:-0}" = 1 ] && ! installed; then
     warn "canvasOS is not installed on this TV"
   else
-    say "Turning off the home guard and keep-ADB"
-    config --ez guard false --ez keep_adb false
+    say "Turning off the home guard"
+    config --ez guard false
   fi
 
   # The guard's accessibility service can stay listed (the "capture TV keys" option uses it too):

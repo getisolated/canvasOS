@@ -67,7 +67,7 @@ export const fr: Copy = {
   proof: [
     `Testé sur ${device}`,
     "Vues aériennes de l'Apple TV en économiseur",
-    "APK standard et APK guard",
+    "Mises à jour depuis la TV",
     "Sans root, entièrement réversible",
   ],
 
@@ -103,7 +103,7 @@ export const fr: Copy = {
     points: [
       "Contenu de l'économiseur : Photos, ou Vues aériennes (Apple TV), lues en streaming depuis les serveurs d'Apple (environ 15–20 Mbit/s)",
       "Sans connexion, retour automatique aux photos",
-      "Le cadre photo devient l'économiseur système, après le délai d'inactivité que vous choisissez ; sur Xiaomi, l'accueil le lance avant celui de Xiaomi",
+      "Le cadre photo devient l'économiseur système, après le délai d'inactivité que vous choisissez",
     ],
     attribution:
       "Les films aériens sont lus en streaming depuis les serveurs d'Apple ; canvasOS n'en contient aucun. « Apple TV » est une marque d'Apple Inc. Ce projet n'est pas affilié à Apple.",
@@ -219,36 +219,34 @@ export const fr: Copy = {
   install: {
     eyebrow: "INSTALLATION",
     title: "Depuis votre ordinateur, en une fois.",
-    lede: "Il faut un ordinateur sur le même réseau que la TV, l'adresse IP de la TV et le débogage ADB activé. Android 9 ou plus, sans root. Ensuite, canvasOS se met à jour depuis la TV.",
+    lede: "Il faut un ordinateur sur le même réseau que la TV et le débogage ADB activé ; l'agent ou le script trouvent la TV sur le réseau. Android 9 ou plus, sans root. Ensuite, canvasOS se met à jour depuis la TV.",
     downloads: [
       {
         name: "APK standard",
-        use: `Pour Android TV / Google TV d'origine (box comme la ${device}), Sony BRAVIA, Xiaomi / Redmi, Hisense et la plupart des autres. Se déclare écran d'accueil.`,
+        use: `Pour Android TV / Google TV d'origine (box comme la ${device}), Sony BRAVIA, Hisense, Philips et la plupart des autres. Se déclare écran d'accueil.`,
         cta: "Télécharger canvasOS.apk",
       },
       {
-        name: "APK guard",
-        use: "Ne déclare aucun écran d'accueil, pour TCL / FFalcon qui refuse les APK de lanceur. S'installe par l'Interaction multi-écrans de TCL ; la Protection de l'accueil le garde au premier plan.",
-        cta: "Télécharger canvasOS-guard.apk",
+        name: "Toutes les versions",
+        use: "Les notes de chaque version et les APK précédents, sur GitHub. Toutes les versions sont signées avec la même clé et se mettent à jour sur place.",
+        cta: "Voir les versions",
       },
     ],
     prereq:
       "Avant de commencer : la TV est sur le même réseau que l'ordinateur, le débogage ADB est activé (voir la marque plus bas), et la première connexion affiche « Autoriser le débogage USB ? » : cochez « Toujours autoriser ». L'ordinateur a besoin d'adb (Android SDK Platform-Tools).",
     agent: {
       title: "Confiez-le à un agent IA (recommandé)",
-      body: "Envoyez ce message à un agent qui exécute des commandes sur votre ordinateur (Claude Code, Codex…). Il suit le guide d'installation de canvasOS, vous demande la marque et l'IP de la TV, installe, vérifie et garde un moyen de revenir à l'accueil d'origine.",
-      prompt: `Installe le lanceur open source canvasOS sur ma TV et fais-en l'écran d'accueil.
-IP de la TV : <IP_TV>
-Garder ADB activé (Xiaomi seulement) : oui
+      body: "Envoyez ce message à un agent qui exécute des commandes sur votre ordinateur (Claude Code, Codex…). Il suit le guide d'installation de canvasOS, trouve la TV sur votre réseau, vous guide pas à pas sur la télécommande, installe, vérifie et garde un moyen de revenir à l'accueil d'origine.",
+      prompt: `Installe le lanceur open source canvasOS sur ma TV Android et fais-en l'écran d'accueil.
 
-Lis d'abord entièrement ${brand.site}/agent.md (sinon : ${brand.agentsRaw}), puis exécute les commandes sur mon ordinateur. Respecte ses règles absolues : n'éteins pas la TV, ne désinstalle et ne désactive rien sans me le demander. Note l'accueil d'origine avant de changer quoi que ce soit. Dis-moi quand je dois agir sur la TV.`,
-      note: "La TV affiche deux ou trois demandes d'autorisation : choisissez « Autoriser » avec la télécommande. Sur TCL, choisissez « Accepter » (同意) quand l'envoi par l'Interaction multi-écrans s'affiche.",
+Lis d'abord entièrement ${brand.site}/agent.md (sinon : ${brand.agentsRaw}), puis trouve toi-même ma TV sur le réseau et guide-moi étape par étape : dis-moi sur quoi appuyer avec la télécommande et ce qui va s'afficher, puis attends que je confirme. N'éteins pas la TV, et ne désinstalle ni ne désactive rien sans me le demander.`,
+      note: "La TV affiche deux ou trois demandes d'autorisation : l'agent vous prévient, choisissez « Autoriser » avec la télécommande.",
     },
     quick: {
       eyebrow: "MACOS / LINUX",
       title: "Une commande. Installé et vérifié.",
-      body: "Il faut adb et curl (et Python 3 sur TCL). Remplacez l'IP d'exemple. Le script note l'accueil d'origine avant de toucher à quoi que ce soit, installe la dernière version et vérifie la touche Accueil.",
-      note: "Xiaomi : ajoutez <code>KEEP_ADB=1</code> pour garder le débogage ADB activé après la veille. <code>DRY_RUN=1</code> affiche ce que le script ferait, sans rien changer. Sous Windows, passez par un agent IA.",
+      body: "Il faut adb et curl. Le script cherche les TV Android de votre réseau et vous laisse choisir la vôtre, note l'accueil d'origine avant de toucher à quoi que ce soit, installe la dernière version et vérifie la touche Accueil.",
+      note: "Pour viser une TV précise, ajoutez son adresse : <code>TV=192.168.x.x bash</code>. <code>DRY_RUN=1</code> affiche ce que le script ferait, sans rien changer. Sous Windows, passez par un agent IA.",
     },
     update: {
       eyebrow: "MISE À JOUR / RETOUR",
@@ -264,36 +262,27 @@ Lis d'abord entièrement ${brand.site}/agent.md (sinon : ${brand.agentsRaw}), pu
       head: ["TV", "Comment activer ADB"],
       rows: [
         [
-          "Xiaomi / Redmi",
-          "Réglages (设置) → À propos (关于) → <strong>Modèle du produit (产品型号)</strong> : appuyez plusieurs fois sur OK jusqu'à l'annonce du mode développeur. Puis Réglages → Compte et sécurité (账号与安全) : activez <strong>Débogage ADB (ADB 调试)</strong> et <strong>Installer des apps de sources inconnues (安装未知来源的应用)</strong>.",
-        ],
-        [
-          "TCL / FFalcon",
-          "Réglages (设置) → À propos (关于) → <strong>Informations sur l'appareil (本机信息)</strong>, puis <strong>Haut, Bas, Gauche, Droite</strong> sur la télécommande, à moins d'une seconde d'intervalle. Un groupe <strong>Plus (更多)</strong> apparaît en bas : activez <strong>ADB</strong>.",
+          "Android TV / Google TV d'origine, Hisense, Philips et autres",
+          "Google TV : Paramètres → Système → À propos → appuyez 7 fois sur <strong>Build du système d'exploitation Android TV</strong>. Android TV : Paramètres → Préférences de l'appareil → À propos → 7 fois sur <strong>Build</strong>. Puis Options pour les développeurs → <strong>Débogage USB</strong> (parfois appelé Débogage réseau ou Débogage ADB).",
         ],
         [
           "Sony BRAVIA",
           "Paramètres → Système → À propos → appuyez 7 fois sur OK sur <strong>Build</strong>. Puis Paramètres → Système → Options pour les développeurs → <strong>Débogage USB</strong>.",
         ],
-        [
-          "Android TV / Google TV d'origine, Hisense et autres",
-          "Paramètres → Préférences de l'appareil → À propos → appuyez 7 fois sur <strong>Build</strong>. Puis Options pour les développeurs → <strong>Débogage USB</strong> (parfois appelé Débogage réseau ou Débogage ADB).",
-        ],
       ],
     },
     allowNote:
-      "À la première connexion, la TV demande « Autoriser le débogage USB ? » (sur les TV chinoises : 允许 USB 调试吗？). Choisissez <strong>Autoriser</strong> (允许) et cochez <strong>Toujours autoriser</strong> (始终允许). L'IP de la TV se trouve dans Paramètres → Réseau ou À propos.",
+      "À la première connexion, la TV demande « Autoriser le débogage USB ? ». Choisissez <strong>Autoriser</strong> et cochez <strong>Toujours autoriser</strong>. Si la TV n'est pas trouvée sur le réseau, son adresse IP se trouve dans Paramètres → Réseau ou À propos.",
     advanced: {
       title: "Avancé : à quoi servent les autorisations",
       body: "L'agent et le script accordent par adb ce qu'une app ordinaire ne peut pas demander. Tout reste sur la TV.",
       head: ["Autorisation", "Usage"],
       rows: [
-        ["WRITE_SECURE_SETTINGS", "Réactiver la Protection de l'accueil quand le système la coupe, garder le cadre photo comme économiseur, garder ADB activé (Xiaomi), luminosité sur Xiaomi"],
+        ["WRITE_SECURE_SETTINGS", "Réactiver la Protection de l'accueil quand le système la coupe, garder le cadre photo comme économiseur"],
         ["Écouteur de notifications", "Relancer canvasOS après un arrêt et au démarrage ; épargner ce qui lit au nettoyage de la mémoire ; Lecture en cours et bannières de notifications (désactivables)"],
         ["SYSTEM_ALERT_WINDOW", "Ouvrir l'accueil depuis l'arrière-plan après le démarrage ; afficher les bannières par-dessus l'app regardée"],
         ["BLUETOOTH_CONNECT", "Android 12+ : lister et connecter les appareils Bluetooth déjà associés depuis le Centre de contrôle"],
         ["READ_TV_LISTINGS", "Top Shelf : lire la ligne « Continuer à regarder » publiée par les apps, rien d'autre"],
-        ["APP_AUTO_START / APP_ASSOC_START", "TCL uniquement : autoriser canvasOS à démarrer avec la TV"],
       ],
     },
     safety:
@@ -304,7 +293,7 @@ Lis d'abord entièrement ${brand.site}/agent.md (sinon : ${brand.agentsRaw}), pu
     eyebrow: "COMPATIBILITÉ",
     title: "Ce que votre TV sait vraiment faire.",
     lede: "canvasOS essaie d'abord l'API de la marque, puis se rabat sur Android standard. Voici la limite actuelle, sans enjoliver.",
-    caption: "Android TV 9+ · les versions standard et guard se comportent de la même façon, à la déclaration d'accueil près",
+    caption: "Android TV et Google TV, Android 9 ou plus · sans root",
     head: ["Fonction", "Toute Android TV", "Débogage local", "Sony BRAVIA seulement"],
     rows: [
       { cells: ["Accueil, Dock, dossiers, profils", "Oui", "—", "—"], tones: ["ok", "na", "na"] },
@@ -319,7 +308,7 @@ Lis d'abord entièrement ${brand.site}/agent.md (sinon : ${brand.agentsRaw}), pu
       { cells: ["Mise à jour depuis la TV, installation d'APK", "—", "Oui", "—"], tones: ["na", "ok", "na"] },
       { cells: ["Télécommande du téléphone", "Sur les écrans de canvasOS", "Dans toutes les apps", "—"], tones: ["cond", "ok", "na"] },
       { cells: ["Entrées HDMI (Source)", "Selon la marque", "—", "Avec l'entrée actuelle"], tones: ["cond", "na", "ok"] },
-      { cells: ["Luminosité", "Xiaomi, avec WRITE_SECURE_SETTINGS", "—", "Oui"], tones: ["cond", "na", "ok"] },
+      { cells: ["Luminosité", "Pas d'API standard dans Android", "—", "Oui"], tones: ["na", "na", "ok"] },
       { cells: ["Protection de l'accueil, relance", "Autorisation adb, une fois", "Oui", "—"], tones: ["ok", "ok", "na"] },
     ],
     notes: [
@@ -336,23 +325,19 @@ Lis d'abord entièrement ${brand.site}/agent.md (sinon : ${brand.agentsRaw}), pu
         body: "Après l'enregistrement du contrôle IP (un code PIN s'affiche sur la TV), la luminosité et les sources passent par l'API du téléviseur, et Source indique l'entrée actuelle.",
       },
       {
-        title: "TCL / FFalcon, firmware chinois",
-        body: "Version guard installée par l'Interaction multi-écrans, Protection de l'accueil. Les sources ouvrent le sélecteur de LiveTV ; pas de luminosité.",
+        title: "Touche Accueil réservée",
+        body: "Quand le système garde la touche Accueil pour son propre lanceur, la Protection de l'accueil ramène canvasOS en une demi-seconde environ, sans rien désactiver ni désinstaller.",
       },
       {
-        title: "Xiaomi / Redmi, firmware chinois",
-        body: "La touche Accueil reste réservée à PatchWall : la Protection de l'accueil ramène canvasOS. Ne désactivez jamais le lanceur d'origine. Rétroéclairage par picture_backlight, sources par le lecteur de Xiaomi.",
-      },
-      {
-        title: "Skyworth / Coocaa",
-        body: "Sans sources standard, Source ouvre le sélecteur du lanceur. Luminosité et réglages restent ceux d'Android standard. Pas encore testé sur un vrai téléviseur.",
+        title: "Xiaomi / Redmi",
+        body: "Ne désactivez jamais le lanceur d'origine (com.mitv.tvhome) : la TV démarrerait sur un écran noir. Ni l'agent ni le script ne le font.",
       },
       {
         title: "Autres marques",
         body: "Android n'a pas d'API standard pour le rétroéclairage : la luminosité reste grisée. Chaque marque est un fichier dans tv/ ; la section 9 d'AGENTS.md explique comment en ajouter une.",
       },
     ],
-    scope: `<strong>Périmètre vérifié :</strong> les captures de ce site viennent d'une ${device} (${deviceOs}, version standard). Les adaptateurs Sony, Xiaomi, TCL / FFalcon et Skyworth / Coocaa n'ont pas tous été vérifiés sur chaque firmware.`,
+    scope: `<strong>Périmètre vérifié :</strong> les captures de ce site viennent d'une ${device} (${deviceOs}, version standard). Le contrôle IP de Sony n'a pas été vérifié sur chaque modèle BRAVIA.`,
   },
 
   faq: {
@@ -363,7 +348,7 @@ Lis d'abord entièrement ${brand.site}/agent.md (sinon : ${brand.agentsRaw}), pu
         q: "Faut-il rooter la TV ? Et la garantie ?",
         a: [
           "Pas de root, aucune modification du système. canvasOS s'installe comme une app, devient l'accueil par défaut par ADB et reçoit quelques autorisations qu'une app ordinaire ne peut pas demander.",
-          "La garantie dépend du fabricant. Le vrai risque vient d'une commande ADB mal employée, comme désactiver le lanceur d'origine d'une Xiaomi : ni l'agent ni le script ne le font.",
+          "La garantie dépend du fabricant. Le vrai risque vient d'une commande ADB mal employée, comme désactiver le lanceur d'origine : ni l'agent ni le script ne le font sans votre accord.",
         ],
       },
       {
@@ -374,23 +359,9 @@ Lis d'abord entièrement ${brand.site}/agent.md (sinon : ${brand.agentsRaw}), pu
         ],
         cmds: [
           restoreCmd,
-          `adb -s ${TV}:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez guard false --ez keep_adb false
+          `adb -s ${TV}:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez guard false
 adb -s ${TV}:5555 shell settings put secure screensaver_components <VALEUR_D_ORIGINE>
 adb -s ${TV}:5555 uninstall ${P}`,
-        ],
-      },
-      {
-        q: "Pourquoi ne jamais désactiver le lanceur d'une Xiaomi ?",
-        a: [
-          "Sur Xiaomi / Redmi, PatchWall (com.mitv.tvhome) est imposé par une liste blanche du système, et l'accueil de secours refuse lui aussi les lanceurs tiers : le désactiver laisse un écran noir au démarrage.",
-          "canvasOS utilise la Protection de l'accueil : quand PatchWall passe devant, canvasOS revient par-dessus en une demi-seconde environ. Aucune app système n'est désactivée ni supprimée.",
-        ],
-      },
-      {
-        q: "TCL affiche INSTALL_FAILED_VERIFICATION_FAILURE",
-        a: [
-          "Le vérificateur de TCL refuse toute installation par adb. Installez l'APK guard par l'Interaction multi-écrans (多屏互动) avec tools/tcast-push.py, puis choisissez « Accepter » sur la TV : le script et l'agent le font pour vous.",
-          "Si le port 6553 ne répond pas, ce modèle n'a pas l'Interaction multi-écrans : copiez l'APK dans /sdcard/Download/ et installez-le avec un gestionnaire de fichiers de la TV.",
         ],
       },
       {
@@ -403,13 +374,13 @@ adb -s ${TV}:5555 uninstall ${P}`,
       {
         q: "Pourquoi le curseur de luminosité est-il grisé ?",
         a: [
-          "Android n'a pas d'API standard pour le rétroéclairage. Sony BRAVIA l'expose par son API de contrôle IP, Xiaomi par picture_backlight (avec WRITE_SECURE_SETTINGS). Ailleurs, la commande reste à sa place, grisée, plutôt que de ne rien faire.",
+          "Android n'a pas d'API standard pour le rétroéclairage. Sony BRAVIA l'expose par son API de contrôle IP. Ailleurs, la commande reste à sa place, grisée, plutôt que de ne rien faire.",
         ],
       },
       {
         q: "ADB répond toujours unauthorized",
         a: [
-          "La TV n'a pas encore accepté cet ordinateur. Sur la TV, cochez « Toujours autoriser depuis cet ordinateur » et appuyez sur Autoriser. Xiaomi coupe ADB à chaque sortie de veille : l'option « Garder le débogage ADB activé » de canvasOS (KEEP_ADB=1) le réactive.",
+          "La TV n'a pas encore accepté cet ordinateur. Sur la TV, cochez « Toujours autoriser depuis cet ordinateur » et appuyez sur Autoriser.",
         ],
       },
       {
@@ -435,7 +406,7 @@ adb -s ${TV}:5555 uninstall ${P}`,
       {
         q: "Est-ce lié à Apple ?",
         a: [
-          "Non. canvasOS est un projet open source indépendant, ni affilié à Apple, Sony, Xiaomi ou TCL, ni approuvé par eux. Son interface s'inspire de tvOS. Le choix de logo « tvOS » (carte-titre et film de démarrage de l'Apple TV) appartient à Apple et sert à un usage personnel sur votre propre TV.",
+          "Non. canvasOS est un projet open source indépendant, ni affilié à Apple, Google ou Sony, ni approuvé par eux. Son interface s'inspire de tvOS. Le choix de logo « tvOS » (carte-titre et film de démarrage de l'Apple TV) appartient à Apple et sert à un usage personnel sur votre propre TV.",
         ],
       },
     ],
@@ -479,7 +450,7 @@ adb -s ${TV}:5555 uninstall ${P}`,
         ],
       },
     ],
-    legal: `© ${brand.year} canvasOS · projet open source indépendant. Ni affilié à Apple, Sony, Xiaomi ou TCL, ni approuvé ou soutenu par eux. « Apple TV » et « tvOS » sont des marques d'Apple Inc., citées ici pour décrire les vues aériennes et le logo proposé au choix. Les photos, pochettes et icônes d'apps visibles sur les captures appartiennent à leurs propriétaires. Les vues aériennes sont lues depuis les serveurs d'Apple. Installation et utilisation à vos risques.`,
+    legal: `© ${brand.year} canvasOS · projet open source indépendant. Ni affilié à Apple, Google ou Sony, ni approuvé ou soutenu par eux. « Apple TV » et « tvOS » sont des marques d'Apple Inc., citées ici pour décrire les vues aériennes et le logo proposé au choix. Les photos, pochettes et icônes d'apps visibles sur les captures appartiennent à leurs propriétaires. Les vues aériennes sont lues depuis les serveurs d'Apple. Installation et utilisation à vos risques.`,
   },
 };
 

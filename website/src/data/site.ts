@@ -7,7 +7,6 @@ export const brand = {
   repo: "https://github.com/getisolated/canvasOS",
   releases: "https://github.com/getisolated/canvasOS/releases",
   apk: "https://github.com/getisolated/canvasOS/releases/latest/download/canvasOS.apk",
-  apkGuard: "https://github.com/getisolated/canvasOS/releases/latest/download/canvasOS-guard.apk",
   agentsRepo: "https://github.com/getisolated/canvasOS/blob/main/AGENTS.md",
   agentsRaw: "https://raw.githubusercontent.com/getisolated/canvasOS/main/AGENTS.md",
   readme: "https://github.com/getisolated/canvasOS/blob/main/README.md",
@@ -26,9 +25,10 @@ export const release = { version: "1.2.0" } as const;
 export const device = "Thomson Streaming Box 240G";
 export const deviceOs = "Google TV";
 
-/* The one-line installer served from public/install.sh. */
-export const installCmd = `curl -fsSL ${brand.site}/install.sh | TV=192.168.x.x bash`;
-export const restoreCmd = `curl -fsSL ${brand.site}/install.sh | TV=192.168.x.x bash -s -- restore`;
+/* The one-line installer served from public/install.sh. Without TV=, it finds the TVs on the
+   local network and asks which one. */
+export const installCmd = `curl -fsSL ${brand.site}/install.sh | bash`;
+export const restoreCmd = `curl -fsSL ${brand.site}/install.sh | bash -s -- restore`;
 
 /* Real captures, 1920x1080 PNG in ../docs/screenshots, converted by scripts/build-assets.py. */
 export const stills = {

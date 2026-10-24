@@ -123,6 +123,7 @@ export interface Copy {
     eyebrow: string;
     title: string;
     lede: string;
+    /* the standard APK, then the releases page */
     downloads: { name: string; use: string; cta: string }[];
     prereq: string;
     agent: { title: string; body: string; prompt: string; note: string };

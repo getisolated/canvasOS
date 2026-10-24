@@ -43,7 +43,7 @@ What the build produces in `dist/`:
 - `install.sh`: the one-command installer (`public/install.sh`), served as `text/plain`.
 - `_headers`: CSP and cache rules. The only inline script (the `no-js` switch in
   `src/layouts/Base.astro`) is allowed by its sha256; `scripts/check-csp.mjs` fails the build if an
-  inline script is not in the CSP. `_redirects`: `/download` and `/download-guard` to the latest APKs.
+  inline script is not in the CSP. `_redirects`: `/download` to the latest APK.
 - `sitemap.xml`, `robots.txt`, `img/*`, `video/*` (when supplied), `_astro/*`.
 
 Do not deploy by hand while the Git integration is on; a push to `main` is the deploy.
@@ -102,26 +102,40 @@ scripts/                build-assets.py, check-csp.mjs, preview.py
   The settings capture shows the optional "tvOS" logo; the gallery's fine print says so.
 - **The release cards** (`release` in both copies) describe `release.version` in `site.ts`; update
   all three together when a version ships.
-- **Never suggest disabling the Xiaomi stock launcher** (`com.mitv.tvhome`); both languages offer the
-  home guard instead.
-- **Downloads** point at GitHub `releases/latest/download/canvasOS.apk` (and `canvasOS-guard.apk`).
+- **Nothing specific to one market's firmware.** Brands named are stock Android TV / Google TV,
+  Sony BRAVIA and Android TV models of Hisense, Philips, Thomson… The one exception is the safety
+  note (compatibility card, both languages, and `install.sh`): never disable the Xiaomi / Redmi
+  stock launcher (`com.mitv.tvhome`), the TV would boot to a black screen. The home guard is
+  described generically, for TVs whose system keeps the Home key for its own launcher.
+- **Downloads** point at GitHub `releases/latest/download/canvasOS.apk` only; the second download
+  card links the releases page.
+- **The agent message** (`install.agent.prompt`) never asks for the TV's IP: the agent finds the TV
+  on the network and guides the user step by step (AGENTS.md).
 - **Client-side strings** come from `data-*` attributes written by the layout, never from literals
   in `main.ts`, so `/en/` cannot fall back to French.
 
 ## install.sh
 
-`curl -fsSL https://canvasos.pages.dev/install.sh | TV=192.168.x.x bash` follows AGENTS.md:
-checks adb, connects, requires API 28+, saves the original home activity, screensaver,
-accessibility services, notification listeners and device info to `~/.canvasos/<ip>_5555/` before
-changing anything (never overwritten by a later run), downloads the latest Release (guard APK on
-TCL / FFalcon, pushed through `tools/tcast-push.py` when TCL's verifier refuses adb), installs with
+`curl -fsSL https://canvasos.pages.dev/install.sh | bash` follows AGENTS.md. Without `TV=`, it
+finds the Android TVs on the local network and asks which one (read from `/dev/tty`; with no
+terminal it lists them and asks for `TV=`): adb's own network devices, an mDNS browse
+(`_androidtvremote2._tcp` marks an Android TV, `_googlecast._tcp` adds its name and model; `dns-sd`
+on macOS, `avahi-browse` on Linux) and a parallel probe of port 5555 on the local /24 (`nc`, or
+bash `/dev/tcp`), in about 4 s. Discovery never runs `adb connect`; a TV seen by mDNS with port
+5555 closed gets the "turn on ADB debugging" steps instead. Then it checks adb, connects to the
+chosen TV, requires API 28+, saves the original home activity, screensaver, accessibility
+services, notification listeners and device info to `~/.canvasos/<ip>_5555/` before changing
+anything (never overwritten by a later run), downloads the latest Release, installs with
 `adb install -r`, sets the home activity, grants the step-4 permissions, turns on the home guard
-on Xiaomi / TCL or when Home still opens the stock launcher, and checks `ResumedActivity`.
+only when Home still opens the stock launcher, and checks `ResumedActivity`.
 
-- `KEEP_ADB=1` (Xiaomi only), `FLAVOR=standard|guard`, `APK=/path/file.apk`, `DRY_RUN=1`.
-- `bash -s -- restore`: guard and keep-ADB off, original screensaver back, revival listener off,
+- `TV=192.168.x.x` (or an adb serial) skips discovery; `APK=/path/file.apk`, `DRY_RUN=1`.
+- `bash -s -- restore`: guard off, original screensaver back, revival listener off,
   original home activity back. `restore --uninstall` also uninstalls canvasOS.
 - It stops on `INSTALL_FAILED_UPDATE_INCOMPATIBLE` and never uninstalls on its own. It never sends
-  power, sleep or reboot keys, never uninstalls a system app and never disables a launcher.
+  power, sleep or reboot keys, never uninstalls a system app and never disables a launcher: `run`
+  refuses any disable / hide / foreign uninstall, and names `com.mitv.tvhome` explicitly.
 - Before publishing a change: `bash -n public/install.sh && shellcheck public/install.sh`, a
   `DRY_RUN=1` run, then a real run and `restore` on the `tv34` emulator (`TV=emulator-5554`).
+  Discovery: `DRY_RUN=1 bash public/install.sh </dev/null` (no terminal: it lists the TVs and
+  stops), then the same in a terminal, answering `n` so nothing connects.

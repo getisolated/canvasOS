@@ -67,7 +67,7 @@ export const en: Copy = {
   proof: [
     `Tested on a ${device}`,
     "Apple TV aerial screensaver",
-    "Standard and guard APKs",
+    "Updates from the TV",
     "No root, fully reversible",
   ],
 
@@ -103,7 +103,7 @@ export const en: Copy = {
     points: [
       "Screensaver content: Photos, or Aerial views (Apple TV), streamed from Apple's servers at about 15–20 Mbit/s",
       "Offline, it falls back to photos automatically",
-      "The photo frame becomes the system screensaver after the idle delay you choose; on Xiaomi, the home screen starts it before Xiaomi's own",
+      "The photo frame becomes the system screensaver after the idle delay you choose",
     ],
     attribution:
       "Aerial films stream from Apple's servers; canvasOS ships none of them. “Apple TV” is a trademark of Apple Inc. This project is not affiliated with Apple.",
@@ -219,36 +219,34 @@ export const en: Copy = {
   install: {
     eyebrow: "INSTALL",
     title: "From your computer, in one go.",
-    lede: "You need a computer on the same network as the TV, the TV's IP address and ADB debugging turned on. Android 9 or later, no root. After that, canvasOS updates itself from the TV. Its interface is in French.",
+    lede: "You need a computer on the same network as the TV and ADB debugging turned on; the agent or the script finds the TV on the network. Android 9 or later, no root. After that, canvasOS updates itself from the TV. Its interface is in French.",
     downloads: [
       {
         name: "Standard APK",
-        use: `For stock Android TV / Google TV (boxes like the ${device}), Sony BRAVIA, Xiaomi / Redmi, Hisense and most others. Declares itself a home screen.`,
+        use: `For stock Android TV / Google TV (boxes like the ${device}), Sony BRAVIA, Hisense, Philips and most others. Declares itself a home screen.`,
         cta: "Download canvasOS.apk",
       },
       {
-        name: "Guard APK",
-        use: "Declares no home screen, for TCL / FFalcon firmware that rejects launcher APKs. Installed through TCL's multi-screen interaction (T-Cast); the home guard keeps it in front.",
-        cta: "Download canvasOS-guard.apk",
+        name: "All releases",
+        use: "Release notes and earlier APKs, on GitHub. Every release is signed with the same key and updates in place.",
+        cta: "See the releases",
       },
     ],
     prereq:
       "Before you start: the TV is on the same network as the computer, ADB debugging is on (see your brand below), and the first connection shows “Allow USB debugging?” — tick “Always allow”. The computer needs adb (Android SDK Platform-Tools).",
     agent: {
       title: "Let an AI agent do it (recommended)",
-      body: "Send this message to an agent that can run commands on your computer (Claude Code, Codex and similar). It follows the canvasOS install guide, asks for your TV brand and IP, installs, verifies and keeps a way back to the stock home screen.",
-      prompt: `Install the open-source canvasOS launcher on my TV and make it the home screen.
-TV IP: <TV_IP>
-Keep ADB enabled (Xiaomi only): yes
+      body: "Send this message to an agent that can run commands on your computer (Claude Code, Codex and similar). It follows the canvasOS install guide, finds the TV on your network, walks you through the remote step by step, installs, verifies and keeps a way back to the stock home screen.",
+      prompt: `Install the open-source canvasOS launcher on my Android TV and make it the home screen.
 
-Read ${brand.site}/agent.md fully first (fallback: ${brand.agentsRaw}), then run the commands on my computer. Follow its absolute rules: do not power off the TV, and do not uninstall or disable anything without asking me. Record the original home screen before changing anything. Tell me when I must act on the TV.`,
-      note: "The TV shows two or three permission prompts; choose “Allow” with the remote. On TCL, choose “Accept” (同意) when the multi-screen push prompt appears.",
+Read ${brand.site}/agent.md fully first (fallback: ${brand.agentsRaw}), then find my TV on the network yourself and guide me step by step: tell me what to press on the remote and what will appear on screen, then wait for me to confirm. Do not power off the TV, and do not uninstall or disable anything without asking me.`,
+      note: "The TV shows two or three permission prompts; the agent tells you when, and you choose “Allow” with the remote.",
     },
     quick: {
       eyebrow: "MACOS / LINUX",
       title: "One command. Installed and verified.",
-      body: "You need adb and curl (plus Python 3 on TCL). Replace the sample IP. The script records the original home screen before touching anything, installs the latest release and checks the Home button.",
-      note: "Xiaomi: add <code>KEEP_ADB=1</code> to keep ADB debugging on after standby. <code>DRY_RUN=1</code> prints what the script would do without changing anything. On Windows, use an AI agent.",
+      body: "You need adb and curl. The script looks for Android TVs on your network and lets you pick yours, records the original home screen before touching anything, installs the latest release and checks the Home button.",
+      note: "To target one TV, add its address: <code>TV=192.168.x.x bash</code>. <code>DRY_RUN=1</code> prints what the script would do without changing anything. On Windows, use an AI agent.",
     },
     update: {
       eyebrow: "UPDATE / RESTORE",
@@ -264,36 +262,27 @@ Read ${brand.site}/agent.md fully first (fallback: ${brand.agentsRaw}), then run
       head: ["TV", "How to enable ADB"],
       rows: [
         [
-          "Xiaomi / Redmi",
-          "Settings (设置) → About (关于) → <strong>Product model (产品型号)</strong>: press OK repeatedly until developer mode is on. Then Settings → Account & security (账号与安全): enable <strong>ADB debugging (ADB 调试)</strong> and <strong>Install apps from unknown sources (安装未知来源的应用)</strong>.",
-        ],
-        [
-          "TCL / FFalcon",
-          "Settings (设置) → About (关于) → <strong>Device info (本机信息)</strong>, then press <strong>Up, Down, Left, Right</strong> on the remote, less than a second apart. A <strong>More (更多)</strong> group appears at the bottom: enable <strong>ADB</strong>.",
+          "Stock Android TV / Google TV, Hisense, Philips and others",
+          "Google TV: Settings → System → About → press <strong>Android TV OS build</strong> seven times. Android TV: Settings → Device Preferences → About → press <strong>Build</strong> seven times. Then Developer options → <strong>USB debugging</strong> (sometimes called Network debugging or ADB debugging).",
         ],
         [
           "Sony BRAVIA",
           "Settings → System → About → press OK on <strong>Build</strong> seven times. Then Settings → System → Developer options → <strong>USB debugging</strong>.",
         ],
-        [
-          "Stock Android TV / Google TV, Hisense and others",
-          "Settings → Device Preferences → About → press <strong>Build</strong> seven times. Then Developer options → <strong>USB debugging</strong> (sometimes called Network debugging or ADB debugging).",
-        ],
       ],
     },
     allowNote:
-      "On the first connection the TV asks “Allow USB debugging?” (on Chinese firmware: 允许 USB 调试吗？). Choose <strong>Allow</strong> (允许) and tick <strong>Always allow</strong> (始终允许). The TV's IP address is under Settings → Network or About.",
+      "On the first connection the TV asks “Allow USB debugging?”. Choose <strong>Allow</strong> and tick <strong>Always allow</strong>. If the TV is not found on the network, its IP address is under Settings → Network or About.",
     advanced: {
       title: "Advanced: what the permissions are for",
       body: "The agent and the script grant over adb what an ordinary app cannot ask for. Everything stays on the TV.",
       head: ["Permission", "Purpose"],
       rows: [
-        ["WRITE_SECURE_SETTINGS", "Switch the home guard back on when the system turns it off, keep the photo frame as screensaver, keep ADB on (Xiaomi), brightness on Xiaomi"],
+        ["WRITE_SECURE_SETTINGS", "Switch the home guard back on when the system turns it off, keep the photo frame as screensaver"],
         ["Notification listener", "Restart canvasOS after it is killed and at boot; spare what is playing when freeing memory; Now playing and notification banners (both can be turned off)"],
         ["SYSTEM_ALERT_WINDOW", "Open the home screen from the background after boot; show banners over the app you are watching"],
         ["BLUETOOTH_CONNECT", "Android 12+: list and connect already paired Bluetooth devices from the Control Center"],
         ["READ_TV_LISTINGS", "Top Shelf: read the “Continue watching” row apps publish, nothing else"],
-        ["APP_AUTO_START / APP_ASSOC_START", "TCL only: let canvasOS start with the TV"],
       ],
     },
     safety:
@@ -304,7 +293,7 @@ Read ${brand.site}/agent.md fully first (fallback: ${brand.agentsRaw}), then run
     eyebrow: "COMPATIBILITY",
     title: "What your TV can really do.",
     lede: "canvasOS tries the brand's API first and falls back to standard Android. This is the current boundary, without the gloss.",
-    caption: "Android TV 9+ · standard and guard builds behave the same apart from the home declaration",
+    caption: "Android TV and Google TV, Android 9 or later · no root",
     head: ["Feature", "Any Android TV", "On-device debugging", "Sony BRAVIA only"],
     rows: [
       { cells: ["Home screen, dock, folders, profiles", "Yes", "—", "—"], tones: ["ok", "na", "na"] },
@@ -319,7 +308,7 @@ Read ${brand.site}/agent.md fully first (fallback: ${brand.agentsRaw}), then run
       { cells: ["Update from the TV, APK install", "—", "Yes", "—"], tones: ["na", "ok", "na"] },
       { cells: ["Phone remote", "On canvasOS screens", "In every app", "—"], tones: ["cond", "ok", "na"] },
       { cells: ["HDMI inputs (Source)", "Depends on the brand", "—", "Plus the current input"], tones: ["cond", "na", "ok"] },
-      { cells: ["Brightness", "Xiaomi, with WRITE_SECURE_SETTINGS", "—", "Yes"], tones: ["cond", "na", "ok"] },
+      { cells: ["Brightness", "No standard Android API", "—", "Yes"], tones: ["na", "na", "ok"] },
       { cells: ["Home guard, revival after kill", "One-time adb grant", "Yes", "—"], tones: ["ok", "ok", "na"] },
     ],
     notes: [
@@ -336,23 +325,19 @@ Read ${brand.site}/agent.md fully first (fallback: ${brand.agentsRaw}), then run
         body: "After IP-control registration (the TV shows a PIN), brightness and inputs go through the TV's own API, and Source shows the current input.",
       },
       {
-        title: "TCL / FFalcon China firmware",
-        body: "Guard build installed through multi-screen interaction, plus the home guard. Inputs open LiveTV's source picker; no brightness.",
+        title: "Home key reserved",
+        body: "When the system keeps the Home key for its own launcher, the home guard brings canvasOS back within about half a second, without disabling or uninstalling anything.",
       },
       {
-        title: "Xiaomi / Redmi China firmware",
-        body: "The Home button stays reserved for PatchWall: the home guard brings canvasOS back. Never disable the stock launcher. Backlight through picture_backlight, inputs through Xiaomi's player.",
-      },
-      {
-        title: "Skyworth / Coocaa",
-        body: "Without standard inputs, Source opens the launcher's own picker. Brightness and settings stay on standard Android. Not yet tested on a real TV.",
+        title: "Xiaomi / Redmi",
+        body: "Never disable the stock launcher (com.mitv.tvhome): the TV would boot to a black screen. Neither the agent nor the script does.",
       },
       {
         title: "Other brands",
         body: "Android has no standard backlight API, so brightness stays greyed out. Each brand is one file in tv/; section 9 of AGENTS.md explains how to add one.",
       },
     ],
-    scope: `<strong>Verified scope:</strong> the captures on this site come from a ${device} (${deviceOs}, standard build). The Sony, Xiaomi, TCL / FFalcon and Skyworth / Coocaa adapters have not all been verified on every firmware.`,
+    scope: `<strong>Verified scope:</strong> the captures on this site come from a ${device} (${deviceOs}, standard build). Sony's IP control has not been verified on every BRAVIA model.`,
   },
 
   faq: {
@@ -363,7 +348,7 @@ Read ${brand.site}/agent.md fully first (fallback: ${brand.agentsRaw}), then run
         q: "Does it need root? What about my warranty?",
         a: [
           "No root and no system changes. canvasOS installs like an app, becomes the default home screen through ADB and gets a few permissions an ordinary app cannot ask for.",
-          "Warranty terms are up to the manufacturer. The real risk is a misused ADB command, such as disabling a Xiaomi's stock launcher: neither the agent nor the script does that.",
+          "Warranty terms are up to the manufacturer. The real risk is a misused ADB command, such as disabling the stock launcher: neither the agent nor the script does that without your consent.",
         ],
       },
       {
@@ -374,23 +359,9 @@ Read ${brand.site}/agent.md fully first (fallback: ${brand.agentsRaw}), then run
         ],
         cmds: [
           restoreCmd,
-          `adb -s ${TV}:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez guard false --ez keep_adb false
+          `adb -s ${TV}:5555 shell am broadcast -a ${P}.CONFIG -n ${P}/.ConfigReceiver --ez guard false
 adb -s ${TV}:5555 shell settings put secure screensaver_components <ORIGINAL_VALUE>
 adb -s ${TV}:5555 uninstall ${P}`,
-        ],
-      },
-      {
-        q: "Why must I never disable a Xiaomi's launcher?",
-        a: [
-          "On Xiaomi / Redmi, PatchWall (com.mitv.tvhome) is enforced by a system whitelist, and the fallback home also refuses third-party launchers: disabling it leaves a black screen at boot.",
-          "canvasOS uses the home guard instead: when PatchWall comes to the front, canvasOS returns over it within about half a second. No system app is disabled or removed.",
-        ],
-      },
-      {
-        q: "TCL says INSTALL_FAILED_VERIFICATION_FAILURE",
-        a: [
-          "TCL's verifier rejects every adb install. Install the guard APK through multi-screen interaction (多屏互动) with tools/tcast-push.py, then choose “Accept” on the TV: the script and the agent do it for you.",
-          "If port 6553 does not answer, that model has no multi-screen interaction: copy the APK to /sdcard/Download/ and install it with a file manager on the TV.",
         ],
       },
       {
@@ -403,13 +374,13 @@ adb -s ${TV}:5555 uninstall ${P}`,
       {
         q: "Why is the brightness slider greyed out?",
         a: [
-          "Android has no standard backlight API. Sony BRAVIA exposes brightness through its IP-control API, Xiaomi through picture_backlight (with WRITE_SECURE_SETTINGS). Elsewhere the control stays in place, greyed out, rather than doing nothing.",
+          "Android has no standard backlight API. Sony BRAVIA exposes brightness through its IP-control API. Elsewhere the control stays in place, greyed out, rather than doing nothing.",
         ],
       },
       {
         q: "ADB keeps saying unauthorized",
         a: [
-          "The TV has not accepted this computer yet. On the TV, tick “Always allow from this computer” and press Allow. Xiaomi turns ADB off on every wake; canvasOS's “Keep ADB debugging on” option (KEEP_ADB=1) switches it back on.",
+          "The TV has not accepted this computer yet. On the TV, tick “Always allow from this computer” and press Allow.",
         ],
       },
       {
@@ -435,7 +406,7 @@ adb -s ${TV}:5555 uninstall ${P}`,
       {
         q: "Is this affiliated with Apple?",
         a: [
-          "No. canvasOS is an independent open-source project, not affiliated with or endorsed by Apple, Sony, Xiaomi or TCL. Its interface is inspired by tvOS. The “tvOS” logo option (the Apple TV title card and boot film) belongs to Apple and is meant for personal use on your own TV.",
+          "No. canvasOS is an independent open-source project, not affiliated with or endorsed by Apple, Google or Sony. Its interface is inspired by tvOS. The “tvOS” logo option (the Apple TV title card and boot film) belongs to Apple and is meant for personal use on your own TV.",
         ],
       },
     ],
@@ -479,6 +450,6 @@ adb -s ${TV}:5555 uninstall ${P}`,
         ],
       },
     ],
-    legal: `© ${brand.year} canvasOS · independent open-source project. Not affiliated with, endorsed by or sponsored by Apple, Sony, Xiaomi or TCL. “Apple TV” and “tvOS” are trademarks of Apple Inc., named here only to describe the aerial screensaver and the optional logo. Photos, artwork and app icons visible in the captures belong to their owners. Aerial films stream from Apple's servers. Install and use at your own risk.`,
+    legal: `© ${brand.year} canvasOS · independent open-source project. Not affiliated with, endorsed by or sponsored by Apple, Google or Sony. “Apple TV” and “tvOS” are trademarks of Apple Inc., named here only to describe the aerial screensaver and the optional logo. Photos, artwork and app icons visible in the captures belong to their owners. Aerial films stream from Apple's servers. Install and use at your own risk.`,
   },
 };
