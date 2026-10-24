@@ -1,20 +1,21 @@
 ---
 import "../styles/global.css";
-import { brand, assets, shots } from "../data/site";
-import type { Copy, Locale } from "../data/lang";
-import { uiStrings } from "../data/strings";
+import { brand, assets, stills } from "../data/site";
+import { getCopy } from "../data/copy";
+import type { Locale } from "../data/lang";
 
 interface Props {
-  copy: Copy;
   locale: Locale;
 }
 
-const { copy, locale } = Astro.props;
-const t = uiStrings[locale];
-const canonical = `${brand.site}${copy.meta.canonical.replace(brand.site, "")}`;
+const { locale } = Astro.props;
+const copy = getCopy(locale);
+const other = getCopy(locale === "fr" ? "en" : "fr");
+const canonical = `${brand.site}${copy.path}`;
+const og = `${brand.site}${assets.og}`;
 ---
 <!DOCTYPE html>
-<html lang={locale === "zh" ? "fr" : "en"} class="no-js">
+<html lang={copy.htmlLang} class="no-js">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -23,32 +24,30 @@ const canonical = `${brand.site}${copy.meta.canonical.replace(brand.site, "")}`;
   <meta name="theme-color" content="#070A10" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href={canonical} />
-  {copy.meta.alts.map((alt) => <link rel="alternate" hreflang={alt.hreflang} href={alt.href} />)}
+  <link rel="alternate" hreflang="fr" href={`${brand.site}/`} />
+  <link rel="alternate" hreflang="en" href={`${brand.site}/en/`} />
+  <link rel="alternate" hreflang="x-default" href={`${brand.site}/`} />
   <link rel="icon" href={assets.favicon} type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
-
+  <link rel="apple-touch-icon" href={assets.touchIcon} />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content={brand.name} />
   <meta property="og:locale" content={copy.meta.ogLocale} />
-  <meta property="og:locale:alternate" content={copy.meta.ogLocaleAlt} />
+  <meta property="og:locale:alternate" content={other.meta.ogLocale} />
   <meta property="og:title" content={copy.meta.ogTitle} />
   <meta property="og:description" content={copy.meta.ogDescription} />
   <meta property="og:url" content={canonical} />
-  <meta property="og:image" content={`${brand.site}${assets.og}`} />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
+  <meta property="og:image" content={og} />
+  <meta property="og:image:width" content={String(assets.ogWidth)} />
+  <meta property="og:image:height" content={String(assets.ogHeight)} />
   <meta property="og:image:alt" content={copy.meta.ogTitle} />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={copy.meta.ogTitle} />
   <meta name="twitter:description" content={copy.meta.ogDescription} />
-  <meta name="twitter:image" content={`${brand.site}${assets.og}`} />
-
-  <slot name="head" />
-
+  <meta name="twitter:image" content={og} />
   <script type="application/ld+json" set:html={JSON.stringify({
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: brand.product,
+    name: brand.name,
     alternateName: "canvasOS TV Launcher",
     url: brand.site,
     description: copy.meta.description,
@@ -56,15 +55,13 @@ const canonical = `${brand.site}${copy.meta.canonical.replace(brand.site, "")}`;
     operatingSystem: "Android 9+ (Android TV)",
     downloadUrl: brand.apk,
     isAccessibleForFree: true,
-    offers: { "@type": "Offer", price: "0", priceCurrency: "CNY" },
-    screenshot: [1, 2, 3].map((i) => `${brand.site}${[shots.home, shots.shelf, shots.cc][i - 1].src}`),
+    offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
+    screenshot: [stills.home.src, stills.shelf.src, stills.cc.src].map((s) => `${brand.site}${s}`),
   })} />
-
-  <script is:inline>
-    document.documentElement.classList.remove("no-js");
-  </script>
+  {/* The one inline script; its sha256 is allowed in public/_headers (scripts/check-csp.mjs checks it). */}
+  <script is:inline>document.documentElement.classList.remove("no-js");</script>
 </head>
-<body data-copied={t.copied} data-copy-failed={t.copyFailed} data-copy-label={t.copy} data-compare-value={t.compareValue(0).replace("0", "{p}")}>
+<body data-copied={copy.ui.copied} data-copy-failed={copy.ui.copyFailed} data-copy-label={copy.ui.copy} data-compare-value={copy.ui.compareValue}>
   <slot />
 </body>
 </html>

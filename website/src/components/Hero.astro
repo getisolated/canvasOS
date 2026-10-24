@@ -1,16 +1,21 @@
 ---
-import { brand, clips, shots } from "../data/site";
-import { uiStrings } from "../data/strings";
-import type { Copy, Locale } from "../data/lang";
+import Clip from "./Clip.astro";
+import { brand, device, deviceOs } from "../data/site";
+import { slot, anyVideo } from "../data/media";
+import { getCopy } from "../data/copy";
+import type { Locale } from "../data/lang";
 
 interface Props {
-  copy: Copy;
   locale: Locale;
 }
 
-const { copy, locale } = Astro.props;
+const { locale } = Astro.props;
+const copy = getCopy(locale);
 const hero = copy.hero;
-const t = uiStrings[locale];
+const t = copy.ui;
+const home = slot("home");
+const live = home.video ? t.recording : t.still;
+const size = home.video ? "1280 × 720" : "1920 × 1080";
 ---
 <section class="hero">
   <div class="hero-aurora" aria-hidden="true">
@@ -47,36 +52,27 @@ const t = uiStrings[locale];
       <div class="tv-glow" aria-hidden="true"></div>
       <div class="tv-frame">
         <div class="tv-screen">
-          <video
-            data-clip
-            src={clips.home.src}
-            poster={clips.home.poster}
-            width="1280"
-            height="720"
-            muted
-            loop
-            playsinline
-            preload="metadata"
-            aria-label={hero.imageAlt}
-          ></video>
-          <button class="clip-toggle" type="button" data-clip-toggle aria-pressed="false"
-            aria-label={t.pauseClips} data-label-pause={t.pauseClips} data-label-play={t.playClips}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><rect class="i-pause" x="4" y="3" width="3" height="10" rx="1"/><rect class="i-pause" x="9" y="3" width="3" height="10" rx="1"/><path class="i-play" d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>
-          </button>
+          <Clip id="home" alt={hero.alt} eager sizes="(max-width: 1100px) 94vw, 1060px" />
+          {anyVideo() && (
+            <button class="clip-toggle" type="button" data-clip-toggle aria-pressed="false"
+              aria-label={t.pauseClips} data-label-pause={t.pauseClips} data-label-play={t.playClips}>
+              <svg viewBox="0 0 16 16" aria-hidden="true"><rect class="i-pause" x="4" y="3" width="3" height="10" rx="1"/><rect class="i-pause" x="9" y="3" width="3" height="10" rx="1"/><path class="i-play" d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>
+            </button>
+          )}
         </div>
       </div>
       <div class="float-chip chip-shelf" aria-hidden="true">
         <span class="glyph"><svg><use href="#i-play"></use></svg></span>
-        <span><strong>{hero.floating[1].title}</strong><small>{hero.floating[1].sub}</small></span>
+        <span><strong>{hero.chipAerial.title}</strong><small>{hero.chipAerial.sub}</small></span>
       </div>
       <div class="float-chip chip-dock" aria-hidden="true">
         <span class="glyph"><svg><use href="#i-check"></use></svg></span>
-        <span><strong>{hero.floating[0].title}</strong><small>{hero.floating[0].sub}</small></span>
+        <span><strong>{hero.chipDock.title}</strong><small>{hero.chipDock.sub}</small></span>
       </div>
     </div>
     <p class="tv-caption">
-      <span class="live">{locale === "zh" ? "Enregistrement réel" : "Real recording"} · Sony BRAVIA XR-55A80J · Android TV 12</span>
-      <span>1280 × 720</span>
+      <span class="live">{live} · {device} · {deviceOs}</span>
+      <span>{size}</span>
     </p>
     <p class="hero-note">{hero.note}</p>
   </div>
@@ -89,3 +85,16 @@ const t = uiStrings[locale];
     ))}
   </div>
 </div>
+
+<section class="release-strip wrap" aria-label={copy.release.label}>
+  <a class="release-pill" href={brand.releases} rel="noopener"><span class="dot"></span>{copy.release.pill}</a>
+  <div class="release-grid">
+    {copy.release.cards.map((card, i) => (
+      <article>
+        <span class="release-number">{String(i + 1).padStart(2, "0")}</span>
+        <h3>{card.title}</h3>
+        <p>{card.body}</p>
+      </article>
+    ))}
+  </div>
+</section>

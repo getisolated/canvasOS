@@ -1,25 +1,27 @@
 ---
-import { clips, shots } from "../data/site";
-import type { Copy, Locale } from "../data/lang";
-import { uiStrings } from "../data/strings";
+import { slot } from "../data/media";
+import { getCopy } from "../data/copy";
+import type { Locale } from "../data/lang";
+import type { SlotId } from "../data/site";
 
 interface Props {
-  copy: Copy;
   locale: Locale;
 }
 
-const { copy, locale } = Astro.props;
-const t = uiStrings[locale];
+const { locale } = Astro.props;
+const copy = getCopy(locale);
 const g = copy.gallery;
+const t = copy.ui;
 
-/* slot: the grid cell (two wide ones, then three). A clip plays in place and in the viewer. */
-const items = [
-  { slot: "home", img: shots.home, label: locale === "zh" ? "Accueil" : "Home screen", file: "home.jpg", alt: locale === "zh" ? "Capture réelle de l'accueil." : "Home screen capture." },
-  { slot: "shelf", img: shots.shelf, label: locale === "zh" ? "Top Shelf" : "Top Shelf", file: "shelf.jpg", alt: locale === "zh" ? "Capture réelle du Top Shelf." : "Top Shelf capture." },
-  { slot: "grid", clip: clips.settings, label: locale === "zh" ? "Réglages" : "Settings", file: "settings.mp4", alt: locale === "zh" ? "Enregistrement de la page Réglages." : "Settings page recording." },
-  { slot: "cc", clip: clips.cc, label: locale === "zh" ? "Centre de contrôle" : "Control Center", file: "cc.mp4", alt: locale === "zh" ? "Enregistrement du Centre de contrôle." : "Control Center recording." },
-  { slot: "frame", img: shots.frame, label: locale === "zh" ? "Cadre photo" : "Photo frame", file: "frame.jpg", alt: locale === "zh" ? "Capture réelle du Cadre photo." : "Photo frame capture." },
+/* Grid cells (two wide, then three) and the slot each one shows, in g.items order. */
+const cells: { cell: string; id: SlotId }[] = [
+  { cell: "g-home", id: "intro" },
+  { cell: "g-shelf", id: "shelf" },
+  { cell: "g-grid", id: "settings" },
+  { cell: "g-cc", id: "cc" },
+  { cell: "g-frame", id: "aerial" },
 ];
+const items = cells.map((c, i) => ({ ...c, ...g.items[i], media: slot(c.id) }));
 ---
 <section class="section gallery-section" id="gallery">
   <div class="wrap">
@@ -28,24 +30,26 @@ const items = [
       <h2>{g.title}</h2>
       <p class="lede">{g.lede}</p>
     </div>
+    <p class="fine">{g.fine}</p>
 
     <div class="gallery reveal">
       {items.map((item, i) => (
-        <figure class={`g-${item.slot}`}>
+        <figure class={item.cell}>
           <button
             type="button"
             data-lightbox-open
-            data-full={item.clip ? item.clip.src : item.img!.src}
-            data-video={item.clip ? "" : undefined}
-            data-caption={item.label}
+            data-full={item.media.video ?? item.media.poster}
+            data-poster={item.media.poster}
+            data-video={item.media.video ? "" : undefined}
+            data-caption={item.caption}
             data-alt={item.alt}
-            aria-label={item.label}
+            aria-label={item.caption}
           >
-            {item.clip ? (
+            {item.media.video ? (
               <video
                 data-clip
-                src={item.clip.src}
-                poster={item.clip.poster}
+                src={item.media.video}
+                poster={item.media.poster}
                 width="1280"
                 height="720"
                 muted
@@ -56,9 +60,9 @@ const items = [
               ></video>
             ) : (
               <img
-                src={item.img!.small}
-                srcset={`${item.img!.small} 640w, ${item.img!.src} 1280w`}
-                sizes={i < 2 ? "(max-width: 860px) 92vw, 48vw" : "(max-width: 860px) 46vw, 32vw"}
+                src={item.media.small}
+                srcset={`${item.media.small} 640w, ${item.media.poster} 1280w`}
+                sizes={i < 2 ? "(max-width: 860px) 92vw, 540px" : "(max-width: 520px) 92vw, (max-width: 860px) 46vw, 360px"}
                 width="1280"
                 height="720"
                 loading="lazy"
@@ -67,7 +71,7 @@ const items = [
               />
             )}
           </button>
-          <figcaption>{item.label} <em>{item.file}</em></figcaption>
+          <figcaption>{item.caption} <em>{item.media.file}</em></figcaption>
         </figure>
       ))}
     </div>
@@ -80,7 +84,7 @@ const items = [
       <svg aria-hidden="true"><use href="#i-close"></use></svg>
     </button>
     <img alt="" hidden />
-    <video muted loop playsinline hidden></video>
+    <video autoplay muted loop playsinline preload="metadata" hidden></video>
     <div class="lightbox-bar">
       <span data-lightbox-caption></span>
       <span data-lightbox-counter>1 / {items.length}</span>

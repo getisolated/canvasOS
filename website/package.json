@@ -3,24 +3,23 @@
   "private": true,
   "type": "module",
   "version": "1.0.0",
-  "description": "Official canvasOS website (Astro, static, deployed to Cloudflare Pages)",
+  "description": "Official canvasOS website (Astro, static, built by Cloudflare Pages from website/)",
   "scripts": {
     "dev": "astro dev --host 127.0.0.1 --port 4321",
-    "build": "astro build",
+    "build": "astro build && node scripts/check-csp.mjs",
     "preview": "astro preview --host 127.0.0.1 --port 4321",
     "check": "astro check"
   },
   "dependencies": {
     "astro": "^5.0.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "sharp"
-    ]
-  },
   "devDependencies": {
     "@astrojs/check": "^0.9.11",
+    "@types/node": "24.19.2",
     "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@11.13.1",
+  "engines": {
+    "node": ">=22.13"
   }
 }

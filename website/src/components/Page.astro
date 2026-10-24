@@ -1,0 +1,39 @@
+---
+/* The whole one-page site; / renders it in French, /en/ in English. */
+import Base from "../layouts/Base.astro";
+import Header from "./Header.astro";
+import Hero from "./Hero.astro";
+import Aerial from "./Aerial.astro";
+import Features from "./Features.astro";
+import Compare from "./Compare.astro";
+import Gallery from "./Gallery.astro";
+import Install from "./Install.astro";
+import Compatibility from "./Compatibility.astro";
+import Faq from "./Faq.astro";
+import Footer from "./Footer.astro";
+import type { Locale } from "../data/lang";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+---
+<Base locale={locale}>
+  <Header locale={locale} />
+  <main id="main">
+    <Hero locale={locale} />
+    <Aerial locale={locale} />
+    <Features locale={locale} />
+    <Compare locale={locale} />
+    <Gallery locale={locale} />
+    <Install locale={locale} />
+    <Compatibility locale={locale} />
+    <Faq locale={locale} />
+  </main>
+  <Footer locale={locale} />
+
+  <script>
+    import "../scripts/main";
+  </script>
+</Base>

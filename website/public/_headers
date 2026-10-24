@@ -3,7 +3,7 @@
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-XwWdy3h8RLzX10dUs9n/fCAkQc+XFysyIb7c80Ymdkw='; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
 
 /img/*
   Cache-Control: public, max-age=604800
@@ -12,13 +12,18 @@
   Cache-Control: public, max-age=604800
 
 /_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/agent.md
+  Content-Type: text/markdown; charset=utf-8
+  Cache-Control: public, max-age=0, must-revalidate
+
+/install.sh
+  Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=0, must-revalidate
 
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 
 /en/index.html
-  Cache-Control: public, max-age=0, must-revalidate
-
-/zh/index.html
   Cache-Control: public, max-age=0, must-revalidate

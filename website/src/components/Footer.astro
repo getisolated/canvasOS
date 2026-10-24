@@ -1,12 +1,14 @@
 ---
-import { brand } from "../data/site";
-import type { Copy } from "../data/lang";
+import { brand, assets } from "../data/site";
+import { getCopy } from "../data/copy";
+import type { Locale } from "../data/lang";
 
 interface Props {
-  copy: Copy;
+  locale: Locale;
 }
 
-const { copy } = Astro.props;
+const { locale } = Astro.props;
+const copy = getCopy(locale);
 const c = copy.finalCta;
 ---
 <section class="final-cta">
@@ -31,8 +33,8 @@ const c = copy.finalCta;
   <div class="wrap">
     <div class="footer-grid">
       <div class="footer-brand">
-        <a class="brand" href={copy.footer.langLink.href === "/en/" ? "/" : "/en/"}>
-          <img src="/img/favicon.svg" width="30" height="30" alt="" />
+        <a class="brand" href={copy.path}>
+          <img src={assets.favicon} width="30" height="30" alt="" />
           <span>{brand.name} <em>{brand.tagline}</em></span>
         </a>
         <p>{copy.footer.blurb}</p>
@@ -52,7 +54,7 @@ const c = copy.finalCta;
     <div class="footer-bottom">
       <p class="legal">{copy.footer.legal}</p>
       <p>
-        <a href={copy.footer.langLink.href} hreflang={copy.footer.langLink.lang} lang={copy.footer.langLink.lang}>{copy.footer.langLink.label}</a>
+        <a href={copy.langSwitch.href} hreflang={copy.langSwitch.lang} lang={copy.langSwitch.lang}>{copy.langSwitch.name}</a>
       </p>
     </div>
   </div>

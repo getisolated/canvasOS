@@ -57,7 +57,7 @@ Fichiers attendus : accueil.png, top-shelf.png, centre-de-controle.png, reglages
 - **Logo canvasOS ou tvOS.** L'icône des réglages et le film de l'animation de démarrage sont intégrés : la carte-titre et le film canvasOS par défaut, ou ceux de l'Apple TV. Vous pouvez aussi importer votre propre image ou votre propre vidéo.
 - **Page téléphone.** Un QR code dans les réglages ouvre une page sur votre téléphone, sur le même Wi-Fi : importer des photos, renommer les apps et changer leurs vignettes, régler la météo, et surtout une télécommande à pavé tactile avec clavier, comme l'app Apple TV Remote. Elle installe aussi des APK.
 - **Mémoire.** Un nettoyage de la mémoire qui épargne ce qui lit de la vidéo ou du son, les serveurs (Plex, Jellyfin), la diffusion d'écran et les apps que vous gardez.
-- **Téléviseurs qui refusent les lanceurs tiers** (Xiaomi, TCL et d'autres firmwares chinois). La Protection de l'accueil ramène canvasOS dès que le lanceur d'origine repasse devant, sans rien désactiver ni désinstaller.
+- **Téléviseurs qui gardent la touche Accueil.** Quand le système réserve la touche Accueil à son propre lanceur, la Protection de l'accueil ramène canvasOS dès que le lanceur d'origine repasse devant, sans rien désactiver ni désinstaller.
 - **Mises à jour sans ordinateur.** Réglages de l'accueil → Système → Mise à jour vérifie la dernière version et l'installe sur place, réglages et autorisations conservés.
 
 ## Installation par un agent IA
@@ -68,24 +68,23 @@ canvasOS s'installe depuis un ordinateur, par ADB, le débogage d'Android. Plut�
 
 - Un ordinateur sur le même réseau Wi-Fi ou filaire que le téléviseur ou la box.
 - [Claude Code](https://claude.com/claude-code) (ou un autre agent qui exécute des commandes), avec l'outil `adb` (Android Platform-Tools) ; l'agent l'installe s'il manque.
-- L'accès à ce dépôt, qui est privé : la CLI GitHub `gh` connectée à un compte autorisé, ou un clone local du dépôt. Sans cela, l'agent ne peut pas télécharger l'APK.
-- L'adresse IP du téléviseur, dans Paramètres → Réseau ou À propos. Si vous ne la trouvez pas, l'agent vous guidera.
+- Rien à chercher : l'agent trouve le téléviseur sur votre réseau et vous demande de confirmer que c'est le bon.
 - La télécommande à portée de main : le téléviseur affichera deux ou trois demandes d'autorisation.
 
 ### La phrase à envoyer
 
 Ouvrez Claude Code et envoyez :
 
-> Installe canvasOS sur ma télé en suivant le AGENTS.md de https://github.com/getisolated/canvasOS. Guide-moi pour trouver le modèle de ma box et activer le débogage. L'IP de la télé est 192.168.x.x
+> Installe le lanceur open source canvasOS sur ma TV Android et fais-en l'écran d'accueil. Lis d'abord entièrement https://canvasos.pages.dev/agent.md (sinon : https://raw.githubusercontent.com/getisolated/canvasOS/main/AGENTS.md), puis trouve toi-même ma TV sur le réseau et guide-moi étape par étape : dis-moi sur quoi appuyer avec la télécommande et ce qui va s'afficher, puis attends que je confirme. N'éteins pas la TV, et ne désinstalle ni ne désactive rien sans me le demander.
 
 ### Ce que fait l'agent, et ce qu'il vous demandera
 
-1. **Identifier votre box ou votre téléviseur.** L'agent vous demande la marque et le modèle, ou les lit lui-même une fois connecté. La marque décide de la suite : les menus pour activer le débogage, la version de l'APK, et si la Protection de l'accueil est nécessaire.
-2. **Activer le mode développeur et le débogage.** L'agent vous guide dans les menus de votre marque (tableau ci-dessous) : activer les options pour les développeurs, puis le **Débogage USB** et, si le menu le propose, le **Débogage sans fil** (ou Débogage réseau, Débogage ADB). Sur la plupart des téléviseurs, le Débogage USB suffit à ouvrir le débogage par le réseau.
+1. **Trouver votre box ou votre téléviseur.** L'agent cherche les appareils Android TV sur votre réseau et vous demande de confirmer lequel est le vôtre ; une fois connecté, il lit lui-même la marque et le modèle. La marque décide des menus pour activer le débogage, et si la Protection de l'accueil est nécessaire.
+2. **Activer le mode développeur et le débogage.** L'agent vous guide pas à pas dans les menus de votre marque (tableau ci-dessous) : activer les options pour les développeurs, puis le **Débogage USB** et, si le menu le propose, le **Débogage sans fil** (ou Débogage réseau, Débogage ADB). Sur la plupart des téléviseurs, le Débogage USB suffit à ouvrir le débogage par le réseau.
 3. **Autoriser votre ordinateur.** À la première connexion, le téléviseur affiche « Autoriser le débogage USB ? ». Cochez **Toujours autoriser depuis cet ordinateur** et choisissez **Autoriser**.
-4. **Installer canvasOS.** L'agent télécharge l'APK de la dernière version et l'installe. Sur TCL, qui refuse les installations par ADB, il passe par l'Interaction multi-écrans du téléviseur, où vous choisissez **Accepter**.
-5. **En faire l'écran d'accueil.** L'agent déclare canvasOS écran d'accueil par défaut et lui accorde, par ADB, les autorisations qu'une app ne peut pas demander elle-même : réactiver la protection quand le système la coupe, se relancer après le démarrage, lire l'état de lecture des apps, afficher les bannières de notifications. Sur Xiaomi, TCL et les firmwares similaires, il active la Protection de l'accueil.
-6. **Vérifier la touche Accueil et la touche Retour.** L'agent fait une capture d'écran, appuie sur Accueil et confirme que c'est canvasOS qui s'affiche. Il ouvre ensuite une app, en sort avec Retour, et confirme que l'on retombe sur canvasOS et non sur le lanceur d'origine. Si le lanceur d'origine revient malgré tout, il active la protection, et ne désactivera le lanceur du fabricant qu'avec votre accord, jamais sur Xiaomi.
+4. **Installer canvasOS.** L'agent télécharge l'APK de la dernière version et l'installe.
+5. **En faire l'écran d'accueil.** L'agent déclare canvasOS écran d'accueil par défaut et lui accorde, par ADB, les autorisations qu'une app ne peut pas demander elle-même : réactiver la protection quand le système la coupe, se relancer après le démarrage, lire l'état de lecture des apps, afficher les bannières de notifications. Si le système garde la touche Accueil pour son propre lanceur, il active la Protection de l'accueil.
+6. **Vérifier la touche Accueil et la touche Retour.** L'agent fait une capture d'écran, appuie sur Accueil et confirme que c'est canvasOS qui s'affiche. Il ouvre ensuite une app, en sort avec Retour, et confirme que l'on retombe sur canvasOS et non sur le lanceur d'origine. Si le lanceur d'origine revient malgré tout, il active la protection, et ne désactivera le lanceur du fabricant qu'avec votre accord.
 7. **Premier lancement.** canvasOS propose d'activer l'extinction, la veille et le nettoyage complet de la mémoire. Appuyez sur **Commencer** : le téléviseur affiche « Autoriser le débogage ? », cette fois de lui-même vers lui-même. Cochez **Toujours autoriser** et choisissez **Autoriser**. Cette autorisation sert aussi à la télécommande du téléphone, à l'installation d'APK et aux mises à jour.
 8. **Sony BRAVIA seulement.** Pour la luminosité, le volume et les entrées HDMI depuis le Centre de contrôle, le téléviseur affiche un code PIN à quatre chiffres que vous lisez à l'agent.
 
@@ -97,15 +96,11 @@ En cours de route, l'agent vous présente les réglages facultatifs (météo, ba
 |---|---|
 | **Android TV / Google TV d'origine** (box, Sony, Hisense, Thomson, Philips…) | Paramètres → Préférences de l'appareil → À propos → appuyez 7 fois sur **Build**. Puis Options pour les développeurs → **Débogage USB** (et Débogage réseau / sans fil s'il existe). |
 | **Sony BRAVIA** | Paramètres → Système → À propos → appuyez 7 fois sur OK sur **Build**. Puis Paramètres → Système → Options pour les développeurs → **Débogage USB**. |
-| **Xiaomi / Redmi** | Réglages (设置) → À propos (关于) → **Modèle du produit (产品型号)** : appuyez plusieurs fois sur OK jusqu'à l'annonce du mode développeur. Puis Réglages → Compte et sécurité (账号与安全) : **Débogage ADB (ADB 调试)** et **Installer des apps de sources inconnues (安装未知来源的应用)**. |
-| **TCL / FFalcon (雷鸟)** | Réglages (设置) → À propos (关于) → **Informations sur l'appareil (本机信息)**, puis **Haut, Bas, Gauche, Droite** sur la télécommande, vite. Un groupe **Plus (更多)** apparaît : activez **ADB**. |
-
-Sur les téléviseurs chinois, la demande d'autorisation s'affiche en chinois : 允许 USB 调试吗？ Choisissez 允许 (Autoriser) et cochez 始终允许 (Toujours autoriser).
 
 ### Ce que l'agent ne fait jamais sans vous le demander
 
 - Éteindre, redémarrer ou mettre en veille le téléviseur : un téléviseur éteint ne se rallume qu'avec sa télécommande.
-- Désinstaller une app système ou le lanceur du téléviseur ; désactiver le lanceur d'origine (jamais sur Xiaomi, où le téléviseur démarrerait sur un écran noir).
+- Désinstaller une app système ou le lanceur du téléviseur ; désactiver le lanceur d'origine (jamais sur Xiaomi / Redmi, `com.mitv.tvhome` : le téléviseur démarrerait sur un écran noir).
 - Modifier un autre réglage du téléviseur, ou les réglages facultatifs de canvasOS.
 - Appuyer sur OK à votre place sans avoir vérifié ce qui est sélectionné.
 
@@ -118,17 +113,17 @@ Sur les téléviseurs chinois, la demande d'autorisation s'affiche en chinois : 
 
 ## Installation à la main
 
-Pour qui préfère les commandes. Il faut `adb`, et `gh` connecté à un compte qui a accès au dépôt.
+Pour qui préfère les commandes. Il faut `adb` et `curl`.
 
 ```sh
-gh release download --repo getisolated/canvasOS --pattern canvasOS.apk
+curl -fLo canvasOS.apk https://github.com/getisolated/canvasOS/releases/latest/download/canvasOS.apk
 adb connect <IP_TV>:5555
 adb -s <IP_TV>:5555 install -r canvasOS.apk
 adb -s <IP_TV>:5555 shell cmd package set-home-activity com.getisolated.canvasos/.HomeActivity
 adb -s <IP_TV>:5555 shell input keyevent KEYCODE_HOME
 ```
 
-Les autorisations à accorder par ADB, la Protection de l'accueil pour Xiaomi et TCL, la version `canvasOS-guard.apk` pour TCL, l'enregistrement du client BRAVIA sur Sony et la désinstallation sont décrits dans [AGENTS.md](AGENTS.md), étapes 3 à 7 et 10.
+Les autorisations à accorder par ADB, la Protection de l'accueil, l'enregistrement du client BRAVIA sur Sony et la désinstallation sont décrits dans [AGENTS.md](AGENTS.md), étapes 3 à 7 et 10.
 
 ## Compatibilité
 
@@ -136,9 +131,8 @@ Les autorisations à accorder par ADB, la Protection de l'accueil pour Xiaomi et
 |---|---|
 | Android TV / Google TV d'origine, Android 9 ou plus (box, Sony BRAVIA, Hisense, Thomson…) | Lanceur par défaut comme n'importe quel lanceur. Vérifié sur Sony BRAVIA (Android TV 12) et sur une box Android TV d'origine. |
 | Sony BRAVIA | En plus : luminosité, volume et entrées HDMI depuis le Centre de contrôle, via l'API du téléviseur. |
-| Xiaomi / Redmi (PatchWall) | La touche Accueil reste réservée à PatchWall : la Protection de l'accueil ramène canvasOS. Option pour garder le débogage ADB activé, que Xiaomi coupe à chaque réveil. |
-| TCL / FFalcon | Installation de la version guard par l'Interaction multi-écrans ; Protection de l'accueil. |
-| Autres firmwares chinois (Hisense VIDAA sur Android, Skyworth / Coocaa…) | Protection de l'accueil. La luminosité et les sources dépendent de la marque : [AGENTS.md](AGENTS.md#9-adapter-canvasos-à-un-téléviseur-mal-pris-en-charge) explique comment un agent adapte canvasOS à un téléviseur. |
+| Téléviseurs dont le système garde la touche Accueil pour son propre lanceur | La Protection de l'accueil ramène canvasOS en une demi-seconde environ, sans rien désactiver ni désinstaller. |
+| Autres marques | La luminosité et les sources dépendent de la marque : [AGENTS.md](AGENTS.md#9-adapter-canvasos-à-un-téléviseur-mal-pris-en-charge) explique comment un agent adapte canvasOS à un téléviseur. |
 
 Sur un téléviseur sans adaptateur dédié, la luminosité reste grisée et la commande Source peut n'avoir aucune entrée : Android n'a pas d'API standard pour cela. Tout le reste fonctionne.
 
@@ -156,27 +150,25 @@ canvasOS n'a ni compte, ni statistiques d'usage. Il contacte seulement les servi
 
 ## Pour les développeurs
 
-Il faut JDK 17 et un SDK Android (compileSdk 36). Les deux versions se compilent ensemble :
+Il faut JDK 17 et un SDK Android (compileSdk 36) :
 
 ```sh
-./gradlew assembleStandardRelease assembleGuardRelease
+./gradlew assembleStandardRelease
 # app/build/outputs/apk/standard/release/app-standard-release.apk   -> canvasOS.apk
-# app/build/outputs/apk/guard/release/app-guard-release.apk         -> canvasOS-guard.apk
 ```
 
-- `standard` se déclare écran d'accueil ; `guard` ne le fait pas (TCL refuse tout APK qui déclare un écran d'accueil) et compte sur la Protection de l'accueil.
 - Les Releases sont compilées par GitHub Actions à chaque tag `v*` et signées avec la clé stable du projet, pour que `adb install -r` mette à jour sur place. Un APK compilé localement est signé avec la clé debug de l'ordinateur et ne peut pas mettre à jour une Release : il faut désinstaller d'abord.
 - [AGENTS.md](AGENTS.md) est le guide d'installation suivi par les agents, et la référence de chaque réglage et de chaque clé de configuration par ADB. Sa section 9 explique comment ajouter l'adaptateur d'une marque dans `app/src/main/java/com/getisolated/canvasos/tv/`.
-- [DA/](DA/) contient la direction artistique : logo, lockup, bannière, cartes-titres et films de démarrage. [website/](website/) contient le site, [tools/](tools/) le script d'installation TCL et la création de la clé de signature.
+- [DA/](DA/) contient la direction artistique : logo, lockup, bannière, cartes-titres et films de démarrage. [website/](website/) contient le site, [tools/](tools/) les outils de maintenance, dont la création de la clé de signature.
 
 ```sh
-git tag v1.2.0 && git push origin v1.2.0   # publie une Release avec les deux APK
+git tag v1.2.0 && git push origin v1.2.0   # publie une Release
 ```
 
 ## Mentions
 
 Les licences des polices, icônes et dépendances figurent dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-La Protection de l'accueil, l'installation par l'Interaction multi-écrans de TCL, la liste des vues aériennes et la page téléphone s'inspirent d'[Aerial](https://github.com/pengchujin/aerial-tv) (MIT, © 2026 pengchujin) et en reprennent du code, ainsi que ses notes sur les modèles Xiaomi et TCL. Merci.
+La Protection de l'accueil, la liste des vues aériennes et la page téléphone s'inspirent d'[Aerial](https://github.com/pengchujin/aerial-tv) (MIT, © 2026 pengchujin) et en reprennent du code, ainsi que ses notes sur les modèles de téléviseurs. Merci.
 
-canvasOS n'est affilié ni à Apple, ni à Sony, ni à Xiaomi, ni à TCL, ni approuvé par eux. Apple TV et tvOS sont des marques d'Apple Inc. Les vues aériennes sont diffusées par les serveurs d'Apple. Le logo et le film de démarrage proposés dans le choix « tvOS » appartiennent à Apple et sont fournis pour un usage personnel sur votre propre téléviseur. Les droits des photos et des pochettes visibles sur les captures d'écran appartiennent à leurs auteurs.
+canvasOS n'est affilié ni à Apple, ni à Google, ni à Sony, ni approuvé par eux. Apple TV et tvOS sont des marques d'Apple Inc. Les vues aériennes sont diffusées par les serveurs d'Apple. Le logo et le film de démarrage proposés dans le choix « tvOS » appartiennent à Apple et sont fournis pour un usage personnel sur votre propre téléviseur. Les droits des photos et des pochettes visibles sur les captures d'écran appartiennent à leurs auteurs.
