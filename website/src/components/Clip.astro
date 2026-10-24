@@ -1,0 +1,43 @@
+---
+/* One media slot: the recording when public/video/<id>.mp4 exists at build time,
+   otherwise the real capture as a still, so a missing clip never shows a broken player. */
+import { slot } from "../data/media";
+import type { SlotId } from "../data/site";
+
+interface Props {
+  id: SlotId;
+  alt: string;
+  /* the hero clip loads first; everything else waits */
+  eager?: boolean;
+  sizes?: string;
+}
+
+const { id, alt, eager = false, sizes = "(max-width: 899px) 92vw, 52vw" } = Astro.props;
+const s = slot(id);
+---
+{s.video ? (
+  <video
+    data-clip
+    src={s.video}
+    poster={s.poster}
+    width="1280"
+    height="720"
+    muted
+    loop
+    playsinline
+    preload={eager ? "metadata" : "none"}
+    aria-label={alt}
+  ></video>
+) : (
+  <img
+    src={s.poster}
+    srcset={`${s.small} 640w, ${s.poster} 1280w`}
+    sizes={sizes}
+    width="1280"
+    height="720"
+    loading={eager ? "eager" : "lazy"}
+    fetchpriority={eager ? "high" : undefined}
+    decoding="async"
+    alt={alt}
+  />
+)}

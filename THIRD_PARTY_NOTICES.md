@@ -7,6 +7,7 @@
 - **NanoHTTPD** (build dependency) — Copyright (c) 2012-2013 by Paul S. Hawke, 2001,2005-2013 by Jarno Elonen, 2010 by Konstantinos Togias, BSD 3-Clause License.
 - **ZXing core** (build dependency) — Copyright ZXing authors, Apache License 2.0.
 - **Aerial** (https://github.com/pengchujin/aerial-tv) — MIT License, Copyright (c) 2026 pengchujin. canvasOS ports its home guard and revival (`Guard.kt`), Xiaomi device details (`tv/XiaomiAdapter.kt`, `AppRepo.kt`), the phone page (`PhoneServer.kt`, `assets/web/index.html`, restyled), `tools/tcast-push.py`, and ships its aerial film catalogue `app/src/main/assets/aerials.json` (addresses and place names from Apple's public tvOS aerial resources; the films themselves stream from Apple and are not included).
+- **Tigris website** (https://tigris-tv.pages.dev, https://github.com/lesnolie/Tigris) — MIT License, Copyright (c) 2026 lesnolie. The canvasOS website (`website/`) adapts its page design: layout, section structure, components, stylesheet (`website/src/styles/global.css`) and client script (`website/src/scripts/main.ts`). Its text, captures and media are not reused.
 - **Apple Root CA** (`app/src/main/res/raw/apple_root_ca.pem`) — Apple's public root certificate, trusted only for `sylvan.apple.com`, which serves the aerial films.
 
 ## Data sources

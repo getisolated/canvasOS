@@ -1,16 +1,13 @@
 ---
-import type { Copy } from "../data/lang";
+import { getCopy } from "../data/copy";
+import type { Locale } from "../data/lang";
 
 interface Props {
-  copy: Copy;
+  locale: Locale;
 }
 
-const { copy } = Astro.props;
-const c = copy.compatibility;
-
-/* Visual status for each cell: dash = not applicable, check = yes,
-   "cond" = conditional. Keeps the table honest at a glance. */
-const tone = (v: string) => (v === "—" ? "na" : /^Oui|Yes|standard|Android|Most|La plupart|Plus|Avec affichage|Vide le cache|Cache only|One-time|Une autorisation/.test(v) && !/Xiaomi|Ferme complètement|Kills/.test(v) ? "ok" : "cond");
+const { locale } = Astro.props;
+const c = getCopy(locale).compatibility;
 ---
 <section class="section compatibility-section" id="compatibility">
   <div class="wrap">
@@ -29,10 +26,8 @@ const tone = (v: string) => (v === "—" ? "na" : /^Oui|Yes|standard|Android|Mos
         <tbody>
           {c.rows.map((row) => (
             <tr>
-              <th scope="row">{row.feature}</th>
-              <td class={tone(row.any)}>{row.any}</td>
-              <td class={tone(row.debug)}>{row.debug}</td>
-              <td class={tone(row.sony)}>{row.sony}</td>
+              <th scope="row">{row.cells[0]}</th>
+              {row.tones.map((tone, i) => <td class={tone}>{row.cells[i + 1]}</td>)}
             </tr>
           ))}
         </tbody>

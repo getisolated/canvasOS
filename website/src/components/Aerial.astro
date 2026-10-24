@@ -1,36 +1,18 @@
 ---
-/* Apple TV aerial films as the screensaver — the headline feature of this page.
-   Evidence policy: the aerial option is a clearly labelled motion illustration
-   of the "drifts over the planet" idea. The only authentic screenshot in this
-   section is the photo frame (frame.jpg), which is what the screensaver falls
-   back to when offline. No fabricated aerial frame is presented as a capture. */
-import { shots } from "../data/site";
-import type { Copy, Locale } from "../data/lang";
+/* The screensaver section. Until public/video/aerial.mp4 is supplied it shows the real
+   capture of the photo frame screensaver (Photos content) and says so. */
+import Clip from "./Clip.astro";
+import { slot } from "../data/media";
+import { getCopy } from "../data/copy";
+import type { Locale } from "../data/lang";
 
 interface Props {
-  copy: Copy;
   locale: Locale;
 }
 
-const { copy, locale } = Astro.props;
-const a = copy.aerial;
-
-const slides = [
-  {
-    kind: "mock",
-    caption: locale === "zh" ? "Économiseur d'écran aérien (illustration animée, pas une capture)" : "Aerial screensaver (motion illustration, not a capture)",
-    badge: locale === "zh" ? "Illustration animée · pas une capture" : "Motion illustration",
-    place: "ICELAND · 64°N",
-    time: "05:42",
-  },
-  {
-    kind: "photo",
-    caption: locale === "zh" ? "Cadre photo · photo du jour Bing (capture réelle)" : "Photo frame · Bing daily photo (real capture)",
-    badge: locale === "zh" ? "Capture réelle" : "Real capture",
-    place: "",
-    time: "",
-  },
-];
+const { locale } = Astro.props;
+const a = getCopy(locale).aerial;
+const isVideo = Boolean(slot("aerial").video);
 ---
 <section class="section aerial-section" id="aerial">
   <div class="wrap">
@@ -43,59 +25,17 @@ const slides = [
     <div class="aerial-stage reveal">
       <div class="aerial-glow" aria-hidden="true"></div>
       <div class="tv-frame aerial-frame">
-        <div class="tv-screen aerial-screen" data-slideshow>
-          {slides.map((s, i) => (
-            <figure
-              class:list={["aerial-slide", `is-${s.kind}`, { "is-active": i === 0 }]}
-              data-slide={i}
-              data-caption={s.caption}
-              aria-hidden={i === 0 ? "false" : "true"}
-            >
-              {s.kind === "mock" ? (
-                <>
-                  <img
-                    src="/img/aerial-illustration.svg"
-                    width="1280"
-                    height="720"
-                    loading="lazy"
-                    decoding="async"
-                    alt=""
-                  />
-                  <span class="aerial-place">{s.place}</span>
-                  <span class="aerial-time">{s.time}</span>
-                </>
-              ) : (
-                <img
-                  src={shots.frame.src}
-                  srcset={`${shots.frame.small} 640w, ${shots.frame.src} 1280w`}
-                  sizes="(max-width: 1100px) 94vw, 980px"
-                  width="1280"
-                  height="720"
-                  loading="lazy"
-                  decoding="async"
-                  alt={a.frameAlt}
-                />
-              )}
-              <span class="aerial-badge">{s.badge}</span>
-            </figure>
-          ))}
-          <div class="aerial-controls">
-            <button type="button" data-slide-prev aria-label={locale === "zh" ? "Précédente" : "Previous"}>
-              <svg aria-hidden="true" style="transform:rotate(180deg)"><use href="#i-chevron"></use></svg>
-            </button>
-            <span class="aerial-dots" aria-hidden="true"><i class="is-on"></i><i></i></span>
-            <button type="button" data-slide-next aria-label={locale === "zh" ? "Suivante" : "Next"}>
-              <svg aria-hidden="true"><use href="#i-chevron"></use></svg>
-            </button>
-          </div>
+        <div class="tv-screen aerial-screen">
+          <Clip id="aerial" alt={isVideo ? a.altVideo : a.altStill} sizes="(max-width: 1100px) 94vw, 1060px" />
+          <span class="aerial-badge">{isVideo ? a.badgeVideo : a.badgeStill}</span>
         </div>
       </div>
     </div>
 
     <div class="aerial-foot reveal">
-      <p class="aerial-caption" data-slide-caption>{slides[0].caption}</p>
+      <p class="aerial-caption">{isVideo ? a.captionVideo : a.captionStill}</p>
       <ul class="aerial-points">
-        {a.bullets.map((b) => <li>{b}</li>)}
+        {a.points.map((p) => <li>{p}</li>)}
       </ul>
       <p class="aerial-attribution">{a.attribution}</p>
     </div>

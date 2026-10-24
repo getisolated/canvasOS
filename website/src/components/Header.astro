@@ -1,16 +1,15 @@
 ---
 import { brand, assets } from "../data/site";
-import type { Copy, Locale } from "../data/lang";
-import { uiStrings } from "../data/strings";
+import { getCopy } from "../data/copy";
+import type { Locale } from "../data/lang";
 
 interface Props {
-  copy: Copy;
   locale: Locale;
 }
 
-const { copy, locale } = Astro.props;
-const t = uiStrings[locale];
-const home = locale === "zh" ? "/" : "/en/";
+const { locale } = Astro.props;
+const copy = getCopy(locale);
+const t = copy.ui;
 ---
 <a class="skip-link" href="#main">{t.skip}</a>
 
@@ -49,7 +48,7 @@ const home = locale === "zh" ? "/" : "/en/";
 
 <header class="site-header">
   <nav class="nav" aria-label={t.navLabel}>
-    <a class="brand" href={home} aria-label={`${brand.name} home`}>
+    <a class="brand" href={copy.path} aria-label={t.homeLabel}>
       <img src={assets.favicon} width="30" height="30" alt="" />
       <span>{brand.name} <em>{brand.tagline}</em></span>
     </a>
@@ -61,12 +60,12 @@ const home = locale === "zh" ? "/" : "/en/";
       <li class="nav-mobile-note">{copy.menuNote}</li>
     </ul>
     <div class="nav-cta">
-      <a class="nav-lang" href={copy.langSwitch.href} hreflang={copy.langSwitch.lang} lang={copy.langSwitch.lang}>{copy.langSwitch.label}</a>
+      <a class="nav-lang" href={copy.langSwitch.href} hreflang={copy.langSwitch.lang} lang={copy.langSwitch.lang} aria-label={copy.langSwitch.name}>{copy.langSwitch.label}</a>
       <a class="btn btn-primary btn-sm" href={brand.apk} rel="noopener">
         <svg aria-hidden="true"><use href="#i-download"></use></svg>
         {copy.headerCta}
       </a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label={t.menuLabel} data-label-open={t.menuLabel} data-label-close={t.menuCloseLabel}>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label={t.menuOpen} data-label-open={t.menuOpen} data-label-close={t.menuClose}>
         <span></span>
       </button>
     </div>
