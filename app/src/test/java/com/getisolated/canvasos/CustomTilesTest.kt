@@ -39,11 +39,25 @@ class CustomTilesTest {
         assertEquals(listOf(File(files, "tiles/org.xbmc.kodi.jpg")), AppRepo.customTilePaths(files, null, "org.xbmc.kodi"))
     }
 
-    @Test fun onlyPackageNamesMapToAFile() {
+    @Test fun aPinnedInputMapsToAFileInTheFolder() {
+        val files = File("/f")
+        assertEquals(
+            listOf(File(files, "tiles/input.content___android_media_tv_passthrough_x_2FHW2.jpg")),
+            AppRepo.customTilePaths(files, null, "input:content://android.media.tv/passthrough/x%2FHW2"),
+        )
+        assertEquals(
+            listOf(File(files, "tiles/input.operator_tv___com_sfr_androidtv_launcher.jpg")),
+            AppRepo.customTilePaths(files, null, "input:operator-tv://com.sfr.androidtv.launcher"),
+        )
+        // No uri leads out of the folder.
+        assertEquals(listOf(File(files, "tiles/input.______shared_prefs_x.jpg")), AppRepo.customTilePaths(files, null, "input:../../shared_prefs/x"))
+        assertTrue(AppRepo.customTilePaths(files, null, "input:").isEmpty())
+    }
+
+    @Test fun onlyPackageNamesAndInputsMapToAFile() {
         val files = File("/f")
         for (key in listOf(
             "com.getisolated.canvasos:WallpaperActivity",          // canvasOS's own screen
-            "input:content://android.media.tv/passthrough/x%2FHW2", // a pinned TV input
             "../../shared_prefs/tvhome",
             "com.example/../x",
             "nodot",

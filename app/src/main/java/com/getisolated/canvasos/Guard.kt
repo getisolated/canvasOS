@@ -213,6 +213,8 @@ object Guard {
 class HomeGuardService : AccessibilityService() {
     /** HOME activities that are not ours: package to class names. */
     private var stockHomes: Map<String, Set<String>> = emptyMap()
+    /** Also set off the main thread, by [allowStockLauncher] from a TV adapter. */
+    @Volatile
     private var allowStockUntil = 0L
     /** The last activity that came to the front; null until one does. */
     private var lastWindow: Pair<String, String>? = null
@@ -223,6 +225,8 @@ class HomeGuardService : AccessibilityService() {
     private val screenOn = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             // Firmwares put their own launcher back in front during standby, and no window change follows.
+            // Waking always comes back to the home screen, even after the stock launcher was opened on purpose.
+            allowStockUntil = 0L
             takeOverOnceSettled("screen on")
         }
     }
@@ -326,6 +330,9 @@ class HomeGuardService : AccessibilityService() {
             goHome()
             return
         }
+        // Another package's overlay leaves the stock launcher in front: the TV input's own window
+        // over SFR's player (com.google.android.tv.dtvinput) let Home through to SFR's home.
+        if (!isActivity(pkg, cls)) return
         filterKeys(false)
         // Leaving the stock launcher for a real app ends the visit: Home goes to canvasOS again.
         if (allowed && pkg != packageName && isApp(pkg)) allowStockUntil = 0L
@@ -376,8 +383,16 @@ class HomeGuardService : AccessibilityService() {
          */
         fun openStockLauncher(): Boolean {
             val s = instance ?: return false
-            s.allowStockUntil = SystemClock.uptimeMillis() + 60 * 60 * 1000L
+            allowStockLauncher()
             return s.performGlobalAction(GLOBAL_ACTION_HOME)
+        }
+
+        /**
+         * canvasOS is about to open a screen of the stock launcher itself (an operator's TV player,
+         * from [com.getisolated.canvasos.tv.OperatorTvAdapter]): it stays in front, and Home answers with canvasOS.
+         */
+        fun allowStockLauncher() {
+            instance?.allowStockUntil = SystemClock.uptimeMillis() + 60 * 60 * 1000L
         }
 
         /** The home screen is in front again: the stock launcher is fair game. */
@@ -465,12 +480,14 @@ class ConfigReceiver : BroadcastReceiver() {
         if (i.hasExtra("now_playing")) prefs.nowPlaying = i.getBooleanExtra("now_playing", true)
         if (i.hasExtra("home_player")) prefs.homePlayer = i.getBooleanExtra("home_player", true)
         if (i.hasExtra("lyrics")) prefs.lyrics = i.getBooleanExtra("lyrics", true)
+        // Réglages → Télécommande → Touches numérotées.
+        if (i.hasExtra("channel_keys")) prefs.channelKeys = i.getBooleanExtra("channel_keys", true)
         i.getStringExtra("lyrics_align")?.takeIf { it in Prefs.LYRICS_ALIGNS }?.let { prefs.lyricsAlign = it }
         if (i.hasExtra("banners")) prefs.banners = i.getBooleanExtra("banners", true)
         i.getStringExtra("banner_excluded")?.let { list ->
             prefs.bannerExcluded = list.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         }
-        resultData += " now_playing=${prefs.nowPlaying} home_player=${prefs.homePlayer} lyrics=${prefs.lyrics} lyrics_align=${prefs.lyricsAlign} capture_keys=${prefs.captureKeys} key_map=\"${KeyMap.describe(KeyMap.parse(prefs.keyMap))}\" banners=${prefs.banners} banner_excluded=${prefs.bannerExcluded.sorted().joinToString(",")} " +
+        resultData += " now_playing=${prefs.nowPlaying} home_player=${prefs.homePlayer} lyrics=${prefs.lyrics} lyrics_align=${prefs.lyricsAlign} capture_keys=${prefs.captureKeys} channel_keys=${prefs.channelKeys} key_map=\"${KeyMap.describe(KeyMap.parse(prefs.keyMap))}\" banners=${prefs.banners} banner_excluded=${prefs.bannerExcluded.sorted().joinToString(",")} " +
             "listener=${Banners.listenerGranted(c)} overlay=${Settings.canDrawOverlays(c)}"
         // Asks GitHub for the latest Release now (a few seconds at most) and says what it found.
         if (i.getBooleanExtra("check_update", false)) resultData += " update=${Updater.checkForConfig(c)}"

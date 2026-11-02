@@ -335,6 +335,15 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("capture_keys", false)
         set(v) = sp.edit().putBoolean("capture_keys", v).apply()
 
+    /**
+     * « Touches numérotées » (Réglages → Télécommande): 0–9 on the home screen open that channel,
+     * on a TV whose adapter has live channels ([com.getisolated.canvasos.tv.TvAdapter.showChannel]).
+     * On by default; a digit bound as a shortcut stays the shortcut's.
+     */
+    var channelKeys: Boolean
+        get() = sp.getBoolean("channel_keys", true)
+        set(v) = sp.edit().putBoolean("channel_keys", v).apply()
+
     /** Remote shortcuts (Réglages → Télécommande), in [KeyMap]'s text form; empty by default: no key is bound until the user binds it. */
     var keyMap: String
         get() = sp.getString("key_map", "")!!
