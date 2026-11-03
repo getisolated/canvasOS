@@ -2,6 +2,7 @@ package com.getisolated.canvasos.tv
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Drawable
 import android.media.AudioManager
 import android.media.tv.TvContract
 import android.media.tv.TvInputInfo
@@ -43,6 +44,15 @@ interface TvAdapter {
 
     /** Subtitle of the Control Center's input button when [currentInput] matches none of [list]. */
     fun inputSummary(list: List<Input>): String
+
+    /** The picture of [i]'s tile on the home grid when the user has given it none; null draws the input card. */
+    fun inputBanner(i: Input): Drawable?
+
+    /** Whether [showChannel] can work here: the TV has live channels. Quick (PackageManager only). */
+    fun hasChannels(): Boolean
+
+    /** Shows channel [number] (the digits typed on the remote, 1 to 3). False when it could not. */
+    fun showChannel(number: String): Boolean
 
     /** The TV's own settings app. */
     fun settingsIntent(): Intent
@@ -111,6 +121,13 @@ open class AndroidAdapter(protected val ctx: Context) : TvAdapter {
 
     override fun inputSummary(list: List<Input>) =
         if (list.isEmpty()) "Sources illisibles" else if (list.size == 1) "1 entrée HDMI" else "${list.size} entrées HDMI"
+
+    override fun inputBanner(i: Input): Drawable? = null
+
+    /** Standard Android has no channel numbers canvasOS could switch to. */
+    override fun hasChannels() = false
+
+    override fun showChannel(number: String) = false
 
     override fun settingsIntent() = Intent(Settings.ACTION_SETTINGS)
 

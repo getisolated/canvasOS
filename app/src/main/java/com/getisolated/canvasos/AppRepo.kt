@@ -17,6 +17,7 @@ import android.graphics.drawable.Drawable
 import android.util.LruCache
 import androidx.palette.graphics.Palette
 import com.getisolated.canvasos.tv.Input
+import com.getisolated.canvasos.tv.TvControls
 import org.json.JSONObject
 import java.io.File
 import java.text.Collator
@@ -67,6 +68,13 @@ object InputTile {
     fun key(i: Input) = PREFIX + i.uri
     fun isInput(pkg: String) = pkg.startsWith(PREFIX)
 
+    /**
+     * The name the user's picture for the input with grid key [key] is kept under: its uri with
+     * everything but letters, digits and _ made _, so no uri can name a file outside the folder.
+     */
+    fun pictureName(key: String): String? =
+        key.removePrefix(PREFIX).replace(Regex("[^A-Za-z0-9_]"), "_").takeIf { it.isNotEmpty() }?.let { "input.$it" }
+
     /** How it is kept in [Prefs.pinnedInputs]. */
     fun encode(i: Input) = listOf(i.uri, i.title, i.label).joinToString(SEP)
 
@@ -80,6 +88,8 @@ object InputTile {
 class AppRepo(private val ctx: Context) {
     private val pm: PackageManager = ctx.packageManager
     private val prefs = Prefs(ctx)
+    /** For the pictures of pinned inputs ([com.getisolated.canvasos.tv.TvAdapter.inputBanner]). */
+    private val tv by lazy { TvControls(ctx) }
     private val tiles = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
@@ -126,7 +136,7 @@ class AppRepo(private val ctx: Context) {
         val st = stamps
         return byPkg.values.map { e ->
             val name = names[e.pkg]
-            val stamp = st[e.pkg] ?: 0L
+            val stamp = stampIn(st, e.pkg) ?: 0L
             if (name == null && stamp == 0L) e else e.copy(label = name ?: e.label, originalLabel = e.label, tileStamp = stamp)
         }
     }
@@ -200,7 +210,7 @@ class AppRepo(private val ctx: Context) {
      */
     fun tileKey(pkg: String, st: Map<String, Long> = stamps): String = when {
         pkg == ctx.packageName -> pkg + "@" + (SettingsActivity.iconSource(ctx)?.key ?: "gear")
-        else -> st[pkg]?.let { "$pkg@$it" } ?: pkg
+        else -> stampIn(st, pkg)?.let { "$pkg@$it" } ?: pkg
     }
 
     /** [tileKey] of a grid entry; a folder's changes with its [AppEntry.stamp]. */
@@ -219,7 +229,13 @@ class AppRepo(private val ctx: Context) {
         tiles.get(key)?.let { return it }
         val bmp = Bitmap.createBitmap(TILE_W, TILE_H, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        app.input?.let { drawInputTile(c, it); if (keep) tiles.put(key, bmp); return bmp }
+        app.input?.let { i ->
+            // The user's picture, else the one the TV gives the input (an operator's TV banner), else the input card.
+            val pic = (if (stampIn(st, app.pkg) != null) userPicture(app.pkg) else null) ?: tv.inputBanner(i)
+            if (pic != null) drawCenterCrop(c, pic) else drawInputTile(c, i)
+            if (keep) tiles.put(key, bmp)
+            return bmp
+        }
         app.folder?.let { members ->
             drawFolderTile(c, members)
             if (keep) {
@@ -231,8 +247,7 @@ class AppRepo(private val ctx: Context) {
         }
         val own = if (app.component.className == SettingsActivity::class.java.name)
             SettingsActivity.iconSource(ctx)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
-        else if (app.pkg in st)
-            customTileFile(ctx, app.pkg)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
+        else if (stampIn(st, app.pkg) != null) userPicture(app.pkg)
         else null
         val banner = own ?: try {
             pm.getActivityInfo(app.component, 0).loadBanner(pm)
@@ -257,6 +272,9 @@ class AppRepo(private val ctx: Context) {
         val keys = listOf(pkg) + prefs.folderList().filter { pkg in it.apps }.map { Folders.key(it.id) }
         tiles.snapshot().keys.filter { k -> keys.any { k == it || k.startsWith("$it@") } }.forEach { tiles.remove(it) }
     }
+
+    private fun userPicture(pkg: String): Drawable? =
+        customTileFile(ctx, pkg)?.let { SettingsActivity.decodeIcon(it, TILE_W) }?.let { BitmapDrawable(ctx.resources, it) }
 
     private fun drawCenterCrop(c: Canvas, d: Drawable) {
         val iw = d.intrinsicWidth.takeIf { it > 0 } ?: TILE_W
@@ -389,30 +407,43 @@ class AppRepo(private val ctx: Context) {
         private val PACKAGE = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")
 
         /**
-         * The user's tile pictures by package, as [tileStamp] versions, from the last [scanCustomTiles].
+         * The user's tile pictures by [pictureName], as [tileStamp] versions, from the last [scanCustomTiles].
          * Shared by every [AppRepo] in the process: the phone page's and the home screen's.
          */
         @Volatile private var stamps: Map<String, Long> = emptyMap()
 
         /**
+         * The name a grid entry's picture is kept under: an app's package, or [InputTile.pictureName]
+         * for a pinned input. None for other keys (canvasOS's own screens, folders): nothing outside
+         * the folder can be named.
+         */
+        fun pictureName(pkg: String): String? = when {
+            InputTile.isInput(pkg) -> InputTile.pictureName(pkg)
+            PACKAGE.matches(pkg) -> pkg
+            else -> null
+        }
+
+        private fun stampIn(st: Map<String, Long>, pkg: String): Long? = pictureName(pkg)?.let { st[it] }
+
+        /**
          * Where a picture of the user's for [pkg] can be, in the order it is looked for: app storage
          * (uploaded from the phone page) first, then [externalDir] (Android/data/…/files, pushed over
-         * adb), like the boot video. None for keys that are not a package name (canvasOS's own screens,
-         * TV inputs): nothing outside the folder can be named.
+         * adb), like the boot video. None for keys without a [pictureName].
          */
-        fun customTilePaths(filesDir: File, externalDir: File?, pkg: String): List<File> =
-            if (!PACKAGE.matches(pkg)) emptyList()
-            else listOfNotNull(filesDir, externalDir).map { File(File(it, TILES_DIR), "$pkg.jpg") }
+        fun customTilePaths(filesDir: File, externalDir: File?, pkg: String): List<File> {
+            val name = pictureName(pkg) ?: return emptyList()
+            return listOfNotNull(filesDir, externalDir).map { File(File(it, TILES_DIR), "$name.jpg") }
+        }
 
         /** Whether [pkg] can have a picture of the user's; the settings tile has its own icon (Prefs.settingsIcon). */
-        fun canHaveCustomTile(ctx: Context, pkg: String) = pkg != ctx.packageName && PACKAGE.matches(pkg)
+        fun canHaveCustomTile(ctx: Context, pkg: String) = pkg != ctx.packageName && pictureName(pkg) != null
 
         fun customTileFile(ctx: Context, pkg: String): File? =
             if (pkg == ctx.packageName) null
             else customTilePaths(ctx.filesDir, ctx.getExternalFilesDir(null), pkg).firstOrNull { it.isFile && it.length() > 0 }
 
         /** The version of [pkg]'s picture as last scanned, 0 for none; compare with [AppEntry.tileStamp]. */
-        fun tileStamp(pkg: String): Long = stamps[pkg] ?: 0L
+        fun tileStamp(pkg: String): Long = stampIn(stamps, pkg) ?: 0L
 
         /**
          * Re-reads which apps have a picture of the user's. Blocking (lists two folders). The version
@@ -424,9 +455,10 @@ class AppRepo(private val ctx: Context) {
             // Android/data first, so a picture in app storage wins, as in customTileFile.
             for (dir in listOfNotNull(ctx.getExternalFilesDir(null), ctx.filesDir)) {
                 File(dir, TILES_DIR).listFiles()?.forEach { f ->
-                    val pkg = f.name.removeSuffix(".jpg")
-                    if (f.name.endsWith(".jpg") && canHaveCustomTile(ctx, pkg) && f.isFile && f.length() > 0)
-                        found[pkg] = f.lastModified() * 31 + f.length()
+                    // A picture name: a package, or an input's input.… name, which reads as one.
+                    val name = f.name.removeSuffix(".jpg")
+                    if (f.name.endsWith(".jpg") && canHaveCustomTile(ctx, name) && f.isFile && f.length() > 0)
+                        found[name] = f.lastModified() * 31 + f.length()
                 }
             }
             stamps = found

@@ -357,7 +357,7 @@
 <section class="tab" data-tab="apps" id="tab-apps" role="tabpanel" aria-label="Apps" hidden>
 <h2>Apps de l'accueil</h2>
 <div class="apps" id="apps"><div class="empty" style="padding:12px">Chargement…</div></div>
-<p class="hint">Touchez un nom pour le modifier ; videz-le pour reprendre le nom d'origine. « Ouvrir » lance l'app, ouvre le dossier ou passe sur l'entrée HDMI sur le téléviseur (hors de l'accueil canvasOS, une app demande le débogage local) ; les dossiers et les entrées se renomment et se rangent sur le téléviseur. Une image en paysage 16:9 convient le mieux : le téléviseur la recadre au centre (20&nbsp;Mo au maximum). Sur le téléviseur, un appui long sur une app propose aussi « Renommer » et « Image d'origine ». Si le téléviseur a plusieurs profils, les noms et les apps masquées sont ceux du profil affiché ; les images valent pour tous les profils.</p>
+<p class="hint">Touchez un nom pour le modifier ; videz-le pour reprendre le nom d'origine. « Ouvrir » lance l'app, ouvre le dossier ou passe sur l'entrée HDMI sur le téléviseur (hors de l'accueil canvasOS, une app demande le débogage local) ; les dossiers et les sources se renomment et se rangent sur le téléviseur ; une source prend une image comme une app. Une image en paysage 16:9 convient le mieux : le téléviseur la recadre au centre (20&nbsp;Mo au maximum). Sur le téléviseur, un appui long sur une app propose aussi « Renommer » et « Image d'origine ». Si le téléviseur a plusieurs profils, les noms et les apps masquées sont ceux du profil affiché ; les images valent pour tous les profils.</p>
 <h2 id="hiddenTitle" hidden>Masquées sur l'accueil</h2>
 <div class="apps" id="hiddenApps"></div>
 
@@ -908,7 +908,7 @@ function appRow(a, nested) {
     // Folders and inputs are renamed on the TV.
     const name = document.createElement('b'); name.className = 'name'; name.textContent = a.label;
     const n = (a.apps || []).length;
-    sub.textContent = kind === 'input' ? 'Entrée HDMI' : n ? 'Dossier · ' + n + (n > 1 ? ' apps' : ' app') : 'Dossier vide';
+    sub.textContent = kind === 'input' ? 'Source' : n ? 'Dossier · ' + n + (n > 1 ? ' apps' : ' app') : 'Dossier vide';
     body.append(name, sub);
   }
   const acts = document.createElement('div'); acts.className = 'acts';
@@ -917,7 +917,7 @@ function appRow(a, nested) {
     open.onclick = () => openOnTv(a, open);
     acts.append(open);
   }
-  if (kind === 'app' && a.tile) {
+  if (kind !== 'folder' && a.tile) {
     const pick = document.createElement('label'); pick.textContent = 'Changer l\'image';
     const file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
     file.onchange = async () => {
@@ -932,7 +932,7 @@ function appRow(a, nested) {
     };
     pick.append(file); acts.append(pick);
   }
-  if (kind === 'app' && a.custom) {
+  if (kind !== 'folder' && a.custom) {
     const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Image d\'origine';
     b.onclick = () => postApps('api/app/tile/delete', { pkg: a.id }).then(() => toast('Image d\'origine rétablie')).catch(() => toast(LOST));
     acts.append(b);

@@ -131,6 +131,7 @@ Les autorisations à accorder par ADB, la Protection de l'accueil, l'enregistrem
 |---|---|
 | Android TV / Google TV d'origine, Android 9 ou plus (box, Sony BRAVIA, Hisense, Thomson…) | Lanceur par défaut comme n'importe quel lanceur. Vérifié sur Sony BRAVIA (Android TV 12) et sur une box Android TV d'origine. |
 | Sony BRAVIA | En plus : luminosité, volume et entrées HDMI depuis le Centre de contrôle, via l'API du téléviseur. |
+| Décodeurs d'opérateur dont l'accueil est aussi le lecteur des chaînes (vérifié sur SFR Connect TV, Android 12) | Avec la Protection de l'accueil. Les chaînes deviennent la source « TV » : Centre de contrôle → Source → Afficher sur l'accueil en fait une tuile. |
 | Téléviseurs dont le système garde la touche Accueil pour son propre lanceur | La Protection de l'accueil ramène canvasOS en une demi-seconde environ, sans rien désactiver ni désinstaller. |
 | Autres marques | La luminosité et les sources dépendent de la marque : [AGENTS.md](AGENTS.md#9-adapter-canvasos-à-un-téléviseur-mal-pris-en-charge) explique comment un agent adapte canvasOS à un téléviseur. |
 

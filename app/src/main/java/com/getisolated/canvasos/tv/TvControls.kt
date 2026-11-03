@@ -23,6 +23,7 @@ class TvControls private constructor(adapter: TvAdapter) : TvAdapter by adapter 
             XiaomiAdapter(ctx),
             TclAdapter(ctx),
             CoocaaAdapter(ctx),
+            OperatorTvAdapter(ctx),
         )
 
         private fun pick(ctx: Context): TvAdapter = brands(ctx).firstOrNull { it.matches() } ?: AndroidAdapter(ctx)

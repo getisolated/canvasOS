@@ -56,6 +56,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         const val ACTION_OPEN = "com.getisolated.canvasos.OPEN"
         const val EXTRA_KEY = "com.getisolated.canvasos.KEY"
         private const val REQUEST_BLUETOOTH = 41
+        /** How long a channel number waits for its next digit, as on an operator's remote. */
+        private const val CHANNEL_WAIT_MS = 1500L
 
         /**
          * How the home guard and the boot receiver bring the home screen back: the same task, with
@@ -1079,6 +1081,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
                 .button("Renommer") { rename(app, pos) }
             // An input opens from a folder like from the grid.
             folderButtons(s, app, pos)
+            originalPictureButton(s, app)
             showSheet(s.button("Retirer de l'accueil") { pinInput(i, false) }
                 .button("Annuler") {}, restoreFocusTo = pos)
             return
@@ -1089,14 +1092,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         folderButtons(s, app, pos)
         // A restricted profile neither hides apps nor reaches what is shared with every profile (pictures, system screens).
         val kid = prefs.restricted
-        // A picture of the user's, from the phone page or pushed over adb (AppRepo.customTileFile).
-        if (app.tileStamp != 0L && !kid) s.button("Image d'origine") {
-            repo.invalidate(app.pkg)
-            io.execute {
-                AppRepo.clearCustomTile(this, app.pkg)
-                main.post { reload(app.pkg) }
-            }
-        }
+        originalPictureButton(s, app)
         if (!kid) s.button("Masquer") {
             prefs.hidden = prefs.hidden + app.pkg
             reload()
@@ -1109,6 +1105,18 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (!repo.isEssential(app.pkg)) s.button("Supprimer l'app") { unlocked("Supprimer l'app") { confirmDelete(app, pos) } }
         s.button("Annuler") {}
         showSheet(s, restoreFocusTo = pos)
+    }
+
+    /** « Image d'origine » for a picture of the user's, from the phone page or pushed over adb (AppRepo.customTileFile); shared with every profile. */
+    private fun originalPictureButton(s: Sheet, app: AppEntry) {
+        if (app.tileStamp == 0L || prefs.restricted) return
+        s.button("Image d'origine") {
+            repo.invalidate(app.pkg)
+            io.execute {
+                AppRepo.clearCustomTile(this, app.pkg)
+                main.post { reload(app.pkg) }
+            }
+        }
     }
 
     private fun appInfo(app: AppEntry) {
@@ -1499,6 +1507,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         intro?.let { if (event.action == KeyEvent.ACTION_UP) it.skip(); return true }
         val code = event.keyCode
         if (shortcutKey(event)) return true
+        if (channelKey(event)) return true
         if (event.action == KeyEvent.ACTION_UP && (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU)) {
             when {
                 sheets.isNotEmpty() -> sheets.last().dismiss()
@@ -1574,6 +1583,44 @@ class HomeActivity : Activity(), TileAdapter.Listener {
             }
         }
         return false
+    }
+
+    // ---------------------------------------------------------------- channel numbers
+
+    /** The digits typed so far ([channelKey]). */
+    private val channelDigits = StringBuilder()
+    private var channelToast: Toast? = null
+    private val channelGo = Runnable { showChannel() }
+
+    /**
+     * 0–9 on the home screen ([Prefs.channelKeys]), on a TV with live channels: up to three digits,
+     * each within [CHANNEL_WAIT_MS] of the last, then that channel, like on the TV's own remote. A digit
+     * bound as a shortcut stays the shortcut's ([shortcutKey] goes first); not in a field, a sheet,
+     * a folder or the Control Center.
+     */
+    private fun channelKey(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        if (code !in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 || !prefs.channelKeys || !tv.hasChannels()) return false
+        if (currentFocus is android.widget.EditText || sheets.isNotEmpty() || folderView != null || control.isOpen || moving >= 0) return false
+        if (event.action != KeyEvent.ACTION_UP) return true
+        channelDigits.append(code - KeyEvent.KEYCODE_0)
+        channelToast?.cancel()
+        channelToast = Toast.makeText(this, "Chaîne $channelDigits", Toast.LENGTH_SHORT).also { it.show() }
+        main.removeCallbacks(channelGo)
+        main.postDelayed(channelGo, if (channelDigits.length >= 3) 0L else CHANNEL_WAIT_MS)
+        return true
+    }
+
+    private fun showChannel() {
+        val number = channelDigits.toString()
+        channelDigits.clear()
+        if (number.isEmpty()) return
+        // Blocking for a few seconds (the digits wait for the player): off the io queue the tiles use.
+        Thread {
+            if (!tv.showChannel(number) && !prefs.adbAuthorized) main.post {
+                Toast.makeText(this, "Pour aller directement à la chaîne, autorisez le débogage local (Réglages de l'accueil → Système).", Toast.LENGTH_LONG).show()
+            }
+        }.start()
     }
 
     /** Runs a shortcut's action: whatever is open on the home screen gives way first (the same action again closes it). */
@@ -1713,6 +1760,9 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         main.removeCallbacks(idleFrame)
         main.removeCallbacks(ticker)
         main.removeCallbacks(shelfAdvance)
+        // Digits typed just before leaving do not open a channel later.
+        main.removeCallbacks(channelGo)
+        channelDigits.clear()
         KeyCapture.home = null
         if (lyricsOn) setLyricsShown(false, animate = false)
         homePlayer.stop()

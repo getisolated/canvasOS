@@ -157,7 +157,7 @@ class SettingsActivity : Activity() {
         PHONE_GROUP("Page téléphone", "Une page web pour un téléphone sur le même Wi-Fi : télécommande avec clavier, photos et liens d'images, " +
             "installation d'apps. Son QR code et sa protection."),
         REMOTE("Télécommande", "Des touches de la télécommande associées à des fonctions de canvasOS, sur l'accueil : " +
-            "appui simple ou appui long, la touche apprise en appuyant dessus."),
+            "appui simple ou appui long, la touche apprise en appuyant dessus ; sur un décodeur, les numéros de chaîne."),
         SYSTEM("Système", "Le débogage local et ADB, l'adresse du téléviseur, la protection de l'accueil, les réglages d'origine du téléviseur, " +
             "la mise à jour de canvasOS et sa version."),
         KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS, PROFILES, REMOTE_ACTIONS, REMOTE_APPS, REMOTE_INPUTS;
@@ -655,6 +655,16 @@ class SettingsActivity : Activity() {
         row("Ajouter un raccourci…", "La fonction d'abord, puis la touche : un appui bref l'associe à l'appui simple, un appui maintenu à l'appui long. " +
             "Les touches du téléviseur (Accueil, Volume) et celles de l'accueil (flèches, OK, Retour en appui simple) sont refusées.",
             { "" }, chevron = true) { remoteEdit = null; open(Page.REMOTE_ACTIONS) }
+        // Only where the TV has channels to go to (an operator's box).
+        if (tv.hasChannels()) {
+            section("Chaînes")
+            row("Touches numérotées", "Activé par défaut. Sur l'accueil, tapez le numéro d'une chaîne (jusqu'à trois chiffres) : la télé s'ouvre " +
+                "sur cette chaîne. Un chiffre associé à un raccourci garde son raccourci. Aller directement à la chaîne demande le débogage local ; " +
+                "sans lui, la télé s'ouvre sur la chaîne en cours.", { onOff(prefs.channelKeys) }) { v ->
+                prefs.channelKeys = !prefs.channelKeys
+                v.text = onOff(prefs.channelKeys)
+            }
+        }
         section("Touches du téléviseur")
         row("Capter les touches du téléviseur", "Désactivé par défaut. Les touches Réglages et Profil de la télécommande (et quelques autres : Guide, Source, TV) " +
             "sont prises par le téléviseur avant d'atteindre canvasOS. Activé, le service d'accessibilité de canvasOS (celui de la Protection de l'accueil) " +
