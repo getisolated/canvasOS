@@ -108,6 +108,7 @@ object Guard {
         if (!hasSecureSettings(ctx)) return false
         // The service stays on while key capture still wants it.
         if (on || Prefs(ctx).captureKeys) ensure(ctx) else disableService(ctx)
+        HomeGuardService.refreshFilter()
         return true
     }
 
@@ -200,19 +201,23 @@ object Guard {
 }
 
 /**
- * 1. When the stock launcher's home activity comes to the front (the Home key, an app exiting to
- *    it, the TV waking into it), canvasOS is brought back on top. On Xiaomi the user sees PatchWall
- *    for about half a second.
- * 2. The stock launcher can still be opened on purpose from its tile. While it is in front the Home
- *    key is taken before the system sees it and answered with canvasOS.
+ * 1. The Home key is taken before the system sees it and answered with canvasOS, so the stock
+ *    launcher never shows (« Touche Accueil directe », [Prefs.homeKey], on by default).
+ * 2. When the stock launcher's home activity still comes to the front (an app exiting to it, the
+ *    TV waking into it, Home with [Prefs.homeKey] off), canvasOS is brought back on top. The user
+ *    sees the stock launcher for about half a second (PatchWall on Xiaomi, Google TV's launcherx).
+ * 3. The stock launcher can still be opened on purpose from its tile. While it is in front Home is
+ *    taken too, even with [Prefs.homeKey] off.
  *
- * Key filtering is on only in that second case (and always up to Android 11, see [filterKeys]).
- * With it on every key press detours through this service, and some apps then see a press as held
- * and move twice (云视听小电视 on Xiaomi, reported to Aerial).
+ * With key filtering on every key press detours through this service, which lets every key but
+ * Home go on untouched; some apps then see a press as held and move twice (云视听小电视 on Xiaomi,
+ * reported to Aerial), hence the switch to turn 1 off. Up to Android 11 it is always on ([filterKeys]).
  */
 class HomeGuardService : AccessibilityService() {
     /** HOME activities that are not ours: package to class names. */
     private var stockHomes: Map<String, Set<String>> = emptyMap()
+    /** Whether Android sends Home to canvasOS itself, which leaves the guard nothing to take. */
+    private var defaultHome = false
     /** Also set off the main thread, by [allowStockLauncher] from a TV adapter. */
     @Volatile
     private var allowStockUntil = 0L
@@ -297,8 +302,10 @@ class HomeGuardService : AccessibilityService() {
     internal fun filterKeys(on: Boolean) {
         val info = serviceInfo ?: return
         val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+        val prefs = Prefs(this)
+        val homeKey = prefs.guard && prefs.homeKey && !defaultHome
         // Also on for « Capter les touches du téléviseur » ([KeyCapture]).
-        val want = if (on || Prefs(this).captureKeys || Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) info.flags or flag else info.flags and flag.inv()
+        val want = if (on || homeKey || prefs.captureKeys || Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) info.flags or flag else info.flags and flag.inv()
         if (want == info.flags) return
         info.flags = want
         serviceInfo = info
@@ -308,7 +315,8 @@ class HomeGuardService : AccessibilityService() {
         val prefs = Prefs(this)
         if (event.keyCode == KeyEvent.KEYCODE_HOME) {
             if (!prefs.guard || Guard.isDefaultHome(this)) return false
-            if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) goHome()
+            // As the system's Home would: back to the top of the home screen, with whatever was open closed.
+            if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) goHome(homeKey = true)
             return true
         }
         // The TV's own keys, for the remote shortcuts; every other key goes on untouched.
@@ -355,10 +363,11 @@ class HomeGuardService : AccessibilityService() {
             .filter { it.activityInfo.packageName != packageName && it.priority >= 0 }
             .groupBy({ it.activityInfo.packageName }, { it.activityInfo.name })
             .mapValues { it.value.toSet() }
+        defaultHome = Guard.isDefaultHome(this)
     }
 
-    private fun goHome() {
-        runCatching { startActivity(HomeActivity.bringBack(this)) }
+    private fun goHome(homeKey: Boolean = false) {
+        runCatching { startActivity(HomeActivity.bringBack(this, homeKey)) }
             .onFailure { Log.w(TAG, "could not bring the home screen back", it) }
     }
 
@@ -372,8 +381,12 @@ class HomeGuardService : AccessibilityService() {
 
         val isRunning: Boolean get() = instance != null
 
-        /** The key-capture setting changed: the running service filters keys, or stops. */
-        fun refreshFilter() { instance?.filterKeys(false) }
+        /** The guard, Home key or key-capture setting changed: the running service filters keys, or stops. */
+        fun refreshFilter() {
+            val s = instance ?: return
+            s.refreshStockHomes()
+            s.filterKeys(false)
+        }
 
         fun isStockHome(pkg: String): Boolean = instance?.stockHomes?.containsKey(pkg) == true
 
@@ -441,6 +454,7 @@ class ConfigReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         val prefs = Prefs(c)
         if (i.hasExtra("keep_adb")) prefs.keepAdb = i.getBooleanExtra("keep_adb", false)
+        if (i.hasExtra("home_key")) { prefs.homeKey = i.getBooleanExtra("home_key", true); HomeGuardService.refreshFilter() }
         if (i.hasExtra("guard")) Guard.setEnabled(c, i.getBooleanExtra("guard", false))
         // Looks (主屏幕设置 → 外观 / 开机动画), mostly for agents setting a TV up.
         i.getStringExtra("cc_style")?.let { prefs.ccStyle = it }
@@ -471,7 +485,7 @@ class ConfigReceiver : BroadcastReceiver() {
             runCatching { KeeperService.start(c) }.onFailure { PhoneServer.ensure(c) }
         }
         Guard.ensure(c)
-        resultData = "guard=${prefs.guard} keep_adb=${prefs.keepAdb} secure_settings=${Guard.hasSecureSettings(c)} " +
+        resultData = "guard=${prefs.guard} home_key=${prefs.homeKey} keep_adb=${prefs.keepAdb} secure_settings=${Guard.hasSecureSettings(c)} " +
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
             "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} brand=${prefs.brand} settings_icon=${prefs.settingsIcon} low_end=${Device.isLowEnd(c)} " +
             "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents} " +

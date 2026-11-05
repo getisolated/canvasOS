@@ -57,7 +57,7 @@ Fichiers attendus : accueil.png, top-shelf.png, centre-de-controle.png, reglages
 - **Logo canvasOS ou tvOS.** L'icône des réglages et le film de l'animation de démarrage sont intégrés : la carte-titre et le film canvasOS par défaut, ou ceux de l'Apple TV. Vous pouvez aussi importer votre propre image ou votre propre vidéo.
 - **Page téléphone.** Un QR code dans les réglages ouvre une page sur votre téléphone, sur le même Wi-Fi : importer des photos, renommer les apps et changer leurs vignettes, régler la météo, et surtout une télécommande à pavé tactile avec clavier, comme l'app Apple TV Remote. Elle installe aussi des APK.
 - **Mémoire.** Un nettoyage de la mémoire qui épargne ce qui lit de la vidéo ou du son, les serveurs (Plex, Jellyfin), la diffusion d'écran et les apps que vous gardez.
-- **Téléviseurs qui gardent la touche Accueil.** Quand le système réserve la touche Accueil à son propre lanceur, la Protection de l'accueil ramène canvasOS dès que le lanceur d'origine repasse devant, sans rien désactiver ni désinstaller.
+- **Téléviseurs qui gardent la touche Accueil.** Quand le système réserve la touche Accueil à son propre lanceur, la Protection de l'accueil prend la touche Accueil avant lui et ouvre directement canvasOS, et le ramène dès que le lanceur d'origine repasse devant, sans rien désactiver ni désinstaller.
 - **Mises à jour sans ordinateur.** Réglages de l'accueil → Système → Mise à jour vérifie la dernière version et l'installe sur place, réglages et autorisations conservés.
 
 ## Installation par un agent IA
@@ -132,7 +132,7 @@ Les autorisations à accorder par ADB, la Protection de l'accueil, l'enregistrem
 | Android TV / Google TV d'origine, Android 9 ou plus (box, Sony BRAVIA, Hisense, Thomson…) | Lanceur par défaut comme n'importe quel lanceur. Vérifié sur Sony BRAVIA (Android TV 12) et sur une box Android TV d'origine. |
 | Sony BRAVIA | En plus : luminosité, volume et entrées HDMI depuis le Centre de contrôle, via l'API du téléviseur. |
 | Décodeurs d'opérateur dont l'accueil est aussi le lecteur des chaînes (vérifié sur SFR Connect TV, Android 12) | Avec la Protection de l'accueil. Les chaînes deviennent la source « TV » : Centre de contrôle → Source → Afficher sur l'accueil en fait une tuile. |
-| Téléviseurs dont le système garde la touche Accueil pour son propre lanceur | La Protection de l'accueil ramène canvasOS en une demi-seconde environ, sans rien désactiver ni désinstaller. |
+| Téléviseurs dont le système garde la touche Accueil pour son propre lanceur | Avec la Protection de l'accueil, la touche Accueil ouvre directement canvasOS ; si le lanceur d'origine repasse devant autrement, canvasOS revient en une demi-seconde environ. Sans rien désactiver ni désinstaller. |
 | Autres marques | La luminosité et les sources dépendent de la marque : [AGENTS.md](AGENTS.md#9-adapter-canvasos-à-un-téléviseur-mal-pris-en-charge) explique comment un agent adapte canvasOS à un téléviseur. |
 
 Sur un téléviseur sans adaptateur dédié, la luminosité reste grisée et la commande Source peut n'avoir aucune entrée : Android n'a pas d'API standard pour cela. Tout le reste fonctionne.

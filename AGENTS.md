@@ -269,6 +269,7 @@ adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com
 # --es settings_icon brand|own|gear (l'icône des réglages : la carte-titre du logo, l'image importée, ou l'engrenage ; own sans image importée affiche la carte-titre ;
 #   l'ancienne clé own_icon true|false reste acceptée et vaut own|gear ; le fichier importé est conservé dans tous les cas)
 # background daily|scenery|fresh|anime|art|mine|custom|green|blue|purple|orange|graphite (source du fond d'écran de l'accueil, ou un dégradé intégré)
+# home_key true|false (Touche Accueil directe : avec la protection de l'accueil, la touche Accueil ouvre canvasOS sans passer par le lanceur d'origine ; true par défaut, section 10 ; la réponse indique home_key=…)
 # phone_server true|false (la page téléphone, activée par défaut ; désactivée, son adresse ne répond plus du tout)
 # dock_recents true|false (true par défaut : l'app ouverte passe en tête de l'accueil ; false : l'ordre choisi avec « Modifier l'accueil » est conservé)
 # weather true|false (la météo sur l'accueil et dans le Centre de contrôle, activée par défaut ; désactivée, rien n'est téléchargé)
@@ -347,7 +348,7 @@ Certains téléviseurs ne laissent pas un autre lanceur prendre la touche Accuei
 
 canvasOS gère cela sans root, et sans rien désactiver ni désinstaller :
 
-1. **Protection de l'accueil**, un service d'accessibilité (« Protection de l'accueil »). Quand l'écran d'accueil du lanceur d'origine passe au premier plan, canvasOS revient par-dessus (l'utilisateur voit le lanceur d'origine pendant environ une demi-seconde). Quand l'utilisateur ouvre volontairement le lanceur d'origine depuis sa tuile, la touche Accueil ramène à canvasOS. Le service ne surveille que les changements de fenêtre, jamais le contenu de l'écran.
+1. **Protection de l'accueil**, un service d'accessibilité (« Protection de l'accueil »). Il prend la touche Accueil avant le système et ouvre directement canvasOS, sans que le lanceur d'origine s'affiche (« Touche Accueil directe », activée par défaut). Pour cela, il voit passer chaque touche pressée dans toutes les apps et ne retient que la touche Accueil : dites-le à l'utilisateur. Si une app réagit alors deux fois à une touche, désactivez-la (Réglages de l'accueil → Système → Touche Accueil directe, ou `--ez home_key false`) : la touche Accueil repasse par le système. Quand l'écran d'accueil du lanceur d'origine passe malgré tout au premier plan (une app qui se ferme sur lui, la sortie de veille, ou la touche Accueil avec Touche Accueil directe désactivée), canvasOS revient par-dessus (l'utilisateur voit le lanceur d'origine pendant environ une demi-seconde). Quand l'utilisateur ouvre volontairement le lanceur d'origine depuis sa tuile, la touche Accueil ramène à canvasOS. Le service ne surveille que les changements de fenêtre et les touches, jamais le contenu de l'écran.
 2. **Relance** : l'écouteur de notifications de l'étape 4. Android le relie à nouveau environ une demi-seconde après que le système a tué canvasOS : canvasOS redémarre alors et réactive la protection (avec `WRITE_SECURE_SETTINGS`). Il lance aussi canvasOS au démarrage.
 3. Avec la protection activée, canvasOS remet aussi son économiseur d'écran en place quand le firmware l'écrase.
 

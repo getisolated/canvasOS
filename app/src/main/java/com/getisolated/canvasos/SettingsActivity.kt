@@ -972,6 +972,13 @@ class SettingsActivity : Activity() {
                     }
                 }.start()
             }
+            row("Touche Accueil directe", "La protection prend la touche Accueil avant le système et ouvre directement l'accueil, sans montrer le lanceur d'origine. " +
+                "Elle voit alors passer chaque touche pressée dans toutes les apps et ne retient que la touche Accueil. Désactivez-la si une app réagit deux fois à une touche.",
+                { onOff(prefs.homeKey) }) { v ->
+                prefs.homeKey = !prefs.homeKey
+                HomeGuardService.refreshFilter()
+                v.text = onOff(prefs.homeKey)
+            }
         }
         section("Téléviseur")
         row("Réglages du téléviseur", "Ouvre les réglages d'origine du téléviseur.", { "" }, chevron = true) { runCatching { startActivity(TvControls(this).settingsIntent()) } }
