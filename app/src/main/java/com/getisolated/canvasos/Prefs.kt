@@ -124,6 +124,15 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("guard", false)
         set(v) = sp.edit().putBoolean("guard", v).apply()
 
+    /**
+     * « Touche Accueil directe » (Réglages → Système → Protection): with the guard on where canvasOS
+     * is not the system home, the guard takes Home in every app instead of letting the stock launcher
+     * show for half a second. On by default; off, Home goes to the system again (Guard.kt).
+     */
+    var homeKey: Boolean
+        get() = sp.getBoolean("home_key", true)
+        set(v) = sp.edit().putBoolean("home_key", v).apply()
+
     /** Switch ADB debugging back on whenever the firmware turns it off (Xiaomi does on wake). */
     var keepAdb: Boolean
         get() = sp.getBoolean("keep_adb", false)

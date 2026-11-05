@@ -63,11 +63,12 @@ class HomeActivity : Activity(), TileAdapter.Listener {
          * How the home guard and the boot receiver bring the home screen back: the same task, with
          * no HOME category. Where canvasOS is not the system home, that category made Android open a
          * second, home-type task with a fresh screen every time (Aerial, Xiaomi MiTV-MFTR0).
+         * [homeKey]: the guard took the Home key, and the screen goes back to the top as on a real Home.
          */
-        fun bringBack(ctx: Context): Intent = Intent(ctx, HomeActivity::class.java)
+        fun bringBack(ctx: Context, homeKey: Boolean = false): Intent = Intent(ctx, HomeActivity::class.java)
             .setAction(Intent.ACTION_MAIN)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-            .putExtra(EXTRA_GUARD, true)
+            .putExtra(EXTRA_GUARD, !homeKey)
     }
 
     private lateinit var root: FrameLayout
