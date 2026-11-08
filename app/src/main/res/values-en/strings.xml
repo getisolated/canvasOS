@@ -105,7 +105,7 @@
     <string name="home_nothing_playing">Nothing playing</string>
 
     <!-- Accueil : débogage local -->
-    <string name="home_enable_power_memory">Enable Turn Off and Memory</string>
+    <string name="home_enable_power_memory">Enable Turn Off and Free Up Memory</string>
     <string name="home_adb_once_message">Local debugging must be allowed once. Press Start: the TV shows “Allow USB debugging?”. Check “Always allow”, then choose “Allow”.</string>
     <string name="home_later">Later</string>
     <string name="home_adb_dialog_hint">In the window that appears, check “Always allow”, then choose “Allow”</string>
@@ -143,7 +143,7 @@
     <string name="cc_update_available">canvasOS %1$s available</string>
     <string name="cc_brightness">Brightness</string>
     <string name="cc_input">Input</string>
-    <string name="cc_no_input">No Input</string>
+    <string name="cc_no_input">No Inputs</string>
     <plurals name="cc_inputs">
         <item quantity="one">%1$d input</item>
         <item quantity="other">%1$d inputs</item>
@@ -414,9 +414,9 @@
     <string name="settings_banners">Notification Banners</string>
     <string name="settings_banners_about">On by default. Shows app notifications at the top right (doorbell, messages, smart home…). The title and text of notifications from all apps, except excluded ones, are read, shown for 6 seconds and never recorded. When off, no notification is read.</string>
     <string name="settings_banner_apps">Apps Excluded from Banners</string>
-    <string name="settings_banner_apps_about">Notifications from ticked apps are neither read nor shown. All others show as banners.</string>
+    <string name="settings_banner_apps_about">Notifications from checked apps are neither read nor shown. All others show as banners.</string>
     <string name="settings_banner_apps_no_overlay">\nWithout permission to display over other apps (step 4), banners only appear on Home.</string>
-    <string name="settings_banner_apps_page_about">Notifications from ticked apps are neither read nor shown. Those from other apps show for 6 seconds at the top right.</string>
+    <string name="settings_banner_apps_page_about">Notifications from checked apps are neither read nor shown. Those from other apps show for 6 seconds at the top right.</string>
 
     <!-- Mémoire et alimentation -->
     <string name="settings_cleanup">Cleanup</string>
@@ -468,10 +468,10 @@
     <!-- Système -->
     <string name="settings_debugging">Debugging</string>
     <string name="settings_local_debug">Local Debugging</string>
-    <string name="settings_local_debug_about">Lets Home turn off the TV, free up memory and more through local debugging. In the window that appears, choose “Always Allow”.</string>
+    <string name="settings_local_debug_about">Lets Home turn off the TV, free up memory and more through local debugging. In the window that appears, choose “Always allow”.</string>
     <string name="settings_allowed">Allowed</string>
     <string name="settings_not_allowed_press">Not allowed, press OK</string>
-    <string name="settings_choose_always_allow">Choose Always Allow…</string>
+    <string name="settings_choose_always_allow">Choose Always allow…</string>
     <string name="settings_not_allowed_retry">Not allowed, OK to retry</string>
     <string name="settings_adb">ADB Debugging</string>
     <string name="settings_adb_about">Must be on for a computer to connect to the TV: without it, no installs or updates over the network. It is set in the TV\'s developer options.</string>
@@ -505,7 +505,7 @@
     <string name="settings_update_failed">Failed, OK to retry</string>
 
     <!-- Listes d'apps, dossiers -->
-    <string name="settings_keep_page_about">Freeing up memory does not close the ticked apps.</string>
+    <string name="settings_keep_page_about">Freeing up memory does not close the checked apps.</string>
     <string name="settings_hidden_page_about">Ticked apps do not appear on the Home screen.</string>
     <string name="settings_folders_page_about">The folders on Home, in order, with the number of apps they show.</string>
     <string name="settings_no_folder">No Folders</string>
@@ -583,7 +583,7 @@
     <string name="wall_from_phone">From Your Phone</string>
     <string name="wall_from_phone_help">On the same Wi-Fi, scan the code with your phone\'s camera: import photos or add image links (one picture, a random-image API, a page or a JSON list of images). The TV fetches them every day. The same page is also your remote.</string>
     <string name="wall_starting">Starting…</string>
-    <string name="wall_also_at">Also: %1$s (recent iPhone and Android)</string>
+    <string name="wall_also_at">Also: %1$s (iPhone and recent Android)</string>
     <string name="wall_scan_to_import">Scan to import</string>
     <string name="wall_scan_to_add_link">Scan to add a link</string>
     <string name="wall_unsplash_key_scan">Unsplash key: scan</string>
@@ -623,7 +623,7 @@
     <string name="shelf_episode_n">Episode %1$s</string>
     <string name="shelf_remaining">%1$s left</string>
     <string name="shelf_minutes">%1$d min</string>
-    <string name="shelf_hours_minutes">%1$d hr %2$d min</string>
+    <string name="shelf_hours_minutes">%1$d h %2$d min</string>
     <string name="shelf_type_movie">Movie</string>
     <string name="shelf_type_series">Series</string>
     <string name="shelf_type_season">Season</string>
@@ -689,6 +689,7 @@
     <string name="sys_key_name_last_channel">Last Channel</string>
 
     <!-- Profils -->
+    <string name="sys_profile_main_name">Main</string>
     <string name="sys_profile_default_name">Profile</string>
     <string name="sys_profile_color_blue">Blue</string>
     <string name="sys_profile_color_green">Green</string>

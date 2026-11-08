@@ -115,7 +115,7 @@
     <!-- Accueil : lecture en cours et paroles -->
     <string name="home_playback">Wird wiedergegeben</string>
     <string name="home_playback_desc">Wird wiedergegeben: %1$s, %2$s</string>
-    <string name="home_playing">Wiedergabe</string>
+    <string name="home_playing">Läuft</string>
     <string name="home_paused">Pausiert</string>
     <string name="home_lyrics">Liedtext</string>
     <string name="home_lyrics_shown">Liedtext (angezeigt)</string>
@@ -413,7 +413,7 @@
     <string name="settings_notifications">Mitteilungen</string>
     <string name="settings_banners">Mitteilungsbanner</string>
     <string name="settings_banners_about">Standardmäßig an. Zeigt oben rechts die Mitteilungen der Apps (Türklingel, Nachrichten, Smart Home…). Titel und Text der Mitteilungen aller Apps, außer den ausgeschlossenen, werden gelesen, 6 Sekunden angezeigt und nie gespeichert. Wenn aus, wird keine Mitteilung gelesen.</string>
-    <string name="settings_banner_apps">Ausgeschlossene Apps</string>
+    <string name="settings_banner_apps">Von Bannern ausgeschlossene Apps</string>
     <string name="settings_banner_apps_about">Mitteilungen der markierten Apps werden weder gelesen noch angezeigt. Alle anderen erscheinen als Banner.</string>
     <string name="settings_banner_apps_no_overlay">\nOhne die Berechtigung, über anderen Apps anzuzeigen (Schritt 4), erscheinen Banner nur auf dem Home-Bildschirm.</string>
     <string name="settings_banner_apps_page_about">Mitteilungen der markierten Apps werden weder gelesen noch angezeigt. Die der anderen Apps erscheinen 6 Sekunden oben rechts.</string>
@@ -424,7 +424,7 @@
     <string name="settings_clean_standby_about">Schließt Apps im Hintergrund, wenn der Fernseher in den Ruhezustand wechselt, für einen flüssigeren Neustart. Apps, die Ton oder Video abspielen oder einen Dienst ausführen (Streaming, Server), bleiben verschont.</string>
     <string name="settings_clean_scheduled">Geplante Freigabe</string>
     <string name="settings_clean_scheduled_about">Schließt regelmäßig Apps im Hintergrund, außer der App auf dem Bildschirm und denen, die Ton oder Video abspielen oder einen Dienst ausführen.</string>
-    <string name="settings_every_hours">Alle %1$d h</string>
+    <string name="settings_every_hours">Alle %1$d Std.</string>
     <string name="settings_clean_now">Speicher freigeben</string>
     <string name="settings_clean_now_about">Schließt jetzt Apps im Hintergrund. Apps, die Ton oder Video abspielen oder einen Dienst ausführen (Streaming, Server), bleiben verschont.</string>
     <string name="settings_mb_free">%1$d MB frei</string>
@@ -432,7 +432,7 @@
     <string name="settings_last_clean">Letzte Bereinigung</string>
     <string name="settings_last_clean_none">Der Speicher wurde noch nicht freigegeben.</string>
     <string name="settings_last_clean_about">%1$s.\nDrücke, um die geschlossenen Apps zu sehen.</string>
-    <string name="settings_keep_apps">Apps behalten</string>
+    <string name="settings_keep_apps">Behaltene Apps</string>
     <string name="settings_keep_apps_about">Apps, die beim Freigeben des Speichers nie geschlossen werden, etwa Bildschirmübertragung. Apps, die Ton oder Video abspielen oder einen Dienst ausführen, bleiben ohnehin verschont, solange sie das tun.</string>
     <string name="settings_power">Energie</string>
     <string name="settings_power_key">Ein/Aus-Taste</string>
@@ -556,7 +556,7 @@
     <string name="settings_starting">Wird gestartet…</string>
     <string name="settings_phone_also">Auch: %1$s (iPhone und neuere Android-Geräte)</string>
     <string name="settings_last_clean_cache">%1$s: %2$s.\nOhne lokales Debugging wurden nur Apps im Cache beendet, und Android sagt nicht, welche.</string>
-    <string name="settings_last_clean_full">%1$s: %2$s.\nBeibehaltene Apps und Apps, die Ton oder Video abspielten oder einen Dienst ausführten (Streaming, Server), wurden nicht geschlossen.</string>
+    <string name="settings_last_clean_full">%1$s: %2$s.\nBehaltene Apps und Apps, die Ton oder Video abspielten oder einen Dienst ausführten (Streaming, Server), wurden nicht geschlossen.</string>
     <string name="settings_detail_unavailable">Details nicht verfügbar</string>
     <string name="settings_no_app_closed">Keine Apps geschlossen</string>
 
@@ -583,7 +583,7 @@
     <string name="wall_from_phone">Vom Handy</string>
     <string name="wall_from_phone_help">Scanne den Code im selben WLAN mit der Kamera deines Handys: Importiere Fotos oder füge Bildlinks hinzu (ein Bild, eine API für Zufallsbilder, eine Seite oder ein JSON mit einer Bildliste). Der Fernseher lädt sie jeden Tag. Dieselbe Seite dient auch als Fernbedienung.</string>
     <string name="wall_starting">Wird gestartet…</string>
-    <string name="wall_also_at">Auch: %1$s (aktuelle iPhones und Android-Geräte)</string>
+    <string name="wall_also_at">Auch: %1$s (iPhone und neuere Android-Geräte)</string>
     <string name="wall_scan_to_import">Zum Importieren scannen</string>
     <string name="wall_scan_to_add_link">Scannen, um Link hinzuzufügen</string>
     <string name="wall_unsplash_key_scan">Unsplash-Schlüssel: scannen</string>
@@ -682,13 +682,14 @@
     <string name="sys_key_name_play">Wiedergabe</string>
     <string name="sys_key_name_stop">Stopp</string>
     <string name="sys_key_name_next">Weiter</string>
-    <string name="sys_key_name_previous">Zurück</string>
+    <string name="sys_key_name_previous">Vorheriger Titel</string>
     <string name="sys_key_name_fast_forward">Vorspulen</string>
     <string name="sys_key_name_rewind">Zurückspulen</string>
     <string name="sys_key_name_record">Aufnehmen</string>
     <string name="sys_key_name_last_channel">Letzter Kanal</string>
 
     <!-- Profils -->
+    <string name="sys_profile_main_name">Haupt</string>
     <string name="sys_profile_default_name">Profil</string>
     <string name="sys_profile_color_blue">Blau</string>
     <string name="sys_profile_color_green">Grün</string>
@@ -698,17 +699,17 @@
     <string name="sys_profile_color_yellow">Gelb</string>
 
     <!-- Code PIN -->
-    <string name="sys_pin_enter">Gib den PIN ein.</string>
+    <string name="sys_pin_enter">Gib die PIN ein.</string>
     <plurals name="sys_pin_wrong">
-        <item quantity="one">Falscher PIN. Letzter Versuch.</item>
-        <item quantity="other">Falscher PIN. Noch %1$d Versuche.</item>
+        <item quantity="one">Falsche PIN. Letzter Versuch.</item>
+        <item quantity="other">Falsche PIN. Noch %1$d Versuche.</item>
     </plurals>
     <string name="sys_pin_hint">PIN</string>
     <string name="sys_pin_digits">%1$d bis %2$d Ziffern.</string>
-    <string name="sys_pin_new_hint">Neuer PIN</string>
-    <string name="sys_pin_bad_length">Der PIN muss %1$d bis %2$d Ziffern haben.</string>
+    <string name="sys_pin_new_hint">Neue PIN</string>
+    <string name="sys_pin_bad_length">Die PIN muss %1$d bis %2$d Ziffern haben.</string>
     <string name="sys_pin_confirm_title">PIN bestätigen</string>
-    <string name="sys_pin_confirm">Gib denselben PIN noch einmal ein.</string>
+    <string name="sys_pin_confirm">Gib dieselbe PIN noch einmal ein.</string>
     <string name="sys_pin_mismatch">Die beiden PINs waren verschieden. Versuch es noch einmal.</string>
 
     <!-- Libérer la mémoire -->

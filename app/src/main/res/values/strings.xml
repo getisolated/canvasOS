@@ -690,6 +690,7 @@
     <string name="sys_key_name_last_channel">Dernière chaîne</string>
 
     <!-- Profils -->
+    <string name="sys_profile_main_name">Principal</string>
     <string name="sys_profile_default_name">Profil</string>
     <string name="sys_profile_color_blue">Bleu</string>
     <string name="sys_profile_color_green">Vert</string>

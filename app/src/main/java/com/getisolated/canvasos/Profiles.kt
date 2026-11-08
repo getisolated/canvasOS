@@ -74,7 +74,7 @@ object Profiles {
         name?.trim()?.take(MAX_NAME)?.takeIf { it.isNotEmpty() } ?: if (main) "" else DEFAULT_NAME
 
     /** What the profile is called on screen. */
-    fun displayName(p: Profile): String = p.name.ifEmpty { if (p.isMain) MAIN_NAME else DEFAULT_NAME }
+    fun displayName(p: Profile): String = p.name.ifEmpty { if (p.isMain) str(R.string.sys_profile_main_name) else DEFAULT_NAME }
 
     private fun cleanColor(c: Int) = c.mod(COLORS.size)
 
@@ -113,7 +113,7 @@ object Profiles {
 
     /** The profile called [name] on screen, whatever the case ("principal" finds the unnamed main profile). */
     fun byName(list: List<Profile>, name: String): Profile? =
-        name.trim().let { n -> list.firstOrNull { displayName(it).equals(n, ignoreCase = true) } }
+        name.trim().let { n -> list.firstOrNull { displayName(it).equals(n, ignoreCase = true) || (it.isMain && it.name.isEmpty() && MAIN_NAME.equals(n, ignoreCase = true)) } }
 
     /** [id] when it is one of [list], else [MAIN]: a profile deleted elsewhere does not leave the TV on nothing. */
     fun resolve(list: List<Profile>, id: String): String = if (byId(list, id) != null) id else MAIN

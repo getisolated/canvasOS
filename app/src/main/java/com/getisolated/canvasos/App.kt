@@ -14,6 +14,11 @@ class App : Application() {
         super.onCreate()
         Strings.apply(this)
     }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        Strings.apply(this)
+    }
 }
 
 /**
@@ -23,12 +28,13 @@ class App : Application() {
 object Strings {
     @Volatile var res: Resources? = null
 
-    /** Reads the text in the language chosen in Réglages → Système → Langue, or the TV's when it is auto. */
+    /** Reads the text in the language chosen in Réglages → Système → Langue, or the TV's when it is auto. Called again on a change of the TV's language (App.onConfigurationChanged). */
     fun apply(ctx: Context) {
         val app = ctx.applicationContext
         val lang = Prefs(app).language
-        res = if (lang == Prefs.AUTO) app.resources
-        else app.createConfigurationContext(Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) }).resources
+        // In auto, the language of the text Android picked (French on a TV in another language), so plurals follow its rules.
+        val tag = if (lang == Prefs.AUTO) app.resources.getString(R.string.ui_language) else lang
+        res = app.createConfigurationContext(Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag(tag)) }).resources
     }
 
     /**

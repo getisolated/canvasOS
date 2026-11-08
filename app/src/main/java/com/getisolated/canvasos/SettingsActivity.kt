@@ -1100,8 +1100,8 @@ class SettingsActivity : Activity() {
         val s = Sheet(root).title(name)
             .message(if (prefs.hasPin) null else str(R.string.settings_pin_needed))
             .button(str(R.string.settings_rename)) {
-                showSheet(Sheet(root).title(str(R.string.settings_rename_title, name)).message(if (p.isMain) str(R.string.settings_rename_main, Profiles.MAIN_NAME) else null)
-                    .input(p.name, if (p.isMain) Profiles.MAIN_NAME else Profiles.DEFAULT_NAME) { text -> prefs.editProfiles { Profiles.rename(it, p.id, text) } })
+                showSheet(Sheet(root).title(str(R.string.settings_rename_title, name)).message(if (p.isMain) str(R.string.settings_rename_main, str(R.string.sys_profile_main_name)) else null)
+                    .input(p.name, if (p.isMain) str(R.string.sys_profile_main_name) else Profiles.DEFAULT_NAME) { text -> prefs.editProfiles { Profiles.rename(it, p.id, text) } })
             }
             .cycle(str(R.string.settings_color), Profiles.COLOR_NAMES, p.color) { c -> prefs.editProfiles { Profiles.setColor(it, p.id, c) } }
             .button(str(R.string.settings_photo_more)) { photoHelp(p) }

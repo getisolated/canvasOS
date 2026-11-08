@@ -104,7 +104,7 @@ class AppRepo(private val ctx: Context) {
                 if (byPkg[key]?.leanback == true) continue
                 byPkg[key] = AppEntry(
                     key,
-                    ri.loadLabel(pm).toString().trim(),
+                    if (ai.packageName == ctx.packageName && ai.labelRes != 0) str(ai.labelRes) else ri.loadLabel(pm).toString().trim(),
                     ComponentName(ai.packageName, ai.name),
                     leanback,
                 )
