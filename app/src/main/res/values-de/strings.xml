@@ -134,7 +134,7 @@
     <string name="cc_network">Netzwerk</string>
     <string name="cc_connected">Verbunden</string>
     <string name="cc_disconnected">Nicht verbunden</string>
-    <string name="cc_sleep">Ruhezustand</string>
+    <string name="cc_sleep">Standby</string>
     <string name="cc_free_memory">Speicher freigeben</string>
     <string name="cc_freeing_memory">Speicher wird freigegeben…</string>
     <string name="cc_next_photo">Nächstes Foto</string>
