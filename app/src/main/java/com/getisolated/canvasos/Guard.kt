@@ -21,6 +21,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import com.getisolated.canvasos.tv.FireOsAdapter
 import com.getisolated.canvasos.tv.TclAdapter
 import com.getisolated.canvasos.tv.XiaomiAdapter
 
@@ -36,10 +37,14 @@ import com.getisolated.canvasos.tv.XiaomiAdapter
  *   accessibility services from the enabled list. It also switches ADB debugging off on wake.
  * - TCL refuses any APK that declares HOME unless TCL signed it (the "guard" flavor declares
  *   none), and blocks third-party apps from starting at boot unless two TCL app ops allow it.
+ * - Amazon Fire OS protects its launcher, handles the Home key before any accessibility service,
+ *   and opens Fire TV Settings and the Appstore through its home activity. There the guard runs as
+ *   [FireGuardService], which reads the launcher's view ids to tell those apart ([FireHome]).
  *
  * The pieces:
  * 1. [HomeGuardService], an accessibility service that brings canvasOS back the moment the stock
- *    launcher comes to the front. It sees window changes only, never screen content.
+ *    launcher comes to the front. It sees window changes only, never screen content (on Fire OS,
+ *    [FireGuardService] also reads the view ids of Amazon's launcher, see above).
  * 2. [RevivalListener], a notification listener. Android rebinds a listener about half a second
  *    after its process is killed, which restarts canvasOS; canvasOS then switches the guard back on,
  *    which needs WRITE_SECURE_SETTINGS. With banners on (the default, [Banners]) it also reads the
@@ -61,7 +66,15 @@ object Guard {
     fun hasSecureSettings(ctx: Context) =
         ctx.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
 
-    private fun service(ctx: Context) = ComponentName(ctx, HomeGuardService::class.java).flattenToString()
+    /** The guard's service on this TV: [FireGuardService] on Fire OS, [HomeGuardService] elsewhere. */
+    private fun service(ctx: Context) = ComponentName(ctx, serviceClass()).flattenToString()
+
+    private fun serviceClass() = if (FireOsAdapter.isFireOs()) FireGuardService::class.java else HomeGuardService::class.java
+
+    /** Both guard services, whichever this TV uses: the other one is taken off the list. */
+    private fun isOurs(ctx: Context, entry: String) = ComponentName.unflattenFromString(entry).let {
+        it?.packageName == ctx.packageName && (it.className == HomeGuardService::class.java.name || it.className == FireGuardService::class.java.name)
+    }
 
     /** Xiaomi switches ADB off on every wake, so "keep ADB on" is offered there only. */
     fun isXiaomi() = XiaomiAdapter.isXiaomi()
@@ -127,7 +140,7 @@ object Guard {
     private fun disableService(ctx: Context) = runCatching {
         val me = service(ctx)
         val r = ctx.contentResolver
-        val others = enabledServices(ctx).filter { ComponentName.unflattenFromString(it)?.flattenToString() != me }
+        val others = enabledServices(ctx).filter { !isOurs(ctx, it) }
         Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.joinToString(":"))
     }
 
@@ -143,11 +156,15 @@ object Guard {
         if (!Prefs(ctx).guard && !Prefs(ctx).captureKeys) return
         val me = service(ctx)
         val entries = enabledServices(ctx)
+        // The other guard service, left from before an update that brought the Fire OS mode.
+        val stale = entries.filter { isOurs(ctx, it) && ComponentName.unflattenFromString(it)?.flattenToString() != me }
         runCatching {
-            if (entries.none { ComponentName.unflattenFromString(it)?.flattenToString() == me }) {
+            if (stale.isNotEmpty() || entries.none { ComponentName.unflattenFromString(it)?.flattenToString() == me }) {
                 lastRevivedAt = SystemClock.elapsedRealtime()
                 // Appended, so the firmware's own services (小爱, TCL's 小T助手) stay on.
-                Settings.Secure.putString(ctx.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (entries + me).joinToString(":"))
+                val kept = entries - stale.toSet()
+                val list = if (kept.any { ComponentName.unflattenFromString(it)?.flattenToString() == me }) kept else kept + me
+                Settings.Secure.putString(ctx.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, list.joinToString(":"))
                 Log.i(TAG, "home guard had been switched off; turned it back on")
             }
             Settings.Secure.putInt(ctx.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
@@ -213,7 +230,7 @@ object Guard {
  * Home go on untouched; some apps then see a press as held and move twice (云视听小电视 on Xiaomi,
  * reported to Aerial), hence the switch to turn 1 off. Up to Android 11 it is always on ([filterKeys]).
  */
-class HomeGuardService : AccessibilityService() {
+open class HomeGuardService : AccessibilityService() {
     /** HOME activities that are not ours: package to class names. */
     private var stockHomes: Map<String, Set<String>> = emptyMap()
     /** Whether Android sends Home to canvasOS itself, which leaves the guard nothing to take. */
@@ -226,6 +243,8 @@ class HomeGuardService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var takeOverReason = ""
     private val takeOver = Runnable { takeOverIfStockInFront(takeOverReason) }
+    /** The Fire OS mode, in [FireGuardService] only. */
+    private var fire: FireHome? = null
 
     private val screenOn = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
@@ -238,6 +257,8 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        // Only on Fire OS: switched on by hand on another TV, it is the plain guard.
+        if (this is FireGuardService && FireOsAdapter.isFireOs()) fire = FireHome(this)
         refreshStockHomes()
         filterKeys(false)
         registerReceiver(screenOn, IntentFilter(Intent.ACTION_SCREEN_ON))
@@ -277,6 +298,7 @@ class HomeGuardService : AccessibilityService() {
         val stockInFront = last == null || last.first in stockHomes
         if (!stockInFront) Log.i(TAG, "$reason with ${last?.first} in front; leaving it")
         if (!stockInFront || SystemClock.uptimeMillis() < allowStockUntil) return
+        fire?.let { it.takeOver(reason); return }
         Log.i(TAG, "$reason with the stock launcher in front; bringing canvasOS back")
         goHome()
     }
@@ -284,6 +306,7 @@ class HomeGuardService : AccessibilityService() {
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenOn) }
         handler.removeCallbacksAndMessages(null)
+        fire?.stop()
         if (instance === this) instance = null
         super.onDestroy()
     }
@@ -331,9 +354,10 @@ class HomeGuardService : AccessibilityService() {
         // activities count as what is in front.
         if (isActivity(pkg, cls)) lastWindow = pkg to cls
         val allowed = SystemClock.uptimeMillis() < allowStockUntil
+        fire?.let { if (!allowed && Prefs(this).guard) it.onWindow(pkg, cls, isActivity(pkg, cls), stockHomes) }
         if (pkg in stockHomes) {
             filterKeys(allowed)
-            if (cls !in stockHomes.getValue(pkg) || allowed || !Prefs(this).guard) return
+            if (fire != null || cls !in stockHomes.getValue(pkg) || allowed || !Prefs(this).guard) return
             Log.i(TAG, "stock home $pkg came to the front; bringing canvasOS back")
             goHome()
             return
@@ -389,6 +413,12 @@ class HomeGuardService : AccessibilityService() {
         }
 
         fun isStockHome(pkg: String): Boolean = instance?.stockHomes?.containsKey(pkg) == true
+
+        /**
+         * Puts the TV to sleep as the power key would, where local adb cannot send the sleep key
+         * (Fire OS, [Cleaner.sleep]). False when the service is not running.
+         */
+        fun lockScreen(): Boolean = instance?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) == true
 
         /**
          * Opens the stock launcher on purpose, from its tile. Xiaomi's launcher activities require
@@ -533,3 +563,12 @@ class ConfigReceiver : BroadcastReceiver() {
         Weather.config(this, c, i)
     }
 }
+
+/**
+ * The guard on Fire OS: the same service, declared apart because it reads the view ids of
+ * Amazon's launcher ([FireHome]), which needs window content (res/xml/home_guard_fire.xml);
+ * [HomeGuardService] keeps to window changes everywhere else. [Guard] switches on the one this TV
+ * needs. It cannot be left out of the manifest elsewhere: Fire OS's accessibility manager does
+ * not see a service enabled at run time with setComponentEnabledSetting until the next update.
+ */
+class FireGuardService : HomeGuardService()

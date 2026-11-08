@@ -59,8 +59,9 @@ object SleepTimer {
         prefs.sleepAt = 0L
         val pm = ctx.getSystemService(PowerManager::class.java) ?: return
         // Already in standby (the remote's power key, say): nothing to do. Without the local debugging
-        // authorization the key cannot be sent, and asking for it in the middle of the night is no help.
-        if (!pm.isInteractive || !prefs.adbAuthorized) return
+        // authorization (or Fire OS's guard service) the key cannot be sent, and asking for it in the
+        // middle of the night is no help.
+        if (!pm.isInteractive || !Cleaner.canSleep(ctx)) return
         // The CPU may sleep again as soon as the receiver returns, before the adb connection is made.
         pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tvhome:sleep").acquire(15_000)
         // The user chose this delay in the Veille sheet (ControlCenter.sleepSheet): this is the one

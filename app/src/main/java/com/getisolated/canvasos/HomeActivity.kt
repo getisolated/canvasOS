@@ -1618,7 +1618,7 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         if (number.isEmpty()) return
         // Blocking for a few seconds (the digits wait for the player): off the io queue the tiles use.
         Thread {
-            if (!tv.showChannel(number) && !prefs.adbAuthorized) main.post {
+            if (!tv.showChannel(number) && !prefs.adbAuthorized && !LocalAdb.unavailable(this)) main.post {
                 Toast.makeText(this, "Pour aller directement à la chaîne, autorisez le débogage local (Réglages de l'accueil → Système).", Toast.LENGTH_LONG).show()
             }
         }.start()
@@ -1840,7 +1840,8 @@ class HomeActivity : Activity(), TileAdapter.Listener {
     }
 
     private fun askAdbAuthorization() {
-        if (prefs.adbAuthorized || isFinishing) return
+        // Fire OS refuses apps their own adb ([LocalAdb.unavailable]): asking would lead nowhere.
+        if (prefs.adbAuthorized || isFinishing || LocalAdb.unavailable(this)) return
         showSheet(Sheet(root).title("Activer l'extinction et la mémoire")
             .message("Le débogage local doit être autorisé une fois. Appuyez sur Commencer : le téléviseur affiche « Autoriser le débogage ? ». Cochez « Toujours autoriser », puis choisissez « Autoriser ».")
             .button("Commencer") { authorizeAdb() }
@@ -1852,7 +1853,11 @@ class HomeActivity : Activity(), TileAdapter.Listener {
         io.execute {
             val ok = LocalAdb.shell(this, "echo ok", 60_000) != null
             main.post {
-                Toast.makeText(this, if (ok) "C'est fait : l'extinction et la libération de la mémoire sont disponibles" else "Autorisation refusée ; réessayez dans Réglages de l'accueil", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, when {
+                    ok -> "C'est fait : l'extinction et la libération de la mémoire sont disponibles"
+                    LocalAdb.unavailable(this) -> "Fire OS ne permet plus aux apps d'utiliser le débogage local ; seul un ordinateur peut s'en servir (adb)"
+                    else -> "Autorisation refusée ; réessayez dans Réglages de l'accueil"
+                }, Toast.LENGTH_LONG).show()
                 control.refresh()
             }
         }

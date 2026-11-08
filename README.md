@@ -96,6 +96,7 @@ En cours de route, l'agent vous présente les réglages facultatifs (météo, ba
 |---|---|
 | **Android TV / Google TV d'origine** (box, Sony, Hisense, Thomson, Philips…) | Paramètres → Préférences de l'appareil → À propos → appuyez 7 fois sur **Build**. Puis Options pour les développeurs → **Débogage USB** (et Débogage réseau / sans fil s'il existe). |
 | **Sony BRAVIA** | Paramètres → Système → À propos → appuyez 7 fois sur OK sur **Build**. Puis Paramètres → Système → Options pour les développeurs → **Débogage USB**. |
+| **Amazon Fire TV** | Paramètres → Ma Fire TV → À propos → appuyez 7 fois sur OK sur le nom de l'appareil. Puis Ma Fire TV → Options pour les développeurs → **Débogage ADB**. |
 
 ### Ce que l'agent ne fait jamais sans vous le demander
 
@@ -132,10 +133,20 @@ Les autorisations à accorder par ADB, la Protection de l'accueil, l'enregistrem
 | Android TV / Google TV d'origine, Android 9 ou plus (box, Sony BRAVIA, Hisense, Thomson…) | Lanceur par défaut comme n'importe quel lanceur. Vérifié sur Sony BRAVIA (Android TV 12) et sur une box Android TV d'origine. |
 | Sony BRAVIA | En plus : luminosité, volume et entrées HDMI depuis le Centre de contrôle, via l'API du téléviseur. |
 | Décodeurs d'opérateur dont l'accueil est aussi le lecteur des chaînes (vérifié sur SFR Connect TV, Android 12) | Avec la Protection de l'accueil. Les chaînes deviennent la source « TV » : Centre de contrôle → Source → Afficher sur l'accueil en fait une tuile. |
+| Amazon Fire TV (Fire OS ; vérifié sur un téléviseur Fire TV, Fire OS 8.1.8.5) | Avec la Protection de l'accueil (Fire TV), qui lit les identifiants des onglets de l'accueil d'Amazon (jamais aucun texte) : la touche Accueil ramène canvasOS après un écran noir d'environ une seconde, et laisse ouverts les Paramètres et l'Appstore. Fire OS refuse le débogage local aux apps : Veille passe par la protection, Éteindre met en veille, Libérer la mémoire ne vide que les processus en arrière-plan. |
 | Téléviseurs dont le système garde la touche Accueil pour son propre lanceur | Avec la Protection de l'accueil, la touche Accueil ouvre directement canvasOS ; si le lanceur d'origine repasse devant autrement, canvasOS revient en une demi-seconde environ. Sans rien désactiver ni désinstaller. |
 | Autres marques | La luminosité et les sources dépendent de la marque : [AGENTS.md](AGENTS.md#9-adapter-canvasos-à-un-téléviseur-mal-pris-en-charge) explique comment un agent adapte canvasOS à un téléviseur. |
 
 Sur un téléviseur sans adaptateur dédié, la luminosité reste grisée et la commande Source peut n'avoir aucune entrée : Android n'a pas d'API standard pour cela. Tout le reste fonctionne.
+
+### Problèmes connus sur Fire TV
+
+- **Pas de débogage local.** Depuis Fire OS 7.6.6.9 et 8.1.0.3, Amazon interdit aux apps de se connecter à l'adb du téléviseur lui-même (127.0.0.1, CVE-2024-27350). La page téléphone ne peut donc ni installer d'APK ni ouvrir d'autres apps, canvasOS ne se met pas à jour seul, et les touches numérotées ne tapent pas le numéro dans le lecteur. Veille passe par la Protection de l'accueil, Éteindre met en veille, et Libérer la mémoire ne vide que les processus en arrière-plan. Les mises à jour et les autorisations passent par un ordinateur (adb).
+- **La touche Accueil ne peut pas être prise.** Fire OS la traite avant tout service d'accessibilité : la touche Accueil montre un bref écran noir (environ une seconde) avant canvasOS, et « Touche Accueil directe » n'existe pas. Après avoir ouvert l'accueil d'Amazon depuis sa tuile, Accueil n'y ramène pas canvasOS : ouvrez puis quittez une app.
+- **Paramètres et Appstore passent par l'accueil d'Amazon** (`HomeActivity_vNext`). La protection les distingue par les identifiants des onglets de cet accueil (`nav-tab-apps_*`, `nav-tab-movies_and_tv_*`) : une mise à jour de l'accueil d'Amazon qui les renommerait obligerait à adapter canvasOS.
+- **Le choix du profil** (« Qui regarde ? ») de Fire TV peut s'afficher au réveil, devant canvasOS. Choisissez un profil, ou désactivez les profils dans les paramètres de Fire TV.
+- **Le débogage ADB peut se désactiver seul**, et sans lui ni ordinateur ni mise à jour ne passent. Avec la clé CONFIG `keep_adb` (section 10 d'[AGENTS.md](AGENTS.md)), canvasOS le réactive aussitôt.
+- **Vérifié sur** un seul appareil : un téléviseur Fire TV (AFTBR92D74, Fire OS 8.1.8.5). Les clés et le Cube n'ont pas encore été essayés.
 
 ## Confidentialité et réseau
 

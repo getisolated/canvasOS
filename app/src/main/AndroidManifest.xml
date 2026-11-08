@@ -154,6 +154,21 @@
                 android:resource="@xml/home_guard" />
         </service>
 
+        <!-- The guard on Fire OS (Guard.kt, FireHome.kt); Guard switches it on there only. Other TVs
+             list it too: switched on by hand there, it runs as the plain guard until Guard swaps it. -->
+        <service
+            android:name=".FireGuardService"
+            android:exported="true"
+            android:label="@string/guard_fire_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/home_guard_fire" />
+        </service>
+
         <!-- Notification listener: Android binds it again after the firmware kills canvasOS, which
              brings the home guard back (Guard.kt), and it lets canvasOS list media sessions (the
              package and playback state, for the memory cleanup; with "Lecture en cours" on, the

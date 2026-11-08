@@ -23,6 +23,7 @@ class TvControls private constructor(adapter: TvAdapter) : TvAdapter by adapter 
             XiaomiAdapter(ctx),
             TclAdapter(ctx),
             CoocaaAdapter(ctx),
+            FireOsAdapter(ctx),
             OperatorTvAdapter(ctx),
         )
 
