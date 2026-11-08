@@ -1,0 +1,804 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Home</string>
+    <string name="settings_name">Home-Einstellungen</string>
+    <string name="wallpaper_name">Hintergrundbild</string>
+    <string name="guard_name">Home-Schutz</string>
+    <string name="guard_description">Wenn der ursprüngliche Launcher des Fernsehers in den Vordergrund kommt, holt er den Home-Bildschirm zurück. Prüft nur, welche App im Vordergrund ist, ohne den Bildschirminhalt zu lesen.</string>
+
+    <string name="ui_language" translatable="false">de-DE</string>
+
+    <!-- Wetter -->
+    <string name="wx_sunny">Sonnig</string>
+    <string name="wx_clear">Klar</string>
+    <string name="wx_mostly_clear">Leicht bewölkt</string>
+    <string name="wx_partly_cloudy">Bewölkt</string>
+    <string name="wx_overcast">Bedeckt</string>
+    <string name="wx_fog">Nebel</string>
+    <string name="wx_drizzle">Nieselregen</string>
+    <string name="wx_freezing_rain">Eisregen</string>
+    <string name="wx_light_rain">Leichter Regen</string>
+    <string name="wx_rain">Regen</string>
+    <string name="wx_heavy_rain">Starker Regen</string>
+    <string name="wx_light_snow">Leichter Schnee</string>
+    <string name="wx_snow">Schnee</string>
+    <string name="wx_heavy_snow">Starker Schnee</string>
+    <string name="wx_showers">Schauer</string>
+    <string name="wx_heavy_showers">Starke Schauer</string>
+    <string name="wx_snow_showers">Schneeschauer</string>
+    <string name="wx_thunderstorm">Gewitter</string>
+    <string name="wx_thunderstorm_hail">Gewitter mit Hagel</string>
+    <string name="wx_unknown">Unbekannt</string>
+    <string name="wx_today">Heute</string>
+    <string name="wx_tomorrow">Morgen</string>
+    <string name="wx_place_detected">%1$s (erkannt)</string>
+
+    <!-- Accueil : en-tête et date -->
+    <string name="home_date_pattern">EEEE, d. MMMM</string>
+    <string name="home_network_settings">Netzwerkeinstellungen</string>
+    <string name="home_control_center">Kontrollzentrum</string>
+
+    <!-- Accueil : fond d'écran -->
+    <string name="home_wallpaper_gradient">Hintergrundbild: fester Verlauf, wähle eine Fotoquelle</string>
+    <string name="home_next_photo">Nächstes Foto…</string>
+    <string name="home_no_photo_yet">Noch keine Fotos</string>
+    <string name="home_one_photo">Bisher nur ein Foto verfügbar</string>
+
+    <!-- Accueil : menu d'une app -->
+    <string name="home_cannot_open">%1$s kann nicht geöffnet werden</string>
+    <string name="home_edit_home">Home bearbeiten</string>
+    <string name="home_rename">Umbenennen</string>
+    <string name="home_unpin">Von Home entfernen</string>
+    <string name="home_cancel">Abbrechen</string>
+    <string name="home_hide">Ausblenden</string>
+    <string name="home_app_info">App-Info</string>
+    <string name="home_delete_app">App löschen</string>
+    <string name="home_original_image">Originalbild</string>
+    <string name="home_move_hint">Verschiebe mit den Pfeiltasten, dann drücke OK</string>
+    <string name="home_rename_title">„%1$s“ umbenennen</string>
+    <string name="home_rename_message">Lass das Feld leer, um den Originalnamen „%1$s“ zurückzuholen.</string>
+
+    <!-- Accueil : dossiers -->
+    <string name="home_folder_default">Ordner</string>
+    <string name="home_new_folder_ellipsis">Neuer Ordner…</string>
+    <string name="home_add_to_folder_ellipsis">Zu Ordner hinzufügen…</string>
+    <string name="home_new_folder">Neuer Ordner</string>
+    <string name="home_new_folder_message">Der Ordner nimmt den Platz von „%1$s“ auf dem Home-Bildschirm ein, mit der App darin.</string>
+    <string name="home_add_to_folder">Zu Ordner hinzufügen</string>
+    <string name="home_add_to_folder_message">„%1$s“ wechselt vom Home-Bildschirm in den gewählten Ordner.</string>
+    <string name="home_open">Öffnen</string>
+    <string name="home_rename_folder">Ordner umbenennen</string>
+    <string name="home_add_apps_ellipsis">Apps hinzufügen…</string>
+    <string name="home_delete_folder">Ordner löschen</string>
+    <string name="home_add_apps">Apps hinzufügen</string>
+    <string name="home_add_apps_message">Markierte Apps sind in „%1$s“, die anderen bleiben auf dem Home-Bildschirm.</string>
+    <string name="home_delete_title">„%1$s“ löschen?</string>
+    <string name="home_delete_folder_message">Der Ordner verschwindet. Seine Apps kommen an seiner Stelle zurück auf den Home-Bildschirm.</string>
+    <string name="home_delete">Löschen</string>
+    <string name="home_remove_from_folder">Aus Ordner entfernen</string>
+
+    <!-- Accueil : supprimer une app -->
+    <string name="home_allow_local_debugging">Lokales Debugging erlauben</string>
+    <string name="home_delete_needs_adb">Zum Löschen einer vorinstallierten App ist lokales Debugging nötig. Drücke auf Starten: Der Fernseher zeigt „USB-Debugging zulassen?“. Hake „Immer zulassen“ an und wähle dann „Zulassen“.</string>
+    <string name="home_start">Starten</string>
+    <string name="home_delete_system_message">Diese App ist auf dem Fernseher vorinstalliert. Nach dem Löschen erscheint sie nicht mehr auf dem Home-Bildschirm und läuft nicht mehr im Hintergrund. Du kannst sie unter Home-Einstellungen → Apps → Gelöschte vorinstallierte Apps wiederherstellen.</string>
+    <string name="home_delete_launcher_message">Diese App ist ein Home-Bildschirm, der einspringen kann, wenn dieser hier ein Problem hat. Ohne sie hat der Fernseher keinen Ersatz, falls dieser nicht startet. Die App und ihre Daten werden gelöscht.</string>
+    <string name="home_delete_app_message">Die App und ihre Daten werden gelöscht.</string>
+    <string name="home_delete_failed">Löschen fehlgeschlagen: %1$s</string>
+    <string name="home_local_debugging_unavailable">lokales Debugging nicht verfügbar</string>
+
+    <!-- Accueil : profils -->
+    <string name="home_profiles">Profile</string>
+    <string name="home_profile_desc">Profil: %1$s</string>
+    <string name="home_profiles_no_pin">Ein Kinderprofil verlangt eine PIN, um das Profil zu wechseln, die Einstellungen zu öffnen oder eine App zu löschen. Es ist noch keine PIN festgelegt.</string>
+    <string name="home_profiles_one">Jedes Profil hat seinen eigenen Home-Bildschirm: App-Reihenfolge, ausgeblendete Apps, Ordner und Hintergrundbild. Erstelle eines unter „Profile verwalten…“.</string>
+    <string name="home_set_pin">PIN festlegen…</string>
+    <string name="home_pin">PIN</string>
+    <string name="home_manage_profiles">Profile verwalten…</string>
+    <string name="home_child_needs_pin">„%1$s“ ist ein Kinderprofil: Wähle zuerst die PIN, mit der man es wieder verlassen kann (%2$d bis %3$d Ziffern).</string>
+    <string name="home_switch_profile">Profil wechseln</string>
+
+    <!-- Accueil : touches de la télécommande -->
+    <string name="home_channel">Kanal %1$s</string>
+    <string name="home_channel_needs_adb">Um direkt zum Kanal zu springen, erlaube lokales Debugging (Home-Einstellungen → System).</string>
+    <string name="home_tv_settings">TV-Einstellungen</string>
+    <string name="home_nothing_playing">Keine Wiedergabe</string>
+
+    <!-- Accueil : débogage local -->
+    <string name="home_enable_power_memory">Ausschalten und Speicher aktivieren</string>
+    <string name="home_adb_once_message">Lokales Debugging muss einmal erlaubt werden. Drücke auf Starten: Der Fernseher zeigt „USB-Debugging zulassen?“. Hake „Immer zulassen“ an und wähle dann „Zulassen“.</string>
+    <string name="home_later">Später</string>
+    <string name="home_adb_dialog_hint">Wähle im angezeigten Fenster „Immer zulassen“ und dann „Zulassen“</string>
+    <string name="home_adb_done">Fertig: Ausschalten und Speicher freigeben sind jetzt verfügbar</string>
+    <string name="home_adb_refused">Nicht erlaubt. Versuche es erneut in den Home-Einstellungen</string>
+
+    <!-- Accueil : lecture en cours et paroles -->
+    <string name="home_playback">Wird wiedergegeben</string>
+    <string name="home_playback_desc">Wird wiedergegeben: %1$s, %2$s</string>
+    <string name="home_playing">Wiedergabe</string>
+    <string name="home_paused">Pausiert</string>
+    <string name="home_lyrics">Liedtext</string>
+    <string name="home_lyrics_shown">Liedtext (angezeigt)</string>
+    <string name="home_lyrics_loading">Liedtext…</string>
+    <string name="home_lyrics_unreachable">Liedtext nicht verfügbar: LRCLIB ist nicht erreichbar</string>
+    <string name="home_instrumental">Instrumental</string>
+    <string name="home_no_synced_lyrics">Kein synchronisierter Liedtext für diesen Titel</string>
+
+    <!-- Feuilles (Ui.kt) -->
+    <string name="home_label_value">%1$s: %2$s</string>
+
+    <!-- Commandes -->
+    <string name="cc_turn_off">Ausschalten</string>
+    <string name="cc_turn_off_msg">Der Fernseher schaltet sich ganz aus. Schalte ihn mit der Ein/Aus-Taste der Fernbedienung wieder ein.</string>
+    <string name="cc_confirm_title">%1$s?</string>
+    <string name="cc_network">Netzwerk</string>
+    <string name="cc_connected">Verbunden</string>
+    <string name="cc_disconnected">Nicht verbunden</string>
+    <string name="cc_sleep">Ruhezustand</string>
+    <string name="cc_free_memory">Speicher freigeben</string>
+    <string name="cc_freeing_memory">Speicher wird freigegeben…</string>
+    <string name="cc_next_photo">Nächstes Foto</string>
+    <string name="cc_photo_frame">Fotorahmen</string>
+    <string name="cc_settings">Einstellungen</string>
+    <string name="cc_update_available">canvasOS %1$s verfügbar</string>
+    <string name="cc_brightness">Helligkeit</string>
+    <string name="cc_input">Eingang</string>
+    <string name="cc_no_input">Kein Eingang</string>
+    <plurals name="cc_inputs">
+        <item quantity="one">%1$d Eingang</item>
+        <item quantity="other">%1$d Eingänge</item>
+    </plurals>
+    <string name="cc_player">Player</string>
+    <string name="cc_weather">Wetter</string>
+
+    <!-- Modification -->
+    <string name="cc_edit_hint">Drücke OK auf einem Steuerelement, um es zu verschieben, seine Größe zu ändern oder es zu entfernen. Zurück zum Beenden.</string>
+    <string name="cc_page">Seite %1$d</string>
+    <string name="cc_move">Verschieben</string>
+    <string name="cc_size">Größe: %1$s</string>
+    <string name="cc_remove">Entfernen</string>
+    <string name="cc_empty_page">Leere Seite</string>
+    <string name="cc_empty_page_msg">Seite %1$d: Füge ein Steuerelement hinzu oder lösche die Seite.</string>
+    <string name="cc_delete_page">Diese Seite löschen</string>
+    <string name="cc_add_control_more">Steuerelement hinzufügen…</string>
+    <string name="cc_add_page">Seite hinzufügen</string>
+    <string name="cc_reset_panel">Bereich zurücksetzen</string>
+    <string name="cc_done">Fertig</string>
+    <string name="cc_cancel">Abbrechen</string>
+    <string name="cc_spot_taken">Hier ist schon ein anderes Steuerelement.</string>
+    <string name="cc_no_room_size">Hier ist zu wenig Platz für diese Größe. Verschiebe das Steuerelement zuerst.</string>
+    <string name="cc_keep_one">Das Kontrollzentrum behält mindestens ein Steuerelement.</string>
+    <string name="cc_add_control">Steuerelement hinzufügen</string>
+    <string name="cc_add_control_msg">Es kommt auf den ersten freien Platz dieser Seite, sonst einer anderen Seite, sonst einer neuen Seite.</string>
+    <string name="cc_no_room">Kein Platz mehr. Entferne ein Steuerelement oder verkleinere eines.</string>
+    <string name="cc_reset_title">Kontrollzentrum zurücksetzen?</string>
+    <string name="cc_reset_msg">Die Steuerelemente kehren an ihren ursprünglichen Platz und zu ihrer Größe zurück, auf zwei Seiten.</string>
+    <string name="cc_reset">Zurücksetzen</string>
+
+    <!-- Source -->
+    <string name="cc_show_on_home_more">Auf Home zeigen…</string>
+    <string name="cc_show_on_home">Auf Home zeigen</string>
+    <string name="cc_show_on_home_msg">Jeder markierte Eingang wird ein Symbol auf dem Home-Bildschirm. Ein Druck wechselt dorthin.</string>
+
+    <!-- Météo -->
+    <string name="cc_weather_off">Wetter aus</string>
+    <string name="cc_offline">Offline</string>
+    <string name="cc_no_forecast">Noch keine Vorhersage</string>
+    <string name="cc_weather_in">Wetter in %1$s</string>
+    <string name="cc_forecast_credit">Vorhersage: Open-Meteo.com</string>
+    <string name="cc_weather_auto_place">Ort anhand der IP-Adresse des Fernsehers erkannt. Eine andere Stadt wählst du auf der Handy-Seite (Tab Einstellungen).</string>
+    <string name="cc_weather_waiting">Die Vorhersage erscheint hier, sobald der Fernseher sie erhalten hat. Dafür braucht er eine Internetverbindung.</string>
+
+    <!-- Lecture en cours -->
+    <string name="cc_now_playing">Wiedergabe</string>
+    <string name="cc_now_playing_none">Wiedergabe: Es läuft nichts</string>
+    <string name="cc_open_app">App öffnen</string>
+    <string name="cc_open_item">%1$s öffnen</string>
+    <string name="cc_back">Zurück</string>
+    <string name="cc_play_pause">Wiedergabe oder Pause</string>
+    <string name="cc_next">Weiter</string>
+    <string name="cc_position">Position</string>
+
+    <!-- Bluetooth -->
+    <string name="cc_unavailable">Nicht verfügbar</string>
+    <string name="cc_permission_needed">Erlaubnis nötig</string>
+    <string name="cc_off">Aus</string>
+    <string name="cc_bt_not_allowed">Bluetooth nicht erlaubt</string>
+    <string name="cc_bt_not_allowed_msg">canvasOS braucht die Berechtigung „Geräte in der Nähe“, um deine Bluetooth-Geräte zu zeigen und eines zu verbinden. Sie dient nur dazu: Der Fernseher sucht nach keinem Gerät.</string>
+    <string name="cc_allow_with_adb">Mit lokalem Debugging erlauben</string>
+    <string name="cc_bt_off_msg">Bluetooth ist am Fernseher aus. Schalte es in den Einstellungen des Fernsehers ein.</string>
+    <string name="cc_bt_none_msg">Keine gekoppelten Geräte. Kopple eines in den Bluetooth-Einstellungen des Fernsehers.</string>
+    <string name="cc_bt_controller_msg">Schalte den Controller ein. Er verbindet sich von selbst wieder.</string>
+    <plurals name="cc_bt_more">
+        <item quantity="one">… und %1$d weiteres gekoppeltes Gerät</item>
+        <item quantity="other">… und %1$d weitere gekoppelte Geräte</item>
+    </plurals>
+    <string name="cc_pair_device">Gerät koppeln…</string>
+    <string name="cc_connecting">Verbinden…</string>
+    <string name="cc_disconnecting">Trennen…</string>
+    <string name="cc_connect_failed">Verbinden nicht möglich</string>
+    <string name="cc_disconnect_failed">Trennen nicht möglich</string>
+    <string name="cc_connect_failed_msg">Dieser Fernseher lässt canvasOS „%1$s“ nicht verbinden. Mach das in den Bluetooth-Einstellungen des Fernsehers.</string>
+    <string name="cc_disconnect_failed_msg">Dieser Fernseher lässt canvasOS „%1$s“ nicht trennen. Mach das in den Bluetooth-Einstellungen des Fernsehers.</string>
+    <string name="cc_bt_settings">Bluetooth-Einstellungen</string>
+
+    <!-- Veille -->
+    <string name="cc_in">In %1$s</string>
+    <string name="cc_now">Jetzt</string>
+    <string name="cc_cancel_timer_left">Timer abbrechen (noch %1$s)</string>
+    <string name="cc_sleep_in">Ruhezustand in %1$s</string>
+    <string name="cc_timer_cancelled">Schlaftimer abgebrochen</string>
+    <string name="cc_sleep_in_minute">Ruhezustand in einer Minute</string>
+    <string name="cc_sleep_warning_msg">Der Fernseher geht gleich in den Ruhezustand. Brich den Timer ab, um weiterzuschauen.</string>
+    <string name="cc_cancel_timer">Timer abbrechen</string>
+
+    <!-- Débogage local -->
+    <string name="cc_allow_adb">Lokales Debugging erlauben</string>
+    <string name="cc_allow_adb_msg">Drücke auf Starten: Der Fernseher zeigt „USB-Debugging zulassen?“. Hake „Immer zulassen“ an und wähle dann „Zulassen“.</string>
+    <string name="cc_start">Starten</string>
+
+    <!-- Commun -->
+    <string name="settings_on">An</string>
+    <string name="settings_off">Aus</string>
+    <string name="settings_on_f">An</string>
+    <string name="settings_off_f">Aus</string>
+    <string name="settings_applying">Wird eingestellt…</string>
+    <string name="settings_local_debug_required">Lokales Debugging nötig</string>
+    <string name="settings_listener_needed">Listener nötig (Schritt 4)</string>
+    <string name="settings_cancel">Abbrechen</string>
+    <string name="settings_delete">Löschen</string>
+    <string name="settings_none">Keine</string>
+    <string name="settings_never">Nie</string>
+    <string name="settings_every_day">Jeden Tag</string>
+    <string name="settings_mb">%1$d MB</string>
+
+    <!-- Groupes -->
+    <string name="settings_look">Darstellung</string>
+    <string name="settings_look_about">Die Uhr, das Dock, das Profilbild, das Wetter, der Fokuseffekt, das Kontrollzentrum (Stil und Steuerelemente) und die Startanimation.</string>
+    <string name="settings_wallpaper_group">Hintergrundbild und Fotorahmen</string>
+    <string name="settings_wallpaper_group_about">Der Hintergrund des Home-Bildschirms und wie oft er wechselt, und der Fotorahmen, den der Fernseher als Bildschirmschoner zeigt.</string>
+    <string name="settings_shelf_about">Die Inhalte der im Dock ausgewählten App, im Vollbild darüber, und woher sie kommen.</string>
+    <string name="settings_playback_group">Wiedergabe und Mitteilungen</string>
+    <string name="settings_playback_group_about">Der Player im Kontrollzentrum für das, was Apps abspielen, und die Mitteilungsbanner oben rechts auf dem Bildschirm.</string>
+    <string name="settings_memory_group">Speicher und Energie</string>
+    <string name="settings_memory_group_about">Speicher freigeben, im Ruhezustand, regelmäßig oder sofort, die Apps, die verschont bleiben, und was die Ein/Aus-Taste tut.</string>
+    <string name="settings_apps_group_about">Auf dem Home-Bildschirm ausgeblendete Apps, gelöschte vorinstallierte Apps und Ordner.</string>
+    <string name="settings_profiles">Profile</string>
+    <string name="settings_profiles_group_about">Ein Home-Bildschirm pro Person, mit eigenen Apps, Ordnern und Hintergrundbild; ein Kinderprofil ist mit einer PIN geschützt.</string>
+    <string name="settings_phone_page">Handy-Seite</string>
+    <string name="settings_phone_group_about">Eine Webseite für ein Handy im selben WLAN: Fernbedienung mit Tastatur, Fotos und Bildlinks, App-Installation. Ihr QR-Code und ihr Schutz.</string>
+    <string name="settings_remote">Fernbedienung</string>
+    <string name="settings_remote_about">Tasten der Fernbedienung, die auf dem Home-Bildschirm mit Funktionen von canvasOS verknüpft sind: einfaches oder langes Drücken, die Taste wird durch Drücken gelernt; auf einer Set-Top-Box die Sendernummern.</string>
+    <string name="settings_system">System</string>
+    <string name="settings_system_about">Lokales und ADB-Debugging, die Adresse des Fernsehers, der Home-Schutz, die Originaleinstellungen des Fernsehers, das Update von canvasOS und seine Version.</string>
+
+    <!-- Apparence -->
+    <string name="settings_clock">Uhr</string>
+    <string name="settings_time_format">Uhrzeitformat</string>
+    <string name="settings_time_format_about">Die Uhrzeit auf dem Home-Bildschirm und im Kontrollzentrum, im 12-Stunden-Format (11:49 AM) oder 24-Stunden-Format (23:49).</string>
+    <string name="settings_clock_about">Eine kleine Uhr oben rechts, eine große Uhr mit dem Datum oben links (der alte Stil) oder keine.</string>
+    <string name="settings_clock_large">Groß, links</string>
+    <string name="settings_clock_hidden">Ausgeblendet</string>
+    <string name="settings_clock_corner">Oben rechts</string>
+    <string name="settings_section_home">Home-Bildschirm</string>
+    <string name="settings_dock_about">Zuletzt: Die App, die du öffnest, rückt nach vorne, wie bisher. Fest: Die Reihenfolge, die du mit „Home bearbeiten“ gewählt hast, bleibt.</string>
+    <string name="settings_dock_recents">Zuletzt</string>
+    <string name="settings_dock_fixed">Fest</string>
+    <string name="settings_profile_picture">Profilbild</string>
+    <string name="settings_profile_picture_about">Das Profilbild oben rechts auf dem Home-Bildschirm: der Anfangsbuchstabe des Namens auf seiner Farbe oder ein über die Handy-Seite importiertes Foto. Drücke darauf, um das Profil zu wechseln. Es bleibt sichtbar, solange es mehrere Profile gibt.</string>
+    <string name="settings_weather">Wetter</string>
+    <string name="settings_weather_about">Die Temperatur und das Wetter neben der Uhr und die Vorhersage für fünf Tage im Kontrollzentrum. Die Daten kommen von Open-Meteo und werden alle 30 Minuten aktualisiert, solange der Home-Bildschirm angezeigt wird. Solange keine Stadt gewählt ist, wird der Ort einmal anhand der öffentlichen IP-Adresse des Fernsehers geschätzt (ip-api.com).</string>
+    <string name="settings_weather_place">Wetterort</string>
+    <string name="settings_weather_place_about">Für eine andere Stadt: die Handy-Seite (Tab Einstellungen, Abschnitt Wetter) oder ein Computer mit dem Befehl CONFIG (weather_city).</string>
+    <string name="settings_weather_place_unset">Noch nicht festgelegt</string>
+    <string name="settings_effects">Effekte</string>
+    <string name="settings_focus_effect">Fokuseffekt</string>
+    <string name="settings_focus_effect_about">tvOS: Die ausgewählte App wird größer, neigt sich in die Richtung, und ein Glanz läuft darüber. Einfach: Sie wird nur größer.\nAuto wählt Einfach auf leistungsschwachen Fernsehern.</string>
+    <string name="settings_focus_simple">Einfach</string>
+    <string name="settings_control_center">Kontrollzentrum</string>
+    <string name="settings_cc_style">Stil des Kontrollzentrums</string>
+    <string name="settings_cc_style_about">Glas: Milchglas, durch das man das Bild dahinter sieht; die ausgewählte Schaltfläche wird weiß. Panel: das alte dunkle Panel.\nAuto wählt Glas auf allen Fernsehern.</string>
+    <string name="settings_cc_glass">Glas</string>
+    <string name="settings_cc_panel">Panel</string>
+    <string name="settings_cc_customize">Kontrollzentrum anpassen</string>
+    <string name="settings_cc_customize_about">Öffnet das Kontrollzentrum im Bearbeitungsmodus. Seine Steuerelemente liegen auf einem Raster aus 4 × 6 Feldern, auf höchstens drei Seiten (Unten aus der letzten Zeile wechselt zur nächsten Seite). OK auf einem Steuerelement: verschieben, Größe ändern, entfernen, ein Steuerelement oder eine Seite hinzufügen. Zurück zum Beenden. Sonst bewirkt langes Drücken von OK auf der Taste des Kontrollzentrums oben rechts auf dem Home-Bildschirm dasselbe.</string>
+    <string name="settings_cc_reset_row">Panel zurücksetzen</string>
+    <string name="settings_cc_reset_row_about">Setzt die Steuerelemente des Kontrollzentrums auf ihren ursprünglichen Platz und ihre ursprüngliche Größe zurück, auf zwei Seiten.</string>
+    <string name="settings_cc_reset_title">Kontrollzentrum zurücksetzen?</string>
+    <string name="settings_cc_reset_message">Die Steuerelemente kehren an ihren ursprünglichen Platz und in ihre ursprüngliche Größe zurück, auf zwei Seiten.</string>
+    <string name="settings_reset">Zurücksetzen</string>
+    <string name="settings_logo_about">Die eingebaute Titelkarte und der Startfilm: die von canvasOS oder die des Apple TV (tvOS). Sie dienen als Symbol dieser Einstellungen und als Startanimation, wenn unten nichts anderes gewählt ist.</string>
+    <string name="settings_icon">Einstellungssymbol</string>
+    <string name="settings_icon_about">Das Symbol dieser Einstellungen, auf dem Home-Bildschirm und oben auf dieser Seite: die Titelkarte des gewählten Logos, dein über die Handy-Seite importiertes Bild oder das eingebaute Zahnrad.</string>
+    <string name="settings_icon_no_picture">\nNoch kein Bild importiert.</string>
+    <string name="settings_icon_own">Importiertes Bild</string>
+    <string name="settings_icon_gear">Zahnrad</string>
+    <string name="settings_intro">Startanimation</string>
+    <string name="settings_intro_about">Wird beim ersten Anzeigen des Home-Bildschirms nach dem Einschalten abgespielt; am Ende wird das Logo größer und öffnet den Home-Bildschirm. Drücke eine Taste, um sie zu überspringen.</string>
+    <string name="settings_intro_boot">Beim Start</string>
+    <string name="settings_intro_wake">Start und Aufwachen</string>
+    <string name="settings_intro_source">Inhalt der Animation</string>
+    <string name="settings_intro_source_about">Film des gewählten Logos: der von canvasOS oder der des Apple TV, je nach Zeile Logo. Importiertes Video: dein eigenes, über die Handy-Seite, dessen letztes Logo größer wird und den Home-Bildschirm öffnet. Name canvasOS: Der Name wird eingeblendet und dann größer.</string>
+    <string name="settings_intro_no_video">\nNoch kein Video importiert: Stattdessen läuft der Film des gewählten Logos.</string>
+    <string name="settings_intro_video">Importiertes Video</string>
+    <string name="settings_intro_wordmark">Name canvasOS</string>
+    <string name="settings_intro_film">Film %1$s</string>
+    <string name="settings_wake_delay">Aufwachverzögerung</string>
+    <string name="settings_wake_delay_about">Nach dem Ruhezustand bleibt der Bildschirm so lange schwarz, bevor die Animation startet. Viele Fernseher (vor allem OLED) zeigen erst einige Sekunden nach dem Einschalten ein Bild: Verlängere den Wert, wenn der Anfang der Animation fehlt, verkürze ihn, wenn das Schwarz zu lange dauert.</string>
+    <string name="settings_intro_sound">Ton der Animation</string>
+    <string name="settings_intro_sound_about">Spielt den Ton des Animationsfilms oder -videos ab.</string>
+    <string name="settings_intro_preview">Animation ansehen</string>
+    <string name="settings_intro_preview_about">Kehrt zum Home-Bildschirm zurück und spielt sie jetzt einmal ab.</string>
+
+    <!-- Fond d'écran et cadre photo -->
+    <string name="settings_wallpaper_about">Der Hintergrund des Home-Bildschirms: ein Thema, eine Hintergrundbildquelle oder deine eigenen Fotos.</string>
+    <string name="settings_wallpaper_auto">%1$s (Auto)</string>
+    <string name="settings_change_photo">Foto wechseln</string>
+    <string name="settings_change_photo_about">Wie oft das automatische Hintergrundbild wechselt. Nie: Das Foto wechselt nur mit der Taste „Nächstes Foto“ im Kontrollzentrum (oder „Jetzt wechseln“ unten).</string>
+    <string name="settings_change_now">Jetzt wechseln</string>
+    <string name="settings_change_now_about">Holt ein neues Foto aus der Hintergrundbildquelle. Fotos werden beim Anzeigen geladen; alte werden nach einigen Tagen gelöscht.</string>
+    <string name="settings_downloading">Wird geladen…</string>
+    <string name="settings_photo_frame">Fotorahmen</string>
+    <string name="settings_frame_saver">Als Bildschirmschoner</string>
+    <string name="settings_frame_saver_about">Nach einer Weile ohne Aktivität zeigt der Fernseher Fotos oder Luftaufnahmen im Vollbild statt seines eigenen Bildschirmschoners.</string>
+    <string name="settings_saver_content">Inhalt des Schoners</string>
+    <string name="settings_saver_content_about">Der Fotorahmen zeigt die Fotos des Hintergrundbilds oder die Luftaufnahmen des Apple TV.</string>
+    <string name="settings_saver_aerials">Luftaufnahmen</string>
+    <string name="settings_saver_photos">Fotos</string>
+    <string name="settings_frame_delay">Zeit bis zum Fotorahmen</string>
+    <string name="settings_frame_delay_about">Zeit ohne Aktivität, bis der Fotorahmen erscheint.</string>
+    <string name="settings_frame_seconds">Dauer pro Foto</string>
+    <string name="settings_frame_seconds_about">Wie lange jedes Foto im Fotorahmen angezeigt wird.</string>
+
+    <!-- Top Shelf -->
+    <string name="settings_shelf_mode_about">Die Inhalte der im Dock ausgewählten App, im Vollbild darüber. Vollständig: die Zeile „Weiterschauen“ für Android TV, dann TMDB-Trends (mit deinem Schlüssel) und Webquellen. Nur Android TV: ohne TMDB und Web. Aus: Das Hintergrundbild bleibt sichtbar.</string>
+    <string name="settings_shelf_tv">Nur Android TV</string>
+    <string name="settings_shelf_full">Vollständig</string>
+    <string name="settings_sources">Quellen</string>
+    <string name="settings_watch_next">Weiterschauen</string>
+    <string name="settings_watch_next_about">Die Zeile, die Apps (YouTube, Netflix…) für Android TV veröffentlichen: was du zuletzt geschaut hast, zum Fortsetzen. Wenn aus, nutzt Top Shelf nur TMDB und Webquellen, sofern der Top-Shelf-Modus sie erlaubt.</string>
+
+    <!-- Télécommande -->
+    <string name="settings_shortcuts">Kurzbefehle</string>
+    <string name="settings_no_shortcut">Keine Kurzbefehle</string>
+    <string name="settings_no_shortcut_about">Wähle „Kurzbefehl hinzufügen…“, die Funktion, und drücke dann die Taste der Fernbedienung, die sie ausführen soll.</string>
+    <string name="settings_shortcut_about">Drücke, um die Taste oder die Funktion zu ändern oder diesen Kurzbefehl zu löschen. Kurzbefehle wirken auf dem Home-Bildschirm, nicht in anderen Apps.</string>
+    <string name="settings_add_shortcut">Kurzbefehl hinzufügen…</string>
+    <string name="settings_add_shortcut_about">Zuerst die Funktion, dann die Taste: Kurzes Drücken verknüpft sie mit einfachem Drücken, gehaltenes Drücken mit langem Drücken. Die Tasten des Fernsehers (Home, Lautstärke) und die des Home-Bildschirms (Pfeile, OK, Zurück bei einfachem Drücken) werden abgelehnt.</string>
+    <string name="settings_channels">Sender</string>
+    <string name="settings_channel_keys">Zifferntasten</string>
+    <string name="settings_channel_keys_about">Standardmäßig an. Gib auf dem Home-Bildschirm eine Sendernummer ein (bis zu drei Ziffern): Das Fernsehen öffnet sich auf diesem Sender. Eine Ziffer mit Kurzbefehl behält ihren Kurzbefehl. Direkt zum Sender zu springen erfordert lokales Debugging; ohne es öffnet sich das Fernsehen auf dem aktuellen Sender.</string>
+    <string name="settings_tv_keys">Fernsehertasten</string>
+    <string name="settings_capture_keys">Fernsehertasten abfangen</string>
+    <string name="settings_capture_keys_about">Standardmäßig aus. Die Tasten Einstellungen und Profil der Fernbedienung (und einige andere: Guide, Eingang, TV) nimmt der Fernseher, bevor sie canvasOS erreichen. Wenn an, filtert der Bedienungshilfendienst von canvasOS (der des Home-Schutzes) die Tasten: Er sieht dann jede gedrückte Taste in allen Apps und behält nur diese Tasten, nur auf dem Home-Bildschirm und nur, wenn sie verknüpft sind; alles andere geht unverändert durch. Nichts wird gespeichert. Erfordert einmal lokales Debugging.</string>
+    <string name="settings_on_service_inactive">An (Dienst inaktiv)</string>
+    <string name="settings_change_key">Taste ändern</string>
+    <string name="settings_change_function">Funktion ändern</string>
+    <string name="settings_function">Funktion</string>
+    <string name="settings_function_new">Die neue Funktion für „%1$s“.</string>
+    <string name="settings_function_about">Was die Taste tun soll; die Taste folgt danach.</string>
+    <string name="settings_open_app_more">App öffnen…</string>
+    <string name="settings_hdmi_input_more">HDMI-Eingang…</string>
+    <string name="settings_open_app">App öffnen</string>
+    <string name="settings_open_app_about">Die App, die die Taste öffnet.</string>
+    <string name="settings_hdmi_input">HDMI-Eingang</string>
+    <string name="settings_hdmi_input_about">Der Eingang, zu dem die Taste wechselt.</string>
+    <string name="settings_inputs_searching">Eingänge werden gesucht…</string>
+    <string name="settings_no_input">Keine Eingänge</string>
+    <string name="settings_no_input_about">Dieser Fernseher gibt canvasOS keinen HDMI-Eingang frei (siehe AGENTS.md, Abschnitt 9).</string>
+    <string name="settings_input_connected">Verbunden</string>
+    <string name="settings_learn_title">Drücke die Taste</string>
+    <string name="settings_learn_message">Kurzes Drücken verknüpft sie mit einfachem Drücken, gehaltenes Drücken mit langem Drücken. Zurück bricht ab.</string>
+    <string name="settings_learn_capture_hint">Die Tasten Einstellungen und Profil erfordern „Fernsehertasten abfangen“.</string>
+    <string name="settings_learn_retry">%1$s Probiere eine andere Taste oder drücke Zurück zum Abbrechen.</string>
+    <string name="settings_reassign_title">„%1$s“ neu zuweisen?</string>
+    <string name="settings_reassign_message">Diese Taste macht schon „%1$s“.</string>
+    <string name="settings_reassign">Neu zuweisen</string>
+
+    <!-- Lecture et notifications -->
+    <string name="settings_playback">Wiedergabe</string>
+    <string name="settings_now_playing">Wird wiedergegeben</string>
+    <string name="settings_now_playing_about">Standardmäßig an. Zeigt im Kontrollzentrum, was eine App abspielt (Titel, Künstler, Cover), mit Wiedergabe/Pause und nächstem Titel. Dafür liest es die Wiedergabeinfos der Apps (Titel, Künstler, Cover, Wiedergabestatus) über den Mitteilungs-Listener; nichts wird gespeichert.</string>
+    <string name="settings_home_player">Home-Player</string>
+    <string name="settings_home_player_about">Standardmäßig an, mit „Wird wiedergegeben“. Oben links auf dem Home-Bildschirm zeigt eine Kapsel Cover, Titel und Künstler dessen, was eine App abspielt, ohne Steuerung: OK öffnet diese App; Wiedergabe, Pause und nächster Titel bleiben im Kontrollzentrum. Dafür wird nichts weiter gelesen.</string>
+    <string name="settings_now_playing_required">„Wird wiedergegeben“ nötig</string>
+    <string name="settings_lyrics">Liedtext</string>
+    <string name="settings_lyrics_about">Standardmäßig an. Bei jedem neuen Titel fragt der Fernseher bei LRCLIB (lrclib.net, kostenlos, ohne Schlüssel) nach dem Liedtext: Titel, Künstler, Album und Länge des Titels werden gesendet, sonst nichts, und nichts wird gespeichert. Gibt es einen, erscheint rechts neben dem Home-Player eine Taste „Liedtext“, wenn der Player ausgewählt ist: OK zeigt den synchronisierten Liedtext auf dem abgedunkelten Hintergrund (nicht synchronisierte Texte werden nicht angeboten), erneut OK blendet ihn aus. Wenn aus, wird nichts an LRCLIB gesendet.</string>
+    <string name="settings_home_player_required">Home-Player nötig</string>
+    <string name="settings_lyrics_position">Position des Liedtexts</string>
+    <string name="settings_lyrics_position_about">Wo die Zeilen auf dem Home-Bildschirm erscheinen: links unter dem Player, in der Mitte oder rechts.</string>
+    <string name="settings_lyrics_center">Mitte</string>
+    <string name="settings_lyrics_right">Rechts</string>
+    <string name="settings_lyrics_left">Links</string>
+    <string name="settings_notifications">Mitteilungen</string>
+    <string name="settings_banners">Mitteilungsbanner</string>
+    <string name="settings_banners_about">Standardmäßig an. Zeigt oben rechts die Mitteilungen der Apps (Türklingel, Nachrichten, Smart Home…). Titel und Text der Mitteilungen aller Apps, außer den ausgeschlossenen, werden gelesen, 6 Sekunden angezeigt und nie gespeichert. Wenn aus, wird keine Mitteilung gelesen.</string>
+    <string name="settings_banner_apps">Ausgeschlossene Apps</string>
+    <string name="settings_banner_apps_about">Mitteilungen der markierten Apps werden weder gelesen noch angezeigt. Alle anderen erscheinen als Banner.</string>
+    <string name="settings_banner_apps_no_overlay">\nOhne die Berechtigung, über anderen Apps anzuzeigen (Schritt 4), erscheinen Banner nur auf dem Home-Bildschirm.</string>
+    <string name="settings_banner_apps_page_about">Mitteilungen der markierten Apps werden weder gelesen noch angezeigt. Die der anderen Apps erscheinen 6 Sekunden oben rechts.</string>
+
+    <!-- Mémoire et alimentation -->
+    <string name="settings_cleanup">Bereinigung</string>
+    <string name="settings_clean_standby">Bei Ruhezustand freigeben</string>
+    <string name="settings_clean_standby_about">Schließt Apps im Hintergrund, wenn der Fernseher in den Ruhezustand wechselt, für einen flüssigeren Neustart. Apps, die Ton oder Video abspielen oder einen Dienst ausführen (Streaming, Server), bleiben verschont.</string>
+    <string name="settings_clean_scheduled">Geplante Freigabe</string>
+    <string name="settings_clean_scheduled_about">Schließt regelmäßig Apps im Hintergrund, außer der App auf dem Bildschirm und denen, die Ton oder Video abspielen oder einen Dienst ausführen.</string>
+    <string name="settings_every_hours">Alle %1$d h</string>
+    <string name="settings_clean_now">Speicher freigeben</string>
+    <string name="settings_clean_now_about">Schließt jetzt Apps im Hintergrund. Apps, die Ton oder Video abspielen oder einen Dienst ausführen (Streaming, Server), bleiben verschont.</string>
+    <string name="settings_mb_free">%1$d MB frei</string>
+    <string name="settings_freeing">Wird freigegeben…</string>
+    <string name="settings_last_clean">Letzte Bereinigung</string>
+    <string name="settings_last_clean_none">Der Speicher wurde noch nicht freigegeben.</string>
+    <string name="settings_last_clean_about">%1$s.\nDrücke, um die geschlossenen Apps zu sehen.</string>
+    <string name="settings_keep_apps">Apps behalten</string>
+    <string name="settings_keep_apps_about">Apps, die beim Freigeben des Speichers nie geschlossen werden, etwa Bildschirmübertragung. Apps, die Ton oder Video abspielen oder einen Dienst ausführen, bleiben ohnehin verschont, solange sie das tun.</string>
+    <string name="settings_power">Energie</string>
+    <string name="settings_power_key">Ein/Aus-Taste</string>
+    <string name="settings_power_key_about">Ruhezustand: wie gewohnt. Komplett aus: spart Energie, aber der Start dauert länger.</string>
+    <string name="settings_power_shutdown">Komplett aus</string>
+    <string name="settings_power_sleep">Ruhezustand</string>
+    <string name="settings_power_needs_adb">Erlaube zuerst lokales Debugging, um das einzuschalten</string>
+
+    <!-- Apps -->
+    <string name="settings_hidden_apps">Ausgeblendete Apps</string>
+    <string name="settings_hidden_apps_about">Apps, die nicht auf dem Home-Bildschirm erscheinen.</string>
+    <string name="settings_removed_apps">Gelöschte vorinstallierte Apps</string>
+    <string name="settings_removed_apps_about">Vorinstallierte Apps, die über das Menü bei langem Drücken gelöscht wurden; hier kannst du sie wiederherstellen.</string>
+    <string name="settings_folders">Ordner</string>
+    <string name="settings_folders_about">Die Ordner auf dem Home-Bildschirm und ihre Apps. Du erstellst und verwaltest sie auf dem Home-Bildschirm, durch langes Drücken auf eine App oder einen Ordner.</string>
+
+    <!-- Profils -->
+    <string name="settings_current_profile">Aktuelles Profil</string>
+    <string name="settings_current_profile_about">Das Profil, dessen Home-Bildschirm angezeigt wird. Wechsle es über das Profilbild oben rechts auf dem Home-Bildschirm.</string>
+    <string name="settings_manage_profiles">Profile verwalten</string>
+    <string name="settings_profiles_about">Jedes Profil hat einen eigenen Home-Bildschirm: Reihenfolge der Apps, ausgeblendete Apps, Ordner, App-Namen, angeheftete Einträge und Hintergrundbild. Die übrigen Einstellungen gelten für alle. Ein Kinderprofil fragt nach der PIN, um das Profil zu wechseln, die Einstellungen zu öffnen oder eine App zu löschen.</string>
+
+    <!-- Page téléphone -->
+    <string name="settings_access">Zugriff</string>
+    <string name="settings_show_qr">QR-Code anzeigen</string>
+    <string name="settings_show_qr_about">Scanne ihn mit einem Handy im selben WLAN. Die Seite, die sich öffnet, dient als Fernbedienung mit Tastatur, importiert Fotos und Bildlinks, stellt die Startanimation und das Wetter ein und installiert Apps (APK). Fernbedienung und App-Installation erfordern lokales Debugging.</string>
+    <string name="settings_security">Sicherheit</string>
+    <string name="settings_regenerate">Code neu erstellen</string>
+    <string name="settings_regenerate_about">Ändert den geheimen Code in der Adresse: Handys, die die alte kannten, können sie nicht mehr nutzen und müssen neu scannen. Mach das, wenn ein Handy verloren geht, das die Seite geöffnet hat.</string>
+    <string name="settings_new_code">Neuer Code erstellt</string>
+    <string name="settings_phone_server_about">Der Code in der Adresse ist der einzige Schutz: Wer ihn kennt und im selben Netzwerk ist, kann den Fernseher steuern. Wenn aus, antwortet die Seite gar nicht mehr.</string>
+
+    <!-- Système -->
+    <string name="settings_debugging">Debugging</string>
+    <string name="settings_local_debug">Lokales Debugging</string>
+    <string name="settings_local_debug_about">Erlaubt dem Home-Bildschirm, über lokales Debugging den Fernseher auszuschalten, Speicher freizugeben usw. Wähle im Fenster, das erscheint, „Immer erlauben“.</string>
+    <string name="settings_allowed">Erlaubt</string>
+    <string name="settings_not_allowed_press">Nicht erlaubt, drücke OK</string>
+    <string name="settings_choose_always_allow">Wähle „Immer erlauben“…</string>
+    <string name="settings_not_allowed_retry">Nicht erlaubt, OK zum Wiederholen</string>
+    <string name="settings_adb">ADB-Debugging</string>
+    <string name="settings_adb_about">Muss an sein, damit sich ein Computer mit dem Fernseher verbinden kann: Ohne es gibt es keine Installation und kein Update über das Netzwerk. Es wird in den Entwickleroptionen des Fernsehers eingestellt.</string>
+    <string name="settings_keep_adb">ADB-Debugging anlassen</string>
+    <string name="settings_keep_adb_about">Verhindert, dass das System ADB-Debugging ausschaltet.</string>
+    <string name="settings_ip">IP-Adresse</string>
+    <string name="settings_ip_about">Die Adresse des Fernsehers im lokalen Netzwerk. Ein Computer im selben Netzwerk nutzt sie zum Verbinden (adb connect, Port 5555), etwa um canvasOS zu installieren oder zu aktualisieren.</string>
+    <string name="settings_not_connected">Nicht verbunden</string>
+    <string name="settings_protection">Schutz</string>
+    <string name="settings_guard_about">Wenn die Home-Taste zum ursprünglichen Launcher des Fernsehers führt, geht es automatisch hierher zurück.</string>
+    <string name="settings_on_inactive">An (inaktiv)</string>
+    <string name="settings_guard_on_toast">Die Home-Taste führt jetzt hierher statt zum ursprünglichen Launcher</string>
+    <string name="settings_home_key">Direkte Home-Taste</string>
+    <string name="settings_home_key_about">Der Schutz nimmt die Home-Taste vor dem System und öffnet direkt den Home-Bildschirm, ohne den ursprünglichen Launcher zu zeigen. Er sieht dann jede gedrückte Taste in allen Apps und behält nur die Home-Taste. Schalte es aus, wenn eine App zweimal auf eine Taste reagiert.</string>
+    <string name="settings_tv">Fernseher</string>
+    <string name="settings_tv_settings">TV-Einstellungen</string>
+    <string name="settings_tv_settings_about">Öffnet die Originaleinstellungen des Fernsehers.</string>
+    <string name="settings_update">Update</string>
+    <string name="settings_update_about">Sucht die neueste Version von canvasOS auf GitHub (Releases) und installiert sie direkt: Einstellungen und Berechtigungen bleiben erhalten. Einmal drücken zum Prüfen, ein zweites Mal zum Installieren. Die Installation erfordert lokales Debugging. canvasOS prüft auch täglich, ob es eine Version gibt, ohne etwas zu laden.</string>
+    <string name="settings_about">Info</string>
+    <string name="settings_about_about">canvasOS, ein Home-Bildschirm für Android TV nach dem Vorbild von tvOS.</string>
+    <string name="settings_update_available">%1$s verfügbar, OK zum Installieren</string>
+    <string name="settings_update_check">Prüfen</string>
+    <string name="settings_update_checking">Wird geprüft…</string>
+    <string name="settings_update_up_to_date">Aktuell (%1$s)</string>
+    <string name="settings_update_latest">canvasOS %1$s ist die neueste veröffentlichte Version.</string>
+    <string name="settings_update_unreachable">Releases nicht erreichbar</string>
+    <string name="settings_update_found">canvasOS %1$s%2$s ist verfügbar. Drücke OK, um es zu laden und zu installieren.</string>
+    <string name="settings_update_needs_adb">Die Installation läuft über lokales Debugging: Erlaube es (Zeile „Lokales Debugging“ weiter oben) und versuche es dann erneut.</string>
+    <string name="settings_update_installed">Installiert, Neustart…</string>
+    <string name="settings_update_failed">Fehlgeschlagen, OK zum Wiederholen</string>
+
+    <!-- Listes d'apps, dossiers -->
+    <string name="settings_keep_page_about">Beim Freigeben des Speichers werden die markierten Apps nicht geschlossen.</string>
+    <string name="settings_hidden_page_about">Markierte Apps erscheinen nicht auf dem Home-Bildschirm.</string>
+    <string name="settings_folders_page_about">Die Ordner auf dem Home-Bildschirm, in ihrer Reihenfolge, mit der Zahl der Apps, die sie zeigen.</string>
+    <string name="settings_no_folder">Keine Ordner</string>
+    <string name="settings_folder_empty">Dieser Ordner ist leer.</string>
+    <string name="settings_folders_how">Ordner auf Home verwalten (lang drücken)</string>
+    <string name="settings_folders_how_about">Drücke auf dem Home-Bildschirm lange auf eine App: „Neuer Ordner…“ legt sie in einen neuen Ordner, „Zum Ordner hinzufügen…“ in einen bestehenden. Drücke lange auf einen Ordner, um ihn umzubenennen, Apps hinzuzufügen, ihn zu bewegen oder zu löschen; seine Apps kehren dann auf den Home-Bildschirm zurück.</string>
+
+    <!-- Profils (page) -->
+    <string name="settings_profile_shown">Das Profil, das gerade angezeigt wird.</string>
+    <string name="settings_profile_child_about">Kinderprofil: Die PIN wird verlangt, um es zu verlassen, die Einstellungen zu öffnen oder eine App zu löschen; „Ausblenden“ und „App-Info“ werden nicht angeboten.</string>
+    <string name="settings_profile_main_about">Das Hauptprofil: der Home-Bildschirm aus der Zeit vor den Profilen. Es kann nicht gelöscht werden.</string>
+    <string name="settings_profile_press_about">Drücke, um es umzubenennen, seine Farbe zu ändern, es zum Kinderprofil zu machen oder es zu löschen.</string>
+    <string name="settings_profile_child_value">Kind</string>
+    <string name="settings_new_profile_more">Neues Profil…</string>
+    <string name="settings_new_profile_about">Ein weiteres Profil mit eigenem Home-Bildschirm. Es beginnt mit der Standardreihenfolge der Apps, ohne ausgeblendete Apps und Ordner, und mit dem Hintergrundbild des Hauptprofils.</string>
+    <string name="settings_new_profile">Neues Profil</string>
+    <string name="settings_new_profile_message">Der Name des Profils, zum Beispiel „Kinder“.</string>
+    <string name="settings_pin">PIN</string>
+    <string name="settings_pin_about">Wird in einem Kinderprofil verlangt, um es zu verlassen, die Einstellungen zu öffnen oder eine App zu löschen. %1$d bis %2$d Ziffern; Ändern oder Entfernen erfordert die aktuelle PIN. Vergessen? Sie lässt sich von einem Computer aus entfernen (adb).</string>
+    <string name="settings_pin_set">Festgelegt</string>
+    <string name="settings_pin_needed">Ein Kinderprofil ist erst geschützt, wenn eine PIN festgelegt ist (Zeile „PIN“ auf dieser Seite).</string>
+    <string name="settings_rename">Umbenennen</string>
+    <string name="settings_rename_title">„%1$s“ umbenennen</string>
+    <string name="settings_rename_main">Lass das Feld leer, um wieder den Namen „%1$s“ zu verwenden.</string>
+    <string name="settings_color">Farbe</string>
+    <string name="settings_photo_more">Foto…</string>
+    <string name="settings_remove_photo">Foto entfernen</string>
+    <string name="settings_child_profile">Kinderprofil</string>
+    <string name="settings_delete_profile_title">„%1$s“ löschen?</string>
+    <string name="settings_delete_profile_message">Sein Home-Bildschirm (Reihenfolge der Apps, ausgeblendete Apps, Ordner, Namen, Hintergrundbild) wird gelöscht. Die Apps selbst bleiben installiert.</string>
+    <string name="settings_photo_title">Foto für „%1$s“</string>
+    <string name="settings_photo_help">Ohne Foto zeigt das Profil den Anfangsbuchstaben seines Namens auf seiner Farbe.\n\nVom Handy: Öffne die Handy-Seite (Home-Einstellungen → Handy-Seite), Tab Einstellungen, Abschnitt Profile, dann „Foto ändern“.\n\nVom Computer: adb push photo.jpg /sdcard/Android/data/%1$s/files/%2$s/%3$s.jpg</string>
+    <string name="settings_pin_define">PIN festlegen</string>
+    <string name="settings_pin_change">Ändern</string>
+    <string name="settings_pin_current">Aktuelle PIN</string>
+    <string name="settings_pin_new">Neue PIN</string>
+    <string name="settings_pin_remove_title">PIN entfernen?</string>
+    <string name="settings_pin_remove_message">Kinderprofile sind dann nicht mehr geschützt: Man kann sie ohne Code verlassen und die Einstellungen öffnen.</string>
+
+    <!-- Apps supprimées, page téléphone, dernier nettoyage -->
+    <string name="settings_removed_page_about">Wähle eine App, um sie von der Systempartition neu zu installieren.</string>
+    <string name="settings_no_removed">Keine gelöschten Apps</string>
+    <string name="settings_restore">Wiederherstellen</string>
+    <string name="settings_restoring">Wird wiederhergestellt…</string>
+    <string name="settings_restored">Wiederhergestellt</string>
+    <string name="settings_failed">Fehlgeschlagen</string>
+    <string name="settings_phone_page_about">Scanne im selben WLAN den Code mit der Kamera eines Handys; die Seite bleibt jederzeit erreichbar. Fernbedienung und Tastatur, Fotos und Bildlinks, Startanimation, App-Installation (APK).\nDer Code in der Adresse ist der einzige Schutz: Erstelle ihn neu, wenn ein Handy verloren geht, das die Seite geöffnet hat; Handys, die den alten kannten, müssen neu scannen.</string>
+    <string name="settings_starting">Wird gestartet…</string>
+    <string name="settings_phone_also">Auch: %1$s (iPhone und neuere Android-Geräte)</string>
+    <string name="settings_last_clean_cache">%1$s: %2$s.\nOhne lokales Debugging wurden nur Apps im Cache beendet, und Android sagt nicht, welche.</string>
+    <string name="settings_last_clean_full">%1$s: %2$s.\nBeibehaltene Apps und Apps, die Ton oder Video abspielten oder einen Dienst ausführten (Streaming, Server), wurden nicht geschlossen.</string>
+    <string name="settings_detail_unavailable">Details nicht verfügbar</string>
+    <string name="settings_no_app_closed">Keine Apps geschlossen</string>
+
+    <!-- Nombres -->
+    <plurals name="settings_photos">
+        <item quantity="one">%1$d Foto</item>
+        <item quantity="other">%1$d Fotos</item>
+    </plurals>
+    <plurals name="settings_apps_count">
+        <item quantity="one">%1$d App</item>
+        <item quantity="other">%1$d Apps</item>
+    </plurals>
+
+
+    <!-- Fotorahmen -->
+    <string name="wall_date_pattern">EEEE, d. MMMM</string>
+
+    <!-- Hintergrundbild -->
+    <string name="wall_intro">Wähle den Hintergrund des Home-Bildschirms. Der Fotorahmen nutzt dieselbe Quelle.</string>
+    <string name="wall_from_phone">Vom Handy</string>
+    <string name="wall_from_phone_help">Scanne den Code im selben WLAN mit der Kamera deines Handys: Importiere Fotos oder füge Bildlinks hinzu (ein Bild, eine API für Zufallsbilder, eine Seite oder ein JSON mit einer Bildliste). Der Fernseher lädt sie jeden Tag. Dieselbe Seite dient auch als Fernbedienung.</string>
+    <string name="wall_starting">Wird gestartet…</string>
+    <string name="wall_also_at">Auch: %1$s (aktuelle iPhones und Android-Geräte)</string>
+    <string name="wall_scan_to_import">Zum Importieren scannen</string>
+    <string name="wall_scan_to_add_link">Scannen, um Link hinzuzufügen</string>
+    <string name="wall_unsplash_key_scan">Unsplash-Schlüssel: scannen</string>
+    <string name="wall_downloaded_on_select">Wird bei Auswahl geladen</string>
+    <string name="wall_unsplash_needs_key">Unsplash braucht einen kostenlosen Schlüssel: Scanne den QR-Code rechts und füge ihn im Tab „Einstellungen“ ein</string>
+    <string name="wall_no_photos_yet">Noch keine Fotos: Scanne den QR-Code rechts mit einem Handy, um welche zu importieren</string>
+    <string name="wall_no_links_yet">Noch keine Links: Scanne den QR-Code rechts mit einem Handy, um welche hinzuzufügen</string>
+
+    <!-- Quellen -->
+    <string name="wall_src_scenery">Landschaften</string>
+    <string name="wall_src_animals">Süße Tiere</string>
+    <string name="wall_src_art">Meisterwerke</string>
+    <string name="wall_src_mine">Meine Fotos</string>
+    <string name="wall_src_custom">Eigener Link</string>
+    <string name="wall_src_daily">Fotos des Tages</string>
+
+    <!-- Bildunterschriften -->
+    <string name="wall_caption_360">360-Hintergrundbilder</string>
+    <string name="wall_public_domain">Gemeinfrei</string>
+    <string name="wall_photo_by">Foto von %1$s</string>
+
+    <!-- Verläufe -->
+    <string name="wall_theme_green">Grün</string>
+    <string name="wall_theme_blue">Blau</string>
+    <string name="wall_theme_purple">Violett</string>
+    <string name="wall_theme_orange">Orange</string>
+    <string name="wall_theme_graphite">Graphit</string>
+
+    <!-- Top Shelf -->
+    <string name="shelf_trending">Trends</string>
+    <string name="shelf_live">Live</string>
+    <string name="shelf_views">%1$s Aufrufe</string>
+    <string name="shelf_popularity">Beliebtheit %1$s</string>
+    <string name="shelf_my_list">Meine Liste</string>
+    <string name="shelf_continue_watching">Weiterschauen</string>
+    <string name="shelf_season_n">Staffel %1$s</string>
+    <string name="shelf_episode_n">Folge %1$s</string>
+    <string name="shelf_remaining">Noch %1$s</string>
+    <string name="shelf_minutes">%1$d Min.</string>
+    <string name="shelf_hours_minutes">%1$d Std. %2$d Min.</string>
+    <string name="shelf_type_movie">Film</string>
+    <string name="shelf_type_series">Serie</string>
+    <string name="shelf_type_season">Staffel</string>
+    <string name="shelf_type_episode">Folge</string>
+    <string name="shelf_type_clip">Video</string>
+    <string name="shelf_type_event">Ereignis</string>
+    <string name="shelf_type_channel">Sender</string>
+    <string name="shelf_type_track">Titel</string>
+    <string name="shelf_type_album">Album</string>
+    <string name="shelf_type_artist">Künstler</string>
+    <string name="shelf_type_playlist">Playlist</string>
+    <string name="shelf_type_station">Radio</string>
+    <string name="shelf_type_game">Spiel</string>
+
+    <!-- Télécommande : actions -->
+    <string name="sys_key_action_control_center">Kontrollzentrum</string>
+    <string name="sys_key_action_play_pause">Wiedergabe/Pause</string>
+    <string name="sys_key_action_next">Nächster Titel</string>
+    <string name="sys_key_action_previous">Vorheriger Titel</string>
+    <string name="sys_key_action_open_playing">Wiedergabe-App öffnen</string>
+    <string name="sys_key_action_lyrics">Liedtext</string>
+    <string name="sys_key_action_next_photo">Nächstes Foto</string>
+    <string name="sys_key_action_photo_frame">Fotorahmen</string>
+    <string name="sys_key_action_sleep_timer">Schlaf-Timer</string>
+    <string name="sys_key_action_clean">Speicher freigeben</string>
+    <string name="sys_key_action_home_settings">Home-Einstellungen</string>
+    <string name="sys_key_action_tv_settings">TV-Einstellungen</string>
+    <string name="sys_key_action_profiles">Profilliste</string>
+
+    <!-- Télécommande : touches refusées -->
+    <string name="sys_key_reserved_tv">Diese Taste ist für den Fernseher reserviert.</string>
+    <string name="sys_key_reserved_nav_long">Langes Drücken dieser Taste ist auf dem Home-Bildschirm schon belegt.</string>
+    <string name="sys_key_reserved_nav">Diese Taste ist auf dem Home-Bildschirm schon belegt.</string>
+    <string name="sys_key_reserved_home">Diese Taste ist auf dem Home-Bildschirm schon belegt: Halte sie gedrückt, um langes Drücken zuzuweisen.</string>
+
+    <!-- Télécommande : noms -->
+    <string name="sys_key_open_app">%1$s öffnen</string>
+    <string name="sys_key_input">Eingang %1$s</string>
+    <string name="sys_key_button">Taste %1$s</string>
+    <string name="sys_key_long">%1$s (lange gedrückt)</string>
+    <string name="sys_key_name_red">Rote Taste</string>
+    <string name="sys_key_name_green">Grüne Taste</string>
+    <string name="sys_key_name_yellow">Gelbe Taste</string>
+    <string name="sys_key_name_blue">Blaue Taste</string>
+    <string name="sys_key_name_back">Zurück</string>
+    <string name="sys_key_name_menu">Menü</string>
+    <string name="sys_key_name_settings">Einstellungen</string>
+    <string name="sys_key_name_profile">Profil</string>
+    <string name="sys_key_name_notifications">Mitteilungen</string>
+    <string name="sys_key_name_tv_input">Eingang</string>
+    <string name="sys_key_name_bookmark">Favoriten</string>
+    <string name="sys_key_name_captions">Untertitel</string>
+    <string name="sys_key_name_channel_up">Kanal +</string>
+    <string name="sys_key_name_channel_down">Kanal −</string>
+    <string name="sys_key_name_play_pause">Wiedergabe/Pause</string>
+    <string name="sys_key_name_play">Wiedergabe</string>
+    <string name="sys_key_name_stop">Stopp</string>
+    <string name="sys_key_name_next">Weiter</string>
+    <string name="sys_key_name_previous">Zurück</string>
+    <string name="sys_key_name_fast_forward">Vorspulen</string>
+    <string name="sys_key_name_rewind">Zurückspulen</string>
+    <string name="sys_key_name_record">Aufnehmen</string>
+    <string name="sys_key_name_last_channel">Letzter Kanal</string>
+
+    <!-- Profils -->
+    <string name="sys_profile_default_name">Profil</string>
+    <string name="sys_profile_color_blue">Blau</string>
+    <string name="sys_profile_color_green">Grün</string>
+    <string name="sys_profile_color_orange">Orange</string>
+    <string name="sys_profile_color_red">Rot</string>
+    <string name="sys_profile_color_purple">Lila</string>
+    <string name="sys_profile_color_yellow">Gelb</string>
+
+    <!-- Code PIN -->
+    <string name="sys_pin_enter">Gib den PIN ein.</string>
+    <plurals name="sys_pin_wrong">
+        <item quantity="one">Falscher PIN. Letzter Versuch.</item>
+        <item quantity="other">Falscher PIN. Noch %1$d Versuche.</item>
+    </plurals>
+    <string name="sys_pin_hint">PIN</string>
+    <string name="sys_pin_digits">%1$d bis %2$d Ziffern.</string>
+    <string name="sys_pin_new_hint">Neuer PIN</string>
+    <string name="sys_pin_bad_length">Der PIN muss %1$d bis %2$d Ziffern haben.</string>
+    <string name="sys_pin_confirm_title">PIN bestätigen</string>
+    <string name="sys_pin_confirm">Gib denselben PIN noch einmal ein.</string>
+    <string name="sys_pin_mismatch">Die beiden PINs waren verschieden. Versuch es noch einmal.</string>
+
+    <!-- Libérer la mémoire -->
+    <plurals name="sys_clean_freed">
+        <item quantity="one">%1$d MB freigegeben</item>
+        <item quantity="other">%1$d MB freigegeben</item>
+    </plurals>
+    <string name="sys_clean_none_closed">keine Apps geschlossen</string>
+    <plurals name="sys_clean_closed">
+        <item quantity="one">%1$d App geschlossen</item>
+        <item quantity="other">%1$d Apps geschlossen</item>
+    </plurals>
+    <string name="sys_clean_cache_only">(nur Cache)</string>
+    <plurals name="sys_clean_spared">
+        <item quantity="one">%1$d verschont (in Benutzung)</item>
+        <item quantity="other">%1$d verschont (in Benutzung)</item>
+    </plurals>
+    <string name="sys_clean_date_pattern">d. MMM HH:mm</string>
+
+    <!-- Bluetooth -->
+    <string name="sys_bt_headphones">Kopfhörer</string>
+    <string name="sys_bt_speaker">Lautsprecher</string>
+    <string name="sys_bt_controller">Controller</string>
+    <string name="sys_bt_connected">verbunden</string>
+    <string name="sys_bt_disconnected">getrennt</string>
+    <string name="sys_bt_battery">%1$d %%</string>
+    <string name="sys_bt_none">Keine Geräte verbunden</string>
+    <plurals name="sys_bt_connected_count">
+        <item quantity="one">%1$d Gerät verbunden</item>
+        <item quantity="other">%1$d Geräte verbunden</item>
+    </plurals>
+
+    <!-- Minuteur de veille -->
+    <string name="sys_sleep_under_minute">weniger als eine Minute</string>
+    <string name="sys_sleep_minutes">%1$d Min.</string>
+    <string name="sys_sleep_hours">%1$d Std.</string>
+    <string name="sys_sleep_hours_minutes">%1$d Std. %2$s Min.</string>
+
+    <!-- Service en arrière-plan -->
+    <string name="sys_keeper_new_address_title">Handy-Seite: neue Adresse</string>
+    <string name="sys_keeper_new_address">Der Fernseher hat eine neue Adresse (%1$s). canvasos.local funktioniert weiter; sonst scanne den QR-Code erneut unter Home-Einstellungen → Handy-Seite.</string>
+    <string name="sys_keeper_channel">Home im Hintergrund</string>
+    <string name="sys_keeper_title">Home</string>
+    <string name="sys_keeper_text">Gibt im Ruhezustand Speicher frei</string>
+
+    <!-- Installation d'APK -->
+    <string name="sys_install_missing">Die zu installierende Datei wurde nicht gefunden.</string>
+    <string name="sys_install_adb_off">Lokales Debugging antwortet nicht: Erlaube es unter Home-Einstellungen → System.</string>
+    <string name="sys_install_hint_verification">Der Fernseher lehnt Installationen über Debugging ab (so ist es bei TCL): Installiere diese App auf dem Fernseher mit seinem Dateimanager.</string>
+    <string name="sys_install_hint_signature">Eine andere Version dieser App mit anderer Signatur ist schon installiert: Deinstalliere sie zuerst.</string>
+    <string name="sys_install_hint_downgrade">Eine neuere Version dieser App ist schon installiert.</string>
+    <string name="sys_install_hint_older_sdk">Diese App braucht eine neuere Android-Version als die des Fernsehers.</string>
+    <string name="sys_install_hint_abi">Diese App ist nicht für den Prozessor dieses Fernsehers gebaut.</string>
+    <string name="sys_install_hint_storage">Der Fernseher hat nicht mehr genug Speicherplatz.</string>
+    <string name="sys_install_hint_invalid">Diese Datei ist kein gültiges APK oder sie ist unvollständig.</string>
+
+    <!-- Page téléphone (affiché sur le téléviseur) -->
+    <string name="sys_phone_off">Die Handy-Seite ist aus (Home-Einstellungen → Handy-Seite).</string>
+    <string name="sys_phone_offline">Der Fernseher ist nicht mit einem Netzwerk verbunden. Verbinde ihn und öffne diese Seite dann noch einmal.</string>
+    <string name="sys_phone_port_busy">Die Handy-Seite konnte nicht starten: Port %1$d wird vielleicht von einer anderen App belegt.</string>
+
+    <!-- Mise à jour -->
+    <string name="sys_update_no_release">GitHub zeigt kein öffentliches Release von canvasOS (privates Repository oder noch kein Release).</string>
+    <string name="sys_update_rate_limit">GitHub begrenzt die Anfragen aus diesem Netzwerk: Versuch es in einer Stunde noch einmal.</string>
+    <string name="sys_update_forbidden">GitHub verweigert den Zugriff auf die Releases (privates Repository?).</string>
+    <string name="sys_update_http">GitHub hat mit HTTP %1$d geantwortet.</string>
+    <string name="sys_update_answer_too_large">Die Antwort von GitHub ist zu groß.</string>
+    <string name="sys_update_unreachable">GitHub ist nicht erreichbar: Prüfe die Internetverbindung des Fernsehers.</string>
+    <string name="sys_update_answer_unreadable">Die Antwort von GitHub ist nicht lesbar.</string>
+    <string name="sys_update_bad_version">Die Version „%1$s“ des Release ist nicht lesbar.</string>
+    <string name="sys_update_no_asset">Das Release %1$s enthält %2$s nicht.</string>
+    <string name="sys_update_bad_link">Der Link zu %1$s im Release %2$s ist ungültig.</string>
+    <string name="sys_update_no_storage">Der App-Speicher ist nicht verfügbar.</string>
+    <string name="sys_update_busy">Ein Update läuft bereits.</string>
+    <string name="sys_update_downloading">Download %1$d %%…</string>
+    <string name="sys_update_download_failed">Der Download ist fehlgeschlagen: %1$s.</string>
+    <string name="sys_update_installing">Wird installiert…</string>
+    <string name="sys_update_signature">Diese canvasOS-Installation hat nicht die Signatur der Releases: Aktualisiere sie einmal von einem Computer aus (AGENTS.md, Schritt 3).</string>
+    <string name="sys_update_file_too_large">Die Datei des Release ist zu groß (%1$d MB).</string>
+    <string name="sys_update_over_max">Die geladene Datei ist größer als %1$d MB.</string>
+    <string name="sys_update_incomplete">Die Datei ist unvollständig (%1$d von %2$d Bytes empfangen).</string>
+    <string name="sys_update_not_apk">Die geladene Datei ist kein APK.</string>
+    <string name="sys_update_apk_unreadable">Die geladene Datei ist nicht lesbar.</string>
+    <string name="sys_update_not_canvasos">Die geladene Datei ist nicht canvasOS.</string>
+    <string name="sys_update_not_newer">Dieses Release enthält keine neuere Version (das APK ist %1$s).</string>
+
+    <!-- Entrées du téléviseur -->
+    <string name="sys_tv_inputs_unreadable">Eingänge nicht lesbar</string>
+    <plurals name="sys_tv_hdmi_inputs">
+        <item quantity="one">%1$d HDMI-Eingang</item>
+        <item quantity="other">%1$d HDMI-Eingänge</item>
+    </plurals>
+    <string name="sys_tv_inputs_of">%1$s-Eingänge</string>
+    <string name="sys_tv_input_picker">%1$s-Eingangsauswahl</string>
+    <string name="sys_tv_live_channels">Live-Kanäle</string>
+    <string name="sys_tv_current_home">Aktuell: Home</string>
+</resources>

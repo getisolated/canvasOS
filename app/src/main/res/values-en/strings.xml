@@ -1,0 +1,804 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Home</string>
+    <string name="settings_name">Home Settings</string>
+    <string name="wallpaper_name">Wallpaper</string>
+    <string name="guard_name">Home Guard</string>
+    <string name="guard_description">When the TV\'s original launcher comes to the front, brings back the Home screen. Only checks which app is in front, without reading what is on the screen.</string>
+
+    <string name="ui_language" translatable="false">en-US</string>
+
+    <!-- Weather -->
+    <string name="wx_sunny">Sunny</string>
+    <string name="wx_clear">Clear</string>
+    <string name="wx_mostly_clear">Mostly Clear</string>
+    <string name="wx_partly_cloudy">Partly Cloudy</string>
+    <string name="wx_overcast">Overcast</string>
+    <string name="wx_fog">Fog</string>
+    <string name="wx_drizzle">Drizzle</string>
+    <string name="wx_freezing_rain">Freezing Rain</string>
+    <string name="wx_light_rain">Light Rain</string>
+    <string name="wx_rain">Rain</string>
+    <string name="wx_heavy_rain">Heavy Rain</string>
+    <string name="wx_light_snow">Light Snow</string>
+    <string name="wx_snow">Snow</string>
+    <string name="wx_heavy_snow">Heavy Snow</string>
+    <string name="wx_showers">Showers</string>
+    <string name="wx_heavy_showers">Heavy Showers</string>
+    <string name="wx_snow_showers">Snow Showers</string>
+    <string name="wx_thunderstorm">Thunderstorm</string>
+    <string name="wx_thunderstorm_hail">Thunderstorm, Hail</string>
+    <string name="wx_unknown">Unknown</string>
+    <string name="wx_today">Today</string>
+    <string name="wx_tomorrow">Tomorrow</string>
+    <string name="wx_place_detected">%1$s (detected)</string>
+
+    <!-- Accueil : en-tête et date -->
+    <string name="home_date_pattern">EEEE, MMMM d</string>
+    <string name="home_network_settings">Network Settings</string>
+    <string name="home_control_center">Control Center</string>
+
+    <!-- Accueil : fond d'écran -->
+    <string name="home_wallpaper_gradient">Wallpaper: fixed gradient, choose a photo source</string>
+    <string name="home_next_photo">Next Photo…</string>
+    <string name="home_no_photo_yet">No photos yet</string>
+    <string name="home_one_photo">Only one photo available for now</string>
+
+    <!-- Accueil : menu d'une app -->
+    <string name="home_cannot_open">Can\'t open %1$s</string>
+    <string name="home_edit_home">Edit Home</string>
+    <string name="home_rename">Rename</string>
+    <string name="home_unpin">Remove from Home</string>
+    <string name="home_cancel">Cancel</string>
+    <string name="home_hide">Hide</string>
+    <string name="home_app_info">App Info</string>
+    <string name="home_delete_app">Delete App</string>
+    <string name="home_original_image">Original Image</string>
+    <string name="home_move_hint">Move with the arrows, then press OK</string>
+    <string name="home_rename_title">Rename “%1$s”</string>
+    <string name="home_rename_message">Leave the field empty to go back to the original name, “%1$s”.</string>
+
+    <!-- Accueil : dossiers -->
+    <string name="home_folder_default">Folder</string>
+    <string name="home_new_folder_ellipsis">New Folder…</string>
+    <string name="home_add_to_folder_ellipsis">Add to Folder…</string>
+    <string name="home_new_folder">New Folder</string>
+    <string name="home_new_folder_message">The folder takes the place of “%1$s” on Home, with the app inside.</string>
+    <string name="home_add_to_folder">Add to Folder</string>
+    <string name="home_add_to_folder_message">“%1$s” leaves Home for the folder you choose.</string>
+    <string name="home_open">Open</string>
+    <string name="home_rename_folder">Rename Folder</string>
+    <string name="home_add_apps_ellipsis">Add Apps…</string>
+    <string name="home_delete_folder">Delete Folder</string>
+    <string name="home_add_apps">Add Apps</string>
+    <string name="home_add_apps_message">Checked apps are in “%1$s”; the others stay on Home.</string>
+    <string name="home_delete_title">Delete “%1$s”?</string>
+    <string name="home_delete_folder_message">The folder goes away; its apps return to Home in its place.</string>
+    <string name="home_delete">Delete</string>
+    <string name="home_remove_from_folder">Remove from Folder</string>
+
+    <!-- Accueil : supprimer une app -->
+    <string name="home_allow_local_debugging">Allow Local Debugging</string>
+    <string name="home_delete_needs_adb">Deleting a preinstalled app needs local debugging. Press Start: the TV shows “Allow USB debugging?”. Check “Always allow”, then choose “Allow”.</string>
+    <string name="home_start">Start</string>
+    <string name="home_delete_system_message">This app is preinstalled on the TV. Once deleted, it no longer appears on Home and no longer runs in the background. You can restore it in Home Settings → Apps → Deleted Preinstalled Apps.</string>
+    <string name="home_delete_launcher_message">This app is a home screen that can take over if this one has a problem. Without it, the TV will have no backup home screen if this one does not start. The app and its data will be deleted.</string>
+    <string name="home_delete_app_message">The app and its data will be deleted.</string>
+    <string name="home_delete_failed">Delete failed: %1$s</string>
+    <string name="home_local_debugging_unavailable">local debugging unavailable</string>
+
+    <!-- Accueil : profils -->
+    <string name="home_profiles">Profiles</string>
+    <string name="home_profile_desc">Profile: %1$s</string>
+    <string name="home_profiles_no_pin">A child profile asks for a PIN to switch profiles, open settings or delete an app. No PIN is set yet.</string>
+    <string name="home_profiles_one">Each profile has its own Home: app order, hidden apps, folders and wallpaper. Create one in “Manage Profiles…”.</string>
+    <string name="home_set_pin">Set PIN…</string>
+    <string name="home_pin">PIN</string>
+    <string name="home_manage_profiles">Manage Profiles…</string>
+    <string name="home_child_needs_pin">“%1$s” is a child profile: first choose the PIN that will let you leave it (%2$d to %3$d digits).</string>
+    <string name="home_switch_profile">Switch Profile</string>
+
+    <!-- Accueil : touches de la télécommande -->
+    <string name="home_channel">Channel %1$s</string>
+    <string name="home_channel_needs_adb">To go straight to the channel, allow local debugging (Home Settings → System).</string>
+    <string name="home_tv_settings">TV Settings</string>
+    <string name="home_nothing_playing">Nothing playing</string>
+
+    <!-- Accueil : débogage local -->
+    <string name="home_enable_power_memory">Enable Turn Off and Memory</string>
+    <string name="home_adb_once_message">Local debugging must be allowed once. Press Start: the TV shows “Allow USB debugging?”. Check “Always allow”, then choose “Allow”.</string>
+    <string name="home_later">Later</string>
+    <string name="home_adb_dialog_hint">In the window that appears, check “Always allow”, then choose “Allow”</string>
+    <string name="home_adb_done">Done: Turn Off and Free Up Memory are now available</string>
+    <string name="home_adb_refused">Permission denied; try again in Home Settings</string>
+
+    <!-- Accueil : lecture en cours et paroles -->
+    <string name="home_playback">Now Playing</string>
+    <string name="home_playback_desc">Now Playing: %1$s, %2$s</string>
+    <string name="home_playing">Playing</string>
+    <string name="home_paused">Paused</string>
+    <string name="home_lyrics">Lyrics</string>
+    <string name="home_lyrics_shown">Lyrics (shown)</string>
+    <string name="home_lyrics_loading">Lyrics…</string>
+    <string name="home_lyrics_unreachable">Lyrics unavailable: LRCLIB can\'t be reached</string>
+    <string name="home_instrumental">Instrumental</string>
+    <string name="home_no_synced_lyrics">No synced lyrics for this track</string>
+
+    <!-- Feuilles (Ui.kt) -->
+    <string name="home_label_value">%1$s: %2$s</string>
+
+    <!-- Commandes -->
+    <string name="cc_turn_off">Turn Off</string>
+    <string name="cc_turn_off_msg">The TV turns off completely. Turn it back on with the power button on the remote.</string>
+    <string name="cc_confirm_title">%1$s?</string>
+    <string name="cc_network">Network</string>
+    <string name="cc_connected">Connected</string>
+    <string name="cc_disconnected">Disconnected</string>
+    <string name="cc_sleep">Sleep</string>
+    <string name="cc_free_memory">Free Up Memory</string>
+    <string name="cc_freeing_memory">Freeing Up Memory…</string>
+    <string name="cc_next_photo">Next Photo</string>
+    <string name="cc_photo_frame">Photo Frame</string>
+    <string name="cc_settings">Settings</string>
+    <string name="cc_update_available">canvasOS %1$s available</string>
+    <string name="cc_brightness">Brightness</string>
+    <string name="cc_input">Input</string>
+    <string name="cc_no_input">No Input</string>
+    <plurals name="cc_inputs">
+        <item quantity="one">%1$d input</item>
+        <item quantity="other">%1$d inputs</item>
+    </plurals>
+    <string name="cc_player">Player</string>
+    <string name="cc_weather">Weather</string>
+
+    <!-- Modification -->
+    <string name="cc_edit_hint">Press OK on a control to move it, resize it or remove it. Press Back when you are done.</string>
+    <string name="cc_page">Page %1$d</string>
+    <string name="cc_move">Move</string>
+    <string name="cc_size">Size: %1$s</string>
+    <string name="cc_remove">Remove</string>
+    <string name="cc_empty_page">Empty Page</string>
+    <string name="cc_empty_page_msg">Page %1$d: add a control to it, or delete it.</string>
+    <string name="cc_delete_page">Delete This Page</string>
+    <string name="cc_add_control_more">Add a Control…</string>
+    <string name="cc_add_page">Add a Page</string>
+    <string name="cc_reset_panel">Reset Panel</string>
+    <string name="cc_done">Done</string>
+    <string name="cc_cancel">Cancel</string>
+    <string name="cc_spot_taken">Another control is in that spot.</string>
+    <string name="cc_no_room_size">Not enough room here for that size: move the control first.</string>
+    <string name="cc_keep_one">Control Center keeps at least one control.</string>
+    <string name="cc_add_control">Add a Control</string>
+    <string name="cc_add_control_msg">It takes the first free spot on this page, or else on another page, or else on a new page.</string>
+    <string name="cc_no_room">No room left: remove a control or make one smaller.</string>
+    <string name="cc_reset_title">Reset Control Center?</string>
+    <string name="cc_reset_msg">The controls go back to their original place and size, on two pages.</string>
+    <string name="cc_reset">Reset</string>
+
+    <!-- Source -->
+    <string name="cc_show_on_home_more">Show on Home…</string>
+    <string name="cc_show_on_home">Show on Home</string>
+    <string name="cc_show_on_home_msg">Each checked input becomes an icon on Home: one press switches to it.</string>
+
+    <!-- Météo -->
+    <string name="cc_weather_off">Weather Off</string>
+    <string name="cc_offline">Offline</string>
+    <string name="cc_no_forecast">No forecast yet</string>
+    <string name="cc_weather_in">Weather in %1$s</string>
+    <string name="cc_forecast_credit">Forecast: Open-Meteo.com</string>
+    <string name="cc_weather_auto_place">Location detected from the TV\'s IP address. To choose another city, use the Phone Page (Settings tab).</string>
+    <string name="cc_weather_waiting">The forecast will show here as soon as the TV receives it. This needs an Internet connection.</string>
+
+    <!-- Lecture en cours -->
+    <string name="cc_now_playing">Now Playing</string>
+    <string name="cc_now_playing_none">Now Playing: nothing playing</string>
+    <string name="cc_open_app">Open App</string>
+    <string name="cc_open_item">Open %1$s</string>
+    <string name="cc_back">Back</string>
+    <string name="cc_play_pause">Play or Pause</string>
+    <string name="cc_next">Next</string>
+    <string name="cc_position">Position</string>
+
+    <!-- Bluetooth -->
+    <string name="cc_unavailable">Unavailable</string>
+    <string name="cc_permission_needed">Permission Required</string>
+    <string name="cc_off">Off</string>
+    <string name="cc_bt_not_allowed">Bluetooth Not Allowed</string>
+    <string name="cc_bt_not_allowed_msg">canvasOS needs the “Nearby devices” permission to show your Bluetooth devices and connect one. It is used for nothing else: the TV does not search for any device.</string>
+    <string name="cc_allow_with_adb">Allow with Local Debugging</string>
+    <string name="cc_bt_off_msg">The TV\'s Bluetooth is off. Turn it on in the TV\'s settings.</string>
+    <string name="cc_bt_none_msg">No paired devices. Pair one in the TV\'s Bluetooth settings.</string>
+    <string name="cc_bt_controller_msg">Turn on the controller: it reconnects by itself.</string>
+    <plurals name="cc_bt_more">
+        <item quantity="one">… and %1$d more paired device</item>
+        <item quantity="other">… and %1$d more paired devices</item>
+    </plurals>
+    <string name="cc_pair_device">Pair a Device…</string>
+    <string name="cc_connecting">Connecting…</string>
+    <string name="cc_disconnecting">Disconnecting…</string>
+    <string name="cc_connect_failed">Can\'t Connect</string>
+    <string name="cc_disconnect_failed">Can\'t Disconnect</string>
+    <string name="cc_connect_failed_msg">This TV does not let canvasOS connect “%1$s”. Do it in the TV\'s Bluetooth settings.</string>
+    <string name="cc_disconnect_failed_msg">This TV does not let canvasOS disconnect “%1$s”. Do it in the TV\'s Bluetooth settings.</string>
+    <string name="cc_bt_settings">Bluetooth Settings</string>
+
+    <!-- Veille -->
+    <string name="cc_in">In %1$s</string>
+    <string name="cc_now">Now</string>
+    <string name="cc_cancel_timer_left">Cancel Timer (%1$s left)</string>
+    <string name="cc_sleep_in">Sleep in %1$s</string>
+    <string name="cc_timer_cancelled">Sleep timer canceled</string>
+    <string name="cc_sleep_in_minute">Sleep in One Minute</string>
+    <string name="cc_sleep_warning_msg">The TV is about to go to sleep. Cancel the timer to keep watching.</string>
+    <string name="cc_cancel_timer">Cancel Timer</string>
+
+    <!-- Débogage local -->
+    <string name="cc_allow_adb">Allow Local Debugging</string>
+    <string name="cc_allow_adb_msg">Press Start: the TV shows “Allow USB debugging?”. Check “Always allow”, then choose “Allow”.</string>
+    <string name="cc_start">Start</string>
+
+    <!-- Commun -->
+    <string name="settings_on">On</string>
+    <string name="settings_off">Off</string>
+    <string name="settings_on_f">On</string>
+    <string name="settings_off_f">Off</string>
+    <string name="settings_applying">Applying…</string>
+    <string name="settings_local_debug_required">Local debugging required</string>
+    <string name="settings_listener_needed">Listener required (step 4)</string>
+    <string name="settings_cancel">Cancel</string>
+    <string name="settings_delete">Delete</string>
+    <string name="settings_none">None</string>
+    <string name="settings_never">Never</string>
+    <string name="settings_every_day">Every Day</string>
+    <string name="settings_mb">%1$d MB</string>
+
+    <!-- Groupes -->
+    <string name="settings_look">Appearance</string>
+    <string name="settings_look_about">The clock, the Dock, the profile picture, the weather, the focus effect, Control Center (its style and controls) and the boot animation.</string>
+    <string name="settings_wallpaper_group">Wallpaper and Photo Frame</string>
+    <string name="settings_wallpaper_group_about">The Home screen background and how often it changes, and the photo frame the TV shows as its screen saver.</string>
+    <string name="settings_shelf_about">The content of the app selected in the Dock, full screen above it, and where it comes from.</string>
+    <string name="settings_playback_group">Playback and Notifications</string>
+    <string name="settings_playback_group_about">The Control Center player for what apps are playing, and the notification banners at the top right of the screen.</string>
+    <string name="settings_memory_group">Memory and Power</string>
+    <string name="settings_memory_group_about">Freeing up memory, in sleep, on a schedule or right now, the apps it spares, and what the power button does.</string>
+    <string name="settings_apps_group_about">Apps hidden from Home, deleted preinstalled apps, and folders.</string>
+    <string name="settings_profiles">Profiles</string>
+    <string name="settings_profiles_group_about">A Home screen for each person, with their apps, folders and wallpaper; a child profile is protected by a PIN.</string>
+    <string name="settings_phone_page">Phone Page</string>
+    <string name="settings_phone_group_about">A web page for a phone on the same Wi-Fi: remote with keyboard, photos and image links, app installs. Its QR code and its protection.</string>
+    <string name="settings_remote">Remote</string>
+    <string name="settings_remote_about">Remote buttons linked to canvasOS functions on Home: single or long press, the button learned by pressing it; on a set-top box, channel numbers.</string>
+    <string name="settings_system">System</string>
+    <string name="settings_system_about">Local and ADB debugging, the TV\'s address, Home Guard, the TV\'s own settings, canvasOS updates and its version.</string>
+
+    <!-- Apparence -->
+    <string name="settings_clock">Clock</string>
+    <string name="settings_time_format">Time Format</string>
+    <string name="settings_time_format_about">The time on the Home screen and in Control Center, in 12-hour (11:49 AM) or 24-hour (23:49) format.</string>
+    <string name="settings_clock_about">A small clock at the top right, or a large clock with the date at the top left (the old style), or none.</string>
+    <string name="settings_clock_large">Large, Left</string>
+    <string name="settings_clock_hidden">Hidden</string>
+    <string name="settings_clock_corner">Top Right</string>
+    <string name="settings_section_home">Home Screen</string>
+    <string name="settings_dock_about">Recents: the app you open moves to the front, as it does now. Fixed: the order you chose with “Edit Home” is kept.</string>
+    <string name="settings_dock_recents">Recents</string>
+    <string name="settings_dock_fixed">Fixed</string>
+    <string name="settings_profile_picture">Profile Picture</string>
+    <string name="settings_profile_picture_about">The profile picture at the top right of Home: the initial of its name on its color, or a photo imported from the Phone Page. Press it to switch profiles. It stays visible while there is more than one profile.</string>
+    <string name="settings_weather">Weather</string>
+    <string name="settings_weather_about">The temperature and conditions next to the clock, and the five-day forecast in Control Center. They come from Open-Meteo and update every 30 minutes while Home is shown. Until a city is chosen, the location is guessed once from the TV\'s public IP address (ip-api.com).</string>
+    <string name="settings_weather_place">Weather Location</string>
+    <string name="settings_weather_place_about">To choose another city: the Phone Page (Settings tab, Weather section), or a computer with the CONFIG command (weather_city).</string>
+    <string name="settings_weather_place_unset">Not set yet</string>
+    <string name="settings_effects">Effects</string>
+    <string name="settings_focus_effect">Focus Effect</string>
+    <string name="settings_focus_effect_about">tvOS: the selected app grows, tilts with the direction, and a shine passes over it. Simple: it only grows.\nAuto picks Simple on low-power TVs.</string>
+    <string name="settings_focus_simple">Simple</string>
+    <string name="settings_control_center">Control Center</string>
+    <string name="settings_cc_style">Control Center Style</string>
+    <string name="settings_cc_style_about">Glass: frosted glass that shows the picture behind it; the selected button turns white. Panel: the old dark panel.\nAuto picks Glass on all TVs.</string>
+    <string name="settings_cc_glass">Glass</string>
+    <string name="settings_cc_panel">Panel</string>
+    <string name="settings_cc_customize">Customize Control Center</string>
+    <string name="settings_cc_customize_about">Opens Control Center in edit mode. Its controls sit on a 4 × 6 grid, on up to three pages (Down from the last row goes to the next page). OK on a control: move it, resize it, remove it, add a control or a page. Back to finish. Elsewhere, a long press on OK on the Control Center button, at the top right of Home, does the same.</string>
+    <string name="settings_cc_reset_row">Reset Panel</string>
+    <string name="settings_cc_reset_row_about">Puts the Control Center controls back in their original place and size, on two pages.</string>
+    <string name="settings_cc_reset_title">Reset Control Center?</string>
+    <string name="settings_cc_reset_message">The controls go back to their original place and size, on two pages.</string>
+    <string name="settings_reset">Reset</string>
+    <string name="settings_logo_about">The built-in title card and boot film: canvasOS\'s, or Apple TV\'s (tvOS). They serve as the icon of these settings and as the boot animation, unless chosen otherwise below.</string>
+    <string name="settings_icon">Settings Icon</string>
+    <string name="settings_icon_about">The icon of these settings, on Home and at the top of this page: the title card of the chosen logo, your own picture imported from the Phone Page, or the built-in gear.</string>
+    <string name="settings_icon_no_picture">\nNo picture imported yet.</string>
+    <string name="settings_icon_own">Imported Picture</string>
+    <string name="settings_icon_gear">Gear</string>
+    <string name="settings_intro">Boot Animation</string>
+    <string name="settings_intro_about">Plays the first time Home appears after the TV turns on; at the end, the logo grows and opens Home. Press any button to skip it.</string>
+    <string name="settings_intro_boot">At Startup</string>
+    <string name="settings_intro_wake">Startup and Wake</string>
+    <string name="settings_intro_source">Animation Content</string>
+    <string name="settings_intro_source_about">Film of the chosen logo: canvasOS\'s or Apple TV\'s, per the Logo row. Imported Video: your own, from the Phone Page, whose final logo grows and opens Home. canvasOS Name: the name fades in, then grows.</string>
+    <string name="settings_intro_no_video">\nNo video imported yet: the chosen logo\'s film plays instead.</string>
+    <string name="settings_intro_video">Imported Video</string>
+    <string name="settings_intro_wordmark">canvasOS Name</string>
+    <string name="settings_intro_film">%1$s Film</string>
+    <string name="settings_wake_delay">Wake Delay</string>
+    <string name="settings_wake_delay_about">When waking from sleep, the screen stays black this long before the animation. Many TVs (especially OLED) only show a picture a few seconds after turning on: make it longer if the start of the animation is missing, shorter if the black lasts too long.</string>
+    <string name="settings_intro_sound">Animation Sound</string>
+    <string name="settings_intro_sound_about">Plays the sound of the animation film or video.</string>
+    <string name="settings_intro_preview">Preview Animation</string>
+    <string name="settings_intro_preview_about">Goes back to Home and plays it once now.</string>
+
+    <!-- Fond d'écran et cadre photo -->
+    <string name="settings_wallpaper_about">The Home screen background: a theme, a wallpaper source, or your own photos.</string>
+    <string name="settings_wallpaper_auto">%1$s (Auto)</string>
+    <string name="settings_change_photo">Change Photo</string>
+    <string name="settings_change_photo_about">How often the automatic wallpaper changes. Never: the photo only changes with the Next Photo button in Control Center (or Change Now below).</string>
+    <string name="settings_change_now">Change Now</string>
+    <string name="settings_change_now_about">Gets a new photo from the wallpaper source. Photos are downloaded when they are shown; old ones are deleted after a few days.</string>
+    <string name="settings_downloading">Downloading…</string>
+    <string name="settings_photo_frame">Photo Frame</string>
+    <string name="settings_frame_saver">Photo Frame Screen Saver</string>
+    <string name="settings_frame_saver_about">After a while with no activity, the TV shows photos or aerials full screen, instead of its own screen saver.</string>
+    <string name="settings_saver_content">Screen Saver Content</string>
+    <string name="settings_saver_content_about">The photo frame shows the wallpaper photos, or Apple TV aerials.</string>
+    <string name="settings_saver_aerials">Aerials</string>
+    <string name="settings_saver_photos">Photos</string>
+    <string name="settings_frame_delay">Photo Frame Delay</string>
+    <string name="settings_frame_delay_about">Time with no activity before the photo frame appears.</string>
+    <string name="settings_frame_seconds">Time per Photo</string>
+    <string name="settings_frame_seconds_about">How long each photo shows in the photo frame.</string>
+
+    <!-- Top Shelf -->
+    <string name="settings_shelf_mode_about">The content of the app selected in the Dock, full screen above it. Full: the “Continue Watching” row published for Android TV, then TMDB trends (with your key) and web sources. Android TV Only: no TMDB or web. Off: the wallpaper stays visible.</string>
+    <string name="settings_shelf_tv">Android TV Only</string>
+    <string name="settings_shelf_full">Full</string>
+    <string name="settings_sources">Sources</string>
+    <string name="settings_watch_next">Continue Watching</string>
+    <string name="settings_watch_next_about">The row apps (YouTube, Netflix…) publish for Android TV: what you were watching, to pick up again. When off, Top Shelf only uses TMDB and web sources, when the Top Shelf mode allows them.</string>
+
+    <!-- Télécommande -->
+    <string name="settings_shortcuts">Shortcuts</string>
+    <string name="settings_no_shortcut">No Shortcuts</string>
+    <string name="settings_no_shortcut_about">Choose “Add Shortcut…”, the function, then press the remote button that will do it.</string>
+    <string name="settings_shortcut_about">Press to change the button or the function, or delete this shortcut. Shortcuts work on Home, not in other apps.</string>
+    <string name="settings_add_shortcut">Add Shortcut…</string>
+    <string name="settings_add_shortcut_about">The function first, then the button: a short press links it to a single press, a held press to a long press. The TV\'s buttons (Home, Volume) and those Home uses (arrows, OK, Back on a single press) are refused.</string>
+    <string name="settings_channels">Channels</string>
+    <string name="settings_channel_keys">Number Buttons</string>
+    <string name="settings_channel_keys_about">On by default. On Home, type a channel number (up to three digits): live TV opens on that channel. A digit linked to a shortcut keeps its shortcut. Going straight to the channel needs local debugging; without it, live TV opens on the current channel.</string>
+    <string name="settings_tv_keys">TV Buttons</string>
+    <string name="settings_capture_keys">Capture TV Buttons</string>
+    <string name="settings_capture_keys_about">Off by default. The remote\'s Settings and Profile buttons (and a few others: Guide, Input, TV) are taken by the TV before they reach canvasOS. When on, the canvasOS accessibility service (the one Home Guard uses) filters the buttons: it then sees every button pressed, in all apps, and keeps only those buttons, only on Home and only if they are linked; everything else passes through as is. Nothing is recorded. Needs local debugging once.</string>
+    <string name="settings_on_service_inactive">On (service inactive)</string>
+    <string name="settings_change_key">Change Button</string>
+    <string name="settings_change_function">Change Function</string>
+    <string name="settings_function">Function</string>
+    <string name="settings_function_new">The new function for “%1$s”.</string>
+    <string name="settings_function_about">What the button will do; you choose the button next.</string>
+    <string name="settings_open_app_more">Open App…</string>
+    <string name="settings_hdmi_input_more">HDMI Input…</string>
+    <string name="settings_open_app">Open App</string>
+    <string name="settings_open_app_about">The app the button will open.</string>
+    <string name="settings_hdmi_input">HDMI Input</string>
+    <string name="settings_hdmi_input_about">The input the button will switch to.</string>
+    <string name="settings_inputs_searching">Looking for Inputs…</string>
+    <string name="settings_no_input">No Inputs</string>
+    <string name="settings_no_input_about">This TV does not give canvasOS access to its HDMI inputs (see AGENTS.md, section 9).</string>
+    <string name="settings_input_connected">Connected</string>
+    <string name="settings_learn_title">Press the Button</string>
+    <string name="settings_learn_message">A short press links it to a single press, a held press to a long press. Back cancels.</string>
+    <string name="settings_learn_capture_hint">The Settings and Profile buttons need “Capture TV Buttons”.</string>
+    <string name="settings_learn_retry">%1$s Try another button, or Back to cancel.</string>
+    <string name="settings_reassign_title">Reassign “%1$s”?</string>
+    <string name="settings_reassign_message">This button already does “%1$s”.</string>
+    <string name="settings_reassign">Reassign</string>
+
+    <!-- Lecture et notifications -->
+    <string name="settings_playback">Playback</string>
+    <string name="settings_now_playing">Now Playing</string>
+    <string name="settings_now_playing_about">On by default. Shows in Control Center what an app is playing (title, artist, artwork) with play/pause and next track. To do this it reads the apps\' playback info (title, artist, artwork, playback state) through the notification listener; nothing is recorded.</string>
+    <string name="settings_home_player">Home Player</string>
+    <string name="settings_home_player_about">On by default, with Now Playing. At the top left of Home, a capsule shows the artwork, title and artist of what an app is playing, with no controls: OK opens that app; play, pause and next track stay in Control Center. Nothing more is read for it.</string>
+    <string name="settings_now_playing_required">Now Playing required</string>
+    <string name="settings_lyrics">Lyrics</string>
+    <string name="settings_lyrics_about">On by default. For each new track, the TV asks LRCLIB (lrclib.net, free, no key) whether it has the lyrics: the title, artist, album and length of the track are sent, nothing else, and nothing is recorded. When it has them, a Lyrics button appears to the right of the Home player when the player is selected: OK shows the synced lyrics over the dimmed background (unsynced lyrics are not offered), OK again hides them. When off, nothing is sent to LRCLIB.</string>
+    <string name="settings_home_player_required">Home Player required</string>
+    <string name="settings_lyrics_position">Lyrics Position</string>
+    <string name="settings_lyrics_position_about">Where the lines appear on Home: on the left under the player, in the center, or on the right.</string>
+    <string name="settings_lyrics_center">Center</string>
+    <string name="settings_lyrics_right">Right</string>
+    <string name="settings_lyrics_left">Left</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_banners">Notification Banners</string>
+    <string name="settings_banners_about">On by default. Shows app notifications at the top right (doorbell, messages, smart home…). The title and text of notifications from all apps, except excluded ones, are read, shown for 6 seconds and never recorded. When off, no notification is read.</string>
+    <string name="settings_banner_apps">Apps Excluded from Banners</string>
+    <string name="settings_banner_apps_about">Notifications from ticked apps are neither read nor shown. All others show as banners.</string>
+    <string name="settings_banner_apps_no_overlay">\nWithout permission to display over other apps (step 4), banners only appear on Home.</string>
+    <string name="settings_banner_apps_page_about">Notifications from ticked apps are neither read nor shown. Those from other apps show for 6 seconds at the top right.</string>
+
+    <!-- Mémoire et alimentation -->
+    <string name="settings_cleanup">Cleanup</string>
+    <string name="settings_clean_standby">Free Up Memory in Sleep</string>
+    <string name="settings_clean_standby_about">Closes background apps when the TV goes to sleep, for a smoother restart. Apps playing sound or video, or running a service (casting, server), are spared.</string>
+    <string name="settings_clean_scheduled">Scheduled Cleanup</string>
+    <string name="settings_clean_scheduled_about">Regularly closes background apps, except the app on screen and those playing sound or video or running a service.</string>
+    <string name="settings_every_hours">Every %1$d h</string>
+    <string name="settings_clean_now">Free Up Memory</string>
+    <string name="settings_clean_now_about">Closes background apps now. Those playing sound or video, or running a service (casting, server), are spared.</string>
+    <string name="settings_mb_free">%1$d MB free</string>
+    <string name="settings_freeing">Freeing…</string>
+    <string name="settings_last_clean">Last Cleanup</string>
+    <string name="settings_last_clean_none">Memory has not been freed up yet.</string>
+    <string name="settings_last_clean_about">%1$s.\nPress to see the closed apps.</string>
+    <string name="settings_keep_apps">Apps to Keep</string>
+    <string name="settings_keep_apps_about">Apps that freeing up memory never closes, such as screen casting. Those playing sound or video, or running a service, are spared anyway while they do.</string>
+    <string name="settings_power">Power</string>
+    <string name="settings_power_key">Power Button</string>
+    <string name="settings_power_key_about">Sleep: as usual. Full Shutdown: saves energy, but startup takes longer.</string>
+    <string name="settings_power_shutdown">Full Shutdown</string>
+    <string name="settings_power_sleep">Sleep</string>
+    <string name="settings_power_needs_adb">Allow local debugging first to turn this on</string>
+
+    <!-- Apps -->
+    <string name="settings_hidden_apps">Hidden Apps</string>
+    <string name="settings_hidden_apps_about">Apps that do not show on the Home screen.</string>
+    <string name="settings_removed_apps">Deleted Preinstalled Apps</string>
+    <string name="settings_removed_apps_about">Preinstalled apps deleted from the long-press menu; you can restore them here.</string>
+    <string name="settings_folders">Folders</string>
+    <string name="settings_folders_about">The folders on Home and their apps. You create and manage them on Home, with a long press on an app or a folder.</string>
+
+    <!-- Profils -->
+    <string name="settings_current_profile">Current Profile</string>
+    <string name="settings_current_profile_about">The profile whose Home screen is shown. Switch with the profile picture at the top right of Home.</string>
+    <string name="settings_manage_profiles">Manage Profiles</string>
+    <string name="settings_profiles_about">Each profile has its own Home screen: the order of apps, hidden apps, folders, app names, pinned items and the wallpaper. Other settings apply to everyone. A child profile asks for the PIN to switch profiles, open Settings or delete an app.</string>
+
+    <!-- Page téléphone -->
+    <string name="settings_access">Access</string>
+    <string name="settings_show_qr">Show QR Code</string>
+    <string name="settings_show_qr_about">Scan it with a phone on the same Wi-Fi. The page that opens works as a remote with a keyboard, imports photos and image links, sets the boot animation and the weather, and installs apps (APK). The remote and app installs need local debugging.</string>
+    <string name="settings_security">Security</string>
+    <string name="settings_regenerate">Regenerate Code</string>
+    <string name="settings_regenerate_about">Changes the secret code in the address: phones that knew the old one can no longer use it and must scan again. Do this if a phone that opened the page is lost.</string>
+    <string name="settings_new_code">New code created</string>
+    <string name="settings_phone_server_about">The code in the address is the only protection: anyone on the same network who knows it can control the TV. When off, the page does not respond at all.</string>
+
+    <!-- Système -->
+    <string name="settings_debugging">Debugging</string>
+    <string name="settings_local_debug">Local Debugging</string>
+    <string name="settings_local_debug_about">Lets Home turn off the TV, free up memory and more through local debugging. In the window that appears, choose “Always Allow”.</string>
+    <string name="settings_allowed">Allowed</string>
+    <string name="settings_not_allowed_press">Not allowed, press OK</string>
+    <string name="settings_choose_always_allow">Choose Always Allow…</string>
+    <string name="settings_not_allowed_retry">Not allowed, OK to retry</string>
+    <string name="settings_adb">ADB Debugging</string>
+    <string name="settings_adb_about">Must be on for a computer to connect to the TV: without it, no installs or updates over the network. It is set in the TV\'s developer options.</string>
+    <string name="settings_keep_adb">Keep ADB Debugging On</string>
+    <string name="settings_keep_adb_about">Stops the system from turning off ADB debugging.</string>
+    <string name="settings_ip">IP Address</string>
+    <string name="settings_ip_about">The TV\'s address on the local network. A computer on the same network uses it to connect (adb connect, port 5555), for example to install or update canvasOS.</string>
+    <string name="settings_not_connected">Not Connected</string>
+    <string name="settings_protection">Protection</string>
+    <string name="settings_guard_about">When the Home button goes to the TV\'s original launcher, comes back here automatically.</string>
+    <string name="settings_on_inactive">On (inactive)</string>
+    <string name="settings_guard_on_toast">The Home button now brings you here instead of the original launcher</string>
+    <string name="settings_home_key">Direct Home Button</string>
+    <string name="settings_home_key_about">Home Guard takes the Home button before the system does and opens Home directly, without showing the original launcher. It then sees every button pressed in all apps and keeps only the Home button. Turn it off if an app reacts twice to a button.</string>
+    <string name="settings_tv">TV</string>
+    <string name="settings_tv_settings">TV Settings</string>
+    <string name="settings_tv_settings_about">Opens the TV\'s own settings.</string>
+    <string name="settings_update">Update</string>
+    <string name="settings_update_about">Looks for the latest canvasOS version on GitHub (Releases) and installs it in place: settings and permissions are kept. Press once to check, a second time to install. Installing needs local debugging. canvasOS also checks every day whether a new version exists, without downloading anything.</string>
+    <string name="settings_about">About</string>
+    <string name="settings_about_about">canvasOS, an Android TV home screen inspired by tvOS.</string>
+    <string name="settings_update_available">%1$s available, OK to install</string>
+    <string name="settings_update_check">Check</string>
+    <string name="settings_update_checking">Checking…</string>
+    <string name="settings_update_up_to_date">Up to Date (%1$s)</string>
+    <string name="settings_update_latest">canvasOS %1$s is the latest released version.</string>
+    <string name="settings_update_unreachable">Releases Unavailable</string>
+    <string name="settings_update_found">canvasOS %1$s%2$s is available. Press OK to download and install it.</string>
+    <string name="settings_update_needs_adb">Installing goes through local debugging: allow it (the “Local Debugging” row above), then try again.</string>
+    <string name="settings_update_installed">Installed, restarting…</string>
+    <string name="settings_update_failed">Failed, OK to retry</string>
+
+    <!-- Listes d'apps, dossiers -->
+    <string name="settings_keep_page_about">Freeing up memory does not close the ticked apps.</string>
+    <string name="settings_hidden_page_about">Ticked apps do not appear on the Home screen.</string>
+    <string name="settings_folders_page_about">The folders on Home, in order, with the number of apps they show.</string>
+    <string name="settings_no_folder">No Folders</string>
+    <string name="settings_folder_empty">This folder is empty.</string>
+    <string name="settings_folders_how">Manage Folders on Home (Long Press)</string>
+    <string name="settings_folders_how_about">On Home, long-press an app: “New Folder…” puts it in a new folder, “Add to Folder…” in an existing one. Long-press a folder to rename it, add apps to it, move it or delete it; its apps then go back to Home.</string>
+
+    <!-- Profils (page) -->
+    <string name="settings_profile_shown">The profile shown right now.</string>
+    <string name="settings_profile_child_about">Child profile: the PIN is asked for to leave it, open Settings or delete an app; “Hide” and “App Info” are not offered.</string>
+    <string name="settings_profile_main_about">The main profile: the Home screen from before profiles. It cannot be deleted.</string>
+    <string name="settings_profile_press_about">Press to rename it, change its color, make it a child profile or delete it.</string>
+    <string name="settings_profile_child_value">Child</string>
+    <string name="settings_new_profile_more">New Profile…</string>
+    <string name="settings_new_profile_about">One more profile, with its own Home screen. It starts with the default app order, no hidden apps or folders, and the main profile\'s wallpaper.</string>
+    <string name="settings_new_profile">New Profile</string>
+    <string name="settings_new_profile_message">The profile\'s name, for example “Kids”.</string>
+    <string name="settings_pin">PIN</string>
+    <string name="settings_pin_about">Asked for in a child profile to leave it, open Settings or delete an app. %1$d to %2$d digits; changing or removing it asks for the current code. If forgotten, remove it from a computer (adb).</string>
+    <string name="settings_pin_set">Set</string>
+    <string name="settings_pin_needed">A child profile is protected only once a PIN is set (the “PIN” row on this page).</string>
+    <string name="settings_rename">Rename</string>
+    <string name="settings_rename_title">Rename “%1$s”</string>
+    <string name="settings_rename_main">Leave the field empty to go back to the name “%1$s”.</string>
+    <string name="settings_color">Color</string>
+    <string name="settings_photo_more">Photo…</string>
+    <string name="settings_remove_photo">Remove Photo</string>
+    <string name="settings_child_profile">Child Profile</string>
+    <string name="settings_delete_profile_title">Delete “%1$s”?</string>
+    <string name="settings_delete_profile_message">Its Home screen (app order, hidden apps, folders, names, wallpaper) is erased. The apps themselves stay installed.</string>
+    <string name="settings_photo_title">Photo for “%1$s”</string>
+    <string name="settings_photo_help">Without a photo, the profile shows the initial of its name on its color.\n\nFrom a phone: open the Phone Page (Home Settings → Phone Page), Settings tab, Profiles section, then “Change Photo”.\n\nFrom a computer: adb push photo.jpg /sdcard/Android/data/%1$s/files/%2$s/%3$s.jpg</string>
+    <string name="settings_pin_define">Set PIN</string>
+    <string name="settings_pin_change">Change</string>
+    <string name="settings_pin_current">Current PIN</string>
+    <string name="settings_pin_new">New PIN</string>
+    <string name="settings_pin_remove_title">Remove PIN?</string>
+    <string name="settings_pin_remove_message">Child profiles will no longer be protected: anyone can leave them and open Settings without a code.</string>
+
+    <!-- Apps supprimées, page téléphone, dernier nettoyage -->
+    <string name="settings_removed_page_about">Choose an app to reinstall it from the system partition.</string>
+    <string name="settings_no_removed">No Deleted Apps</string>
+    <string name="settings_restore">Restore</string>
+    <string name="settings_restoring">Restoring…</string>
+    <string name="settings_restored">Restored</string>
+    <string name="settings_failed">Failed</string>
+    <string name="settings_phone_page_about">On the same Wi-Fi, scan the code with a phone\'s camera; the page stays available at any time. Remote and keyboard, photos and image links, boot animation, app installs (APK).\nThe code in the address is the only protection: regenerate it if a phone that opened the page is lost; phones that knew the old one will have to scan again.</string>
+    <string name="settings_starting">Starting…</string>
+    <string name="settings_phone_also">Also: %1$s (iPhone and recent Android)</string>
+    <string name="settings_last_clean_cache">%1$s: %2$s.\nWithout local debugging, only cached apps were stopped, and Android does not say which.</string>
+    <string name="settings_last_clean_full">%1$s: %2$s.\nApps to keep, and those playing sound or video or running a service (casting, server), were not closed.</string>
+    <string name="settings_detail_unavailable">Details Unavailable</string>
+    <string name="settings_no_app_closed">No Apps Closed</string>
+
+    <!-- Nombres -->
+    <plurals name="settings_photos">
+        <item quantity="one">%1$d photo</item>
+        <item quantity="other">%1$d photos</item>
+    </plurals>
+    <plurals name="settings_apps_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+
+
+    <!-- Photo Frame -->
+    <string name="wall_date_pattern">EEEE, MMMM d</string>
+
+    <!-- Wallpaper -->
+    <string name="wall_intro">Choose the Home screen background. The photo frame uses the same source.</string>
+    <string name="wall_from_phone">From Your Phone</string>
+    <string name="wall_from_phone_help">On the same Wi-Fi, scan the code with your phone\'s camera: import photos or add image links (one picture, a random-image API, a page or a JSON list of images). The TV fetches them every day. The same page is also your remote.</string>
+    <string name="wall_starting">Starting…</string>
+    <string name="wall_also_at">Also: %1$s (recent iPhone and Android)</string>
+    <string name="wall_scan_to_import">Scan to import</string>
+    <string name="wall_scan_to_add_link">Scan to add a link</string>
+    <string name="wall_unsplash_key_scan">Unsplash key: scan</string>
+    <string name="wall_downloaded_on_select">Downloaded when selected</string>
+    <string name="wall_unsplash_needs_key">Unsplash needs a free key: scan the QR code on the right and paste it in the Settings tab</string>
+    <string name="wall_no_photos_yet">No photos yet: scan the QR code on the right with a phone to import some</string>
+    <string name="wall_no_links_yet">No links yet: scan the QR code on the right with a phone to add some</string>
+
+    <!-- Sources -->
+    <string name="wall_src_scenery">Landscapes</string>
+    <string name="wall_src_animals">Cute Animals</string>
+    <string name="wall_src_art">Masterpieces</string>
+    <string name="wall_src_mine">My Photos</string>
+    <string name="wall_src_custom">Custom Link</string>
+    <string name="wall_src_daily">Daily Photos</string>
+
+    <!-- Captions -->
+    <string name="wall_caption_360">360 Wallpapers</string>
+    <string name="wall_public_domain">Public Domain</string>
+    <string name="wall_photo_by">Photo by %1$s</string>
+
+    <!-- Gradients -->
+    <string name="wall_theme_green">Green</string>
+    <string name="wall_theme_blue">Blue</string>
+    <string name="wall_theme_purple">Purple</string>
+    <string name="wall_theme_orange">Orange</string>
+    <string name="wall_theme_graphite">Graphite</string>
+
+    <!-- Top Shelf -->
+    <string name="shelf_trending">Trending</string>
+    <string name="shelf_live">Live</string>
+    <string name="shelf_views">%1$s views</string>
+    <string name="shelf_popularity">popularity %1$s</string>
+    <string name="shelf_my_list">My List</string>
+    <string name="shelf_continue_watching">Continue Watching</string>
+    <string name="shelf_season_n">Season %1$s</string>
+    <string name="shelf_episode_n">Episode %1$s</string>
+    <string name="shelf_remaining">%1$s left</string>
+    <string name="shelf_minutes">%1$d min</string>
+    <string name="shelf_hours_minutes">%1$d hr %2$d min</string>
+    <string name="shelf_type_movie">Movie</string>
+    <string name="shelf_type_series">Series</string>
+    <string name="shelf_type_season">Season</string>
+    <string name="shelf_type_episode">Episode</string>
+    <string name="shelf_type_clip">Video</string>
+    <string name="shelf_type_event">Event</string>
+    <string name="shelf_type_channel">Channel</string>
+    <string name="shelf_type_track">Song</string>
+    <string name="shelf_type_album">Album</string>
+    <string name="shelf_type_artist">Artist</string>
+    <string name="shelf_type_playlist">Playlist</string>
+    <string name="shelf_type_station">Radio</string>
+    <string name="shelf_type_game">Game</string>
+
+    <!-- Télécommande : actions -->
+    <string name="sys_key_action_control_center">Control Center</string>
+    <string name="sys_key_action_play_pause">Play/Pause</string>
+    <string name="sys_key_action_next">Next Track</string>
+    <string name="sys_key_action_previous">Previous Track</string>
+    <string name="sys_key_action_open_playing">Open Playing App</string>
+    <string name="sys_key_action_lyrics">Lyrics</string>
+    <string name="sys_key_action_next_photo">Next Photo</string>
+    <string name="sys_key_action_photo_frame">Photo Frame</string>
+    <string name="sys_key_action_sleep_timer">Sleep Timer</string>
+    <string name="sys_key_action_clean">Free Up Memory</string>
+    <string name="sys_key_action_home_settings">Home Settings</string>
+    <string name="sys_key_action_tv_settings">TV Settings</string>
+    <string name="sys_key_action_profiles">Profile List</string>
+
+    <!-- Télécommande : touches refusées -->
+    <string name="sys_key_reserved_tv">This button is reserved for the TV.</string>
+    <string name="sys_key_reserved_nav_long">Holding this button already does something on the Home screen.</string>
+    <string name="sys_key_reserved_nav">This button is already used on the Home screen.</string>
+    <string name="sys_key_reserved_home">This button is already used on the Home screen: hold it to bind a long press.</string>
+
+    <!-- Télécommande : noms -->
+    <string name="sys_key_open_app">Open %1$s</string>
+    <string name="sys_key_input">Input %1$s</string>
+    <string name="sys_key_button">Button %1$s</string>
+    <string name="sys_key_long">%1$s (long press)</string>
+    <string name="sys_key_name_red">Red Button</string>
+    <string name="sys_key_name_green">Green Button</string>
+    <string name="sys_key_name_yellow">Yellow Button</string>
+    <string name="sys_key_name_blue">Blue Button</string>
+    <string name="sys_key_name_back">Back</string>
+    <string name="sys_key_name_menu">Menu</string>
+    <string name="sys_key_name_settings">Settings</string>
+    <string name="sys_key_name_profile">Profile</string>
+    <string name="sys_key_name_notifications">Notifications</string>
+    <string name="sys_key_name_tv_input">Input</string>
+    <string name="sys_key_name_bookmark">Bookmark</string>
+    <string name="sys_key_name_captions">Subtitles</string>
+    <string name="sys_key_name_channel_up">Channel +</string>
+    <string name="sys_key_name_channel_down">Channel −</string>
+    <string name="sys_key_name_play_pause">Play/Pause</string>
+    <string name="sys_key_name_play">Play</string>
+    <string name="sys_key_name_stop">Stop</string>
+    <string name="sys_key_name_next">Next</string>
+    <string name="sys_key_name_previous">Previous</string>
+    <string name="sys_key_name_fast_forward">Fast Forward</string>
+    <string name="sys_key_name_rewind">Rewind</string>
+    <string name="sys_key_name_record">Record</string>
+    <string name="sys_key_name_last_channel">Last Channel</string>
+
+    <!-- Profils -->
+    <string name="sys_profile_default_name">Profile</string>
+    <string name="sys_profile_color_blue">Blue</string>
+    <string name="sys_profile_color_green">Green</string>
+    <string name="sys_profile_color_orange">Orange</string>
+    <string name="sys_profile_color_red">Red</string>
+    <string name="sys_profile_color_purple">Purple</string>
+    <string name="sys_profile_color_yellow">Yellow</string>
+
+    <!-- Code PIN -->
+    <string name="sys_pin_enter">Enter the PIN.</string>
+    <plurals name="sys_pin_wrong">
+        <item quantity="one">Wrong PIN. Last try.</item>
+        <item quantity="other">Wrong PIN. %1$d tries left.</item>
+    </plurals>
+    <string name="sys_pin_hint">PIN</string>
+    <string name="sys_pin_digits">%1$d to %2$d digits.</string>
+    <string name="sys_pin_new_hint">New PIN</string>
+    <string name="sys_pin_bad_length">The PIN must have %1$d to %2$d digits.</string>
+    <string name="sys_pin_confirm_title">Confirm PIN</string>
+    <string name="sys_pin_confirm">Enter the same PIN again.</string>
+    <string name="sys_pin_mismatch">The two PINs did not match. Try again.</string>
+
+    <!-- Libérer la mémoire -->
+    <plurals name="sys_clean_freed">
+        <item quantity="one">%1$d MB freed</item>
+        <item quantity="other">%1$d MB freed</item>
+    </plurals>
+    <string name="sys_clean_none_closed">no apps closed</string>
+    <plurals name="sys_clean_closed">
+        <item quantity="one">%1$d app closed</item>
+        <item quantity="other">%1$d apps closed</item>
+    </plurals>
+    <string name="sys_clean_cache_only">(cache only)</string>
+    <plurals name="sys_clean_spared">
+        <item quantity="one">%1$d spared (in use)</item>
+        <item quantity="other">%1$d spared (in use)</item>
+    </plurals>
+    <string name="sys_clean_date_pattern">MMM d HH:mm</string>
+
+    <!-- Bluetooth -->
+    <string name="sys_bt_headphones">Headphones</string>
+    <string name="sys_bt_speaker">Speaker</string>
+    <string name="sys_bt_controller">Controller</string>
+    <string name="sys_bt_connected">connected</string>
+    <string name="sys_bt_disconnected">disconnected</string>
+    <string name="sys_bt_battery">%1$d%%</string>
+    <string name="sys_bt_none">No devices connected</string>
+    <plurals name="sys_bt_connected_count">
+        <item quantity="one">%1$d device connected</item>
+        <item quantity="other">%1$d devices connected</item>
+    </plurals>
+
+    <!-- Minuteur de veille -->
+    <string name="sys_sleep_under_minute">less than a minute</string>
+    <string name="sys_sleep_minutes">%1$d min</string>
+    <string name="sys_sleep_hours">%1$d h</string>
+    <string name="sys_sleep_hours_minutes">%1$d h %2$s min</string>
+
+    <!-- Service en arrière-plan -->
+    <string name="sys_keeper_new_address_title">Phone Page: New Address</string>
+    <string name="sys_keeper_new_address">The TV has a new address (%1$s). canvasos.local still works; otherwise scan the QR code again in Home Settings → Phone Page.</string>
+    <string name="sys_keeper_channel">Home in Background</string>
+    <string name="sys_keeper_title">Home</string>
+    <string name="sys_keeper_text">Frees up memory during sleep</string>
+
+    <!-- Installation d'APK -->
+    <string name="sys_install_missing">The file to install cannot be found.</string>
+    <string name="sys_install_adb_off">Local debugging is not responding: allow it in Home Settings → System.</string>
+    <string name="sys_install_hint_verification">The TV refuses installs through debugging (TCL TVs do this): install this app from the TV, with its file manager.</string>
+    <string name="sys_install_hint_signature">Another version of this app is already installed with a different signature: uninstall it first.</string>
+    <string name="sys_install_hint_downgrade">A newer version of this app is already installed.</string>
+    <string name="sys_install_hint_older_sdk">This app needs a newer version of Android than the TV has.</string>
+    <string name="sys_install_hint_abi">This app is not built for this TV\'s processor.</string>
+    <string name="sys_install_hint_storage">The TV does not have enough storage left.</string>
+    <string name="sys_install_hint_invalid">This file is not a valid APK, or it is incomplete.</string>
+
+    <!-- Page téléphone (affiché sur le téléviseur) -->
+    <string name="sys_phone_off">The Phone Page is off (Home Settings → Phone Page).</string>
+    <string name="sys_phone_offline">The TV is not connected to a network. Connect it, then open this page again.</string>
+    <string name="sys_phone_port_busy">The Phone Page could not start: port %1$d may be in use by another app.</string>
+
+    <!-- Mise à jour -->
+    <string name="sys_update_no_release">GitHub shows no public canvasOS Release (private repository, or no Release yet).</string>
+    <string name="sys_update_rate_limit">GitHub is limiting requests from this network: try again in an hour.</string>
+    <string name="sys_update_forbidden">GitHub denies access to the Releases (private repository?).</string>
+    <string name="sys_update_http">GitHub answered HTTP %1$d.</string>
+    <string name="sys_update_answer_too_large">GitHub\'s answer is too large.</string>
+    <string name="sys_update_unreachable">GitHub cannot be reached: check the TV\'s internet connection.</string>
+    <string name="sys_update_answer_unreadable">GitHub\'s answer cannot be read.</string>
+    <string name="sys_update_bad_version">The Release version \"%1$s\" cannot be read.</string>
+    <string name="sys_update_no_asset">Release %1$s does not contain %2$s.</string>
+    <string name="sys_update_bad_link">The link to %1$s in Release %2$s is not valid.</string>
+    <string name="sys_update_no_storage">The app storage is not available.</string>
+    <string name="sys_update_busy">An update is already in progress.</string>
+    <string name="sys_update_downloading">Downloading %1$d%%…</string>
+    <string name="sys_update_download_failed">The download failed: %1$s.</string>
+    <string name="sys_update_installing">Installing…</string>
+    <string name="sys_update_signature">This canvasOS install does not have the Releases\' signature: update it once from a computer (AGENTS.md, step 3).</string>
+    <string name="sys_update_file_too_large">The Release file is too large (%1$d MB).</string>
+    <string name="sys_update_over_max">The downloaded file is over %1$d MB.</string>
+    <string name="sys_update_incomplete">The file is incomplete (%1$d of %2$d bytes received).</string>
+    <string name="sys_update_not_apk">The downloaded file is not an APK.</string>
+    <string name="sys_update_apk_unreadable">The downloaded file cannot be read.</string>
+    <string name="sys_update_not_canvasos">The downloaded file is not canvasOS.</string>
+    <string name="sys_update_not_newer">This Release has no newer version (the APK is %1$s).</string>
+
+    <!-- Entrées du téléviseur -->
+    <string name="sys_tv_inputs_unreadable">Inputs unreadable</string>
+    <plurals name="sys_tv_hdmi_inputs">
+        <item quantity="one">%1$d HDMI input</item>
+        <item quantity="other">%1$d HDMI inputs</item>
+    </plurals>
+    <string name="sys_tv_inputs_of">%1$s Inputs</string>
+    <string name="sys_tv_input_picker">%1$s Input Picker</string>
+    <string name="sys_tv_live_channels">Live Channels</string>
+    <string name="sys_tv_current_home">Current: Home</string>
+</resources>

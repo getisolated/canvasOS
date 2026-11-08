@@ -156,14 +156,14 @@ object PhoneApi {
     /** A short French explanation for the install failures people actually meet, or null. */
     fun installHint(pmOutput: String): String? = when {
         "INSTALL_FAILED_VERIFICATION_FAILURE" in pmOutput ->
-            "Le téléviseur refuse les installations par le débogage (c'est le cas des TCL) : installez cette app depuis le téléviseur, avec son gestionnaire de fichiers."
+            str(R.string.sys_install_hint_verification)
         "INSTALL_FAILED_UPDATE_INCOMPATIBLE" in pmOutput ->
-            "Une autre version de cette app est déjà installée avec une signature différente : désinstallez-la d'abord."
-        "INSTALL_FAILED_VERSION_DOWNGRADE" in pmOutput -> "Une version plus récente de cette app est déjà installée."
-        "INSTALL_FAILED_OLDER_SDK" in pmOutput -> "Cette app demande une version d'Android plus récente que celle du téléviseur."
-        "INSTALL_FAILED_NO_MATCHING_ABIS" in pmOutput -> "Cette app n'est pas compilée pour le processeur de ce téléviseur."
-        "INSTALL_FAILED_INSUFFICIENT_STORAGE" in pmOutput -> "Le téléviseur n'a plus assez d'espace de stockage."
-        "INSTALL_PARSE_FAILED" in pmOutput || "INSTALL_FAILED_INVALID_APK" in pmOutput -> "Ce fichier n'est pas un APK valide, ou il est incomplet."
+            str(R.string.sys_install_hint_signature)
+        "INSTALL_FAILED_VERSION_DOWNGRADE" in pmOutput -> str(R.string.sys_install_hint_downgrade)
+        "INSTALL_FAILED_OLDER_SDK" in pmOutput -> str(R.string.sys_install_hint_older_sdk)
+        "INSTALL_FAILED_NO_MATCHING_ABIS" in pmOutput -> str(R.string.sys_install_hint_abi)
+        "INSTALL_FAILED_INSUFFICIENT_STORAGE" in pmOutput -> str(R.string.sys_install_hint_storage)
+        "INSTALL_PARSE_FAILED" in pmOutput || "INSTALL_FAILED_INVALID_APK" in pmOutput -> str(R.string.sys_install_hint_invalid)
         else -> null
     }
 

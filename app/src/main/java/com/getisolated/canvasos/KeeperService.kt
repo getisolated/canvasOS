@@ -93,9 +93,8 @@ class KeeperService : Service() {
         val last = prefs.lastLanIp
         if (ip != last) {
             prefs.lastLanIp = ip
-            if (last.isNotEmpty() && prefs.phoneServer) Banners.notice(this, "Page téléphone : nouvelle adresse",
-                "Le téléviseur a changé d'adresse ($ip). canvasos.local marche toujours ; " +
-                    "sinon rescannez le QR code dans Réglages de l'accueil → Page téléphone.")
+            if (last.isNotEmpty() && prefs.phoneServer) Banners.notice(this, str(R.string.sys_keeper_new_address_title),
+                str(R.string.sys_keeper_new_address, ip))
         }
         worker.execute { Mdns.restart(applicationContext) }
     }
@@ -104,11 +103,11 @@ class KeeperService : Service() {
         super.onCreate()
         prefs = Prefs(this)
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CH, "Accueil en arrière-plan", NotificationManager.IMPORTANCE_MIN))
+        nm.createNotificationChannel(NotificationChannel(CH, str(R.string.sys_keeper_channel), NotificationManager.IMPORTANCE_MIN))
         startForeground(1, Notification.Builder(this, CH)
             .setSmallIcon(R.drawable.ic_memory)
-            .setContentTitle("Accueil")
-            .setContentText("Libère la mémoire en veille")
+            .setContentTitle(str(R.string.sys_keeper_title))
+            .setContentText(str(R.string.sys_keeper_text))
             .build())
         registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
         contentResolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ADB_ENABLED), false, adbObserver)

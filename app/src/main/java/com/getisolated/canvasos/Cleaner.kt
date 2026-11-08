@@ -11,7 +11,6 @@ import dadb.Dadb
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -149,12 +148,11 @@ object Cleaner {
     ) {
         val freedMb get() = (afterMb - beforeMb).coerceAtLeast(0)
 
-        val freedText get() = "$freedMb Mo " + if (freedMb > 1) "libérés" else "libéré"
+        val freedText get() = plural(R.plurals.sys_clean_freed, freedMb.toInt(), freedMb)
 
         val closedText get() = when (closed.size) {
-            0 -> "aucune app fermée"
-            1 -> "1 app fermée"
-            else -> "${closed.size} apps fermées"
+            0 -> str(R.string.sys_clean_none_closed)
+            else -> plural(R.plurals.sys_clean_closed, closed.size, closed.size)
         }
 
         /**
@@ -162,9 +160,9 @@ object Cleaner {
          * only cached processes could go, and nothing tells which.
          */
         fun summary(sep: String = " · "): String {
-            if (!viaAdb) return "$freedText (cache uniquement)"
+            if (!viaAdb) return "$freedText " + str(R.string.sys_clean_cache_only)
             val parts = mutableListOf(freedText, closedText)
-            if (spared.isNotEmpty()) parts += "${spared.size} en cours d'utilisation " + if (spared.size > 1) "épargnées" else "épargnée"
+            if (spared.isNotEmpty()) parts += plural(R.plurals.sys_clean_spared, spared.size, spared.size)
             return parts.joinToString(sep)
         }
     }
@@ -224,7 +222,7 @@ object Cleaner {
         Thread.sleep(1500)
         val r = Result(before, availMb(ctx), stopped, viaAdb, closed, spared)
         Log.i(TAG, "freed ${r.freedMb} MB, adb=$viaAdb, closed $closed, spared (in use) $spared")
-        prefs.lastClean = SimpleDateFormat("d MMM HH:mm", Locale.FRANCE).format(Date()) + ", " + r.summary(", ")
+        prefs.lastClean = SimpleDateFormat(str(R.string.sys_clean_date_pattern), uiLocale).format(Date()) + ", " + r.summary(", ")
         prefs.lastCleanClosed = closed.joinToString(",")
         return r
     }

@@ -112,10 +112,8 @@ class SettingsActivity : Activity() {
         private const val HEADER_BELOW = 8f
         private const val HEADER_SIZE = 13.5f
         private const val HEADER_TAG = "header"
-        private const val LISTENER_NEEDED = "Écouteur requis (étape 4)"
-        private const val PROFILES_ABOUT = "Chaque profil a son propre accueil : l'ordre des apps, les apps masquées, les dossiers, les noms des apps, " +
-            "les entrées épinglées et le fond d'écran. Les autres réglages valent pour tous. Un profil enfant demande le code PIN pour changer de profil, " +
-            "ouvrir les réglages ou supprimer une app."
+        private val LISTENER_NEEDED get() = str(R.string.settings_listener_needed)
+        private val PROFILES_ABOUT get() = str(R.string.settings_profiles_about)
     }
 
     private lateinit var prefs: Prefs
@@ -143,23 +141,16 @@ class SettingsActivity : Activity() {
      */
     private enum class Page(val title: String? = null, val summary: String? = null) {
         MAIN,
-        LOOK("Apparence", "L'horloge, le Dock, la photo de profil, la météo, l'effet de sélection, le Centre de contrôle " +
-            "(son style, ses commandes) et l'animation de démarrage."),
-        WALLPAPER("Fond d'écran et cadre photo", "Le fond de l'écran d'accueil et la fréquence à laquelle il change, " +
-            "et le cadre photo que le téléviseur affiche en économiseur d'écran."),
-        SHELF("Top Shelf", "Les contenus de l'app sélectionnée dans le Dock, en plein écran au-dessus de lui, et d'où ils viennent."),
-        PLAYBACK("Lecture et notifications", "Le lecteur du Centre de contrôle pour ce que lisent les apps, " +
-            "et les bannières de notifications en haut à droite de l'écran."),
-        MEMORY("Mémoire et alimentation", "La libération de la mémoire, en veille, à heures régulières ou tout de suite, les apps qu'elle épargne, " +
-            "et ce que fait le bouton marche/arrêt."),
-        APPS("Apps", "Les apps masquées de l'accueil, les apps préinstallées supprimées et les dossiers."),
-        ACCOUNTS("Profils", "Un accueil par personne, avec ses apps, ses dossiers et son fond d'écran ; un profil enfant est protégé par un code PIN."),
-        PHONE_GROUP("Page téléphone", "Une page web pour un téléphone sur le même Wi-Fi : télécommande avec clavier, photos et liens d'images, " +
-            "installation d'apps. Son QR code et sa protection."),
-        REMOTE("Télécommande", "Des touches de la télécommande associées à des fonctions de canvasOS, sur l'accueil : " +
-            "appui simple ou appui long, la touche apprise en appuyant dessus ; sur un décodeur, les numéros de chaîne."),
-        SYSTEM("Système", "Le débogage local et ADB, l'adresse du téléviseur, la protection de l'accueil, les réglages d'origine du téléviseur, " +
-            "la mise à jour de canvasOS et sa version."),
+        LOOK(str(R.string.settings_look), str(R.string.settings_look_about)),
+        WALLPAPER(str(R.string.settings_wallpaper_group), str(R.string.settings_wallpaper_group_about)),
+        SHELF("Top Shelf", str(R.string.settings_shelf_about)),
+        PLAYBACK(str(R.string.settings_playback_group), str(R.string.settings_playback_group_about)),
+        MEMORY(str(R.string.settings_memory_group), str(R.string.settings_memory_group_about)),
+        APPS("Apps", str(R.string.settings_apps_group_about)),
+        ACCOUNTS(str(R.string.settings_profiles), str(R.string.settings_profiles_group_about)),
+        PHONE_GROUP(str(R.string.settings_phone_page), str(R.string.settings_phone_group_about)),
+        REMOTE(str(R.string.settings_remote), str(R.string.settings_remote_about)),
+        SYSTEM(str(R.string.settings_system), str(R.string.settings_system_about)),
         KEEP, HIDDEN, REMOVED, PHONE, LAST_CLEAN, BANNER_APPS, FOLDERS, PROFILES, REMOTE_ACTIONS, REMOTE_APPS, REMOTE_INPUTS;
 
         /** Where Back goes; null at the top level. */
@@ -257,8 +248,8 @@ class SettingsActivity : Activity() {
         if (prefs.restricted && prefs.hasPin) {
             locked = true
             body.visibility = android.view.View.INVISIBLE
-            heading.text = "Réglages de l'accueil"
-            pins.ask("Réglages de l'accueil") {
+            heading.text = str(R.string.settings_name)
+            pins.ask(str(R.string.settings_name)) {
                 locked = false
                 body.visibility = android.view.View.VISIBLE
                 show(entry)
@@ -305,10 +296,10 @@ class SettingsActivity : Activity() {
             Page.REMOTE_ACTIONS -> remoteActions()
             Page.REMOTE_APPS -> remoteApps()
             Page.REMOTE_INPUTS -> remoteInputs()
-            Page.KEEP -> appPicker("Apps à conserver", prefs.keep) { pkg, on ->
+            Page.KEEP -> appPicker(str(R.string.settings_keep_apps), prefs.keep) { pkg, on ->
                 prefs.keep = if (on) prefs.keep + pkg else prefs.keep - pkg
             }
-            Page.HIDDEN -> appPicker("Apps masquées", prefs.hidden, includeHidden = true) { pkg, on ->
+            Page.HIDDEN -> appPicker(str(R.string.settings_hidden_apps), prefs.hidden, includeHidden = true) { pkg, on ->
                 prefs.hidden = if (on) prefs.hidden + pkg else prefs.hidden - pkg
             }
             Page.REMOVED -> removedApps()
@@ -449,101 +440,93 @@ class SettingsActivity : Activity() {
 
     /** The top level: one row per group ([Page.title]), each opening its page. */
     private fun main() {
-        heading.text = "Réglages de l'accueil"
+        heading.text = str(R.string.settings_name)
         about.text = ""
         for (g in Page.values()) g.title?.let { t -> row(t, g.summary, { "" }, chevron = true) { open(g) } }
     }
 
     /** Apparence: the clock, the home screen, the weather, effects and the boot animation. */
     private fun lookGroup() {
-        section("Horloge")
-        row("Format de l'heure", "L'heure sur l'écran d'accueil et dans le Centre de contrôle, au format 12 h (11:49 AM) ou 24 h (23:49).",
+        section(str(R.string.settings_clock))
+        row(str(R.string.settings_time_format), str(R.string.settings_time_format_about),
             { if (prefs.clock24) "24 h" else "12 h" }) { prefs.clock24 = !prefs.clock24 }
-        row("Horloge", "Une petite horloge en haut à droite, ou une grande horloge avec la date en haut à gauche (l'ancien style), ou aucune.", {
-            when (prefs.clockStyle) { Prefs.CLOCK_LARGE -> "Grande, à gauche"; Prefs.CLOCK_OFF -> "Masquée"; else -> "En haut à droite" }
+        row(str(R.string.settings_clock), str(R.string.settings_clock_about), {
+            when (prefs.clockStyle) { Prefs.CLOCK_LARGE -> str(R.string.settings_clock_large); Prefs.CLOCK_OFF -> str(R.string.settings_clock_hidden); else -> str(R.string.settings_clock_corner) }
         }) {
             val opts = listOf(Prefs.CLOCK_CORNER, Prefs.CLOCK_LARGE, Prefs.CLOCK_OFF)
             prefs.clockStyle = opts[(opts.indexOf(prefs.clockStyle) + 1) % opts.size]
         }
-        section("Accueil")
-        row("Dock", "Récents : l'app que vous ouvrez passe en tête, comme aujourd'hui. Fixe : l'ordre que vous avez choisi avec « Modifier l'accueil » est conservé.",
-            { if (prefs.dockRecents) "Récents" else "Fixe" }) { prefs.dockRecents = !prefs.dockRecents }
-        row("Photo de profil", "La photo du profil en haut à droite de l'accueil : l'initiale de son nom sur sa couleur, ou une photo importée " +
-            "depuis la page téléphone. Appuyez dessus pour changer de profil. Elle reste affichée tant qu'il existe plusieurs profils.", { onOff(prefs.showAvatar) }) { prefs.showAvatar = !prefs.showAvatar }
-        section("Météo")
-        row("Météo", "La température et le temps qu'il fait à côté de l'horloge, et les prévisions sur cinq jours dans le Centre de contrôle. " +
-            "Elles viennent d'Open-Meteo et sont mises à jour toutes les 30 minutes pendant que l'accueil est affiché. " +
-            "Tant qu'aucune ville n'est choisie, le lieu est deviné une fois d'après l'adresse IP publique du téléviseur (ip-api.com).",
+        section(str(R.string.settings_section_home))
+        row("Dock", str(R.string.settings_dock_about),
+            { if (prefs.dockRecents) str(R.string.settings_dock_recents) else str(R.string.settings_dock_fixed) }) { prefs.dockRecents = !prefs.dockRecents }
+        row(str(R.string.settings_profile_picture), str(R.string.settings_profile_picture_about), { onOff(prefs.showAvatar) }) { prefs.showAvatar = !prefs.showAvatar }
+        section(str(R.string.settings_weather))
+        row(str(R.string.settings_weather), str(R.string.settings_weather_about),
             { onOff(prefs.weather) }) { prefs.weather = !prefs.weather }
-        row("Lieu de la météo", "Pour choisir une autre ville : la page téléphone (onglet Réglages, section Météo), ou un ordinateur avec la commande CONFIG (weather_city).",
-            { Weather.placeLabel(prefs).ifEmpty { "Pas encore défini" } }) {}
-        section("Effets")
-        row("Effet de sélection", "tvOS : l'app sélectionnée s'agrandit, s'incline selon la direction et un reflet passe dessus. Simple : elle s'agrandit seulement." +
-            "\nAuto choisit Simple sur les téléviseurs peu puissants.", {
-            auto(prefs.focusStyle, prefs.focusTvos(this), "tvOS", "Simple")
+        row(str(R.string.settings_weather_place), str(R.string.settings_weather_place_about),
+            { Weather.placeLabel(prefs).ifEmpty { str(R.string.settings_weather_place_unset) } }) {}
+        section(str(R.string.settings_effects))
+        row(str(R.string.settings_focus_effect), str(R.string.settings_focus_effect_about), {
+            auto(prefs.focusStyle, prefs.focusTvos(this), "tvOS", str(R.string.settings_focus_simple))
         }) {
             prefs.focusStyle = next(prefs.focusStyle, Prefs.FOCUS_TVOS, Prefs.FOCUS_SIMPLE)
         }
-        section("Centre de contrôle")
-        row("Style du Centre de contrôle", "Verre : du verre dépoli qui laisse voir l'image derrière ; le bouton sélectionné devient blanc. Panneau : l'ancien panneau sombre." +
-            "\nAuto choisit Verre sur tous les téléviseurs.", {
-            auto(prefs.ccStyle, prefs.ccGlass(this), "Verre", "Panneau")
+        section(str(R.string.settings_control_center))
+        row(str(R.string.settings_cc_style), str(R.string.settings_cc_style_about), {
+            auto(prefs.ccStyle, prefs.ccGlass(this), str(R.string.settings_cc_glass), str(R.string.settings_cc_panel))
         }) {
             prefs.ccStyle = next(prefs.ccStyle, Prefs.CC_GLASS, Prefs.CC_PANEL)
         }
-        row("Personnaliser le Centre de contrôle", "Ouvre le Centre de contrôle en mode modification. Ses commandes sont sur une grille " +
-            "de 4 × 6 cases, sur trois pages au plus (Bas depuis la dernière ligne passe à la page suivante). OK sur une commande : " +
-            "la déplacer, changer sa taille, la retirer, ajouter une commande ou une page. Retour pour terminer. " +
-            "Ailleurs, un appui long sur OK sur le bouton du Centre de contrôle, en haut à droite de l'accueil, fait de même.", { "" }, chevron = true) {
+        row(str(R.string.settings_cc_customize), str(R.string.settings_cc_customize_about), { "" }, chevron = true) {
             startActivity(Intent(this, HomeActivity::class.java).putExtra(HomeActivity.EXTRA_EDIT_CC, true))
         }
-        row("Réinitialiser le panneau", "Remet les commandes du Centre de contrôle à leur place et à leur taille d'origine, sur deux pages.", { "" }) {
-            showSheet(Sheet(root).title("Réinitialiser le Centre de contrôle ?")
-                .message("Les commandes reprennent leur place et leur taille d'origine, sur deux pages.")
-                .button("Réinitialiser") { prefs.resetCcLayout() }
-                .button("Annuler") {})
+        row(str(R.string.settings_cc_reset_row), str(R.string.settings_cc_reset_row_about), { "" }) {
+            showSheet(Sheet(root).title(str(R.string.settings_cc_reset_title))
+                .message(str(R.string.settings_cc_reset_message))
+                .button(str(R.string.settings_reset)) { prefs.resetCcLayout() }
+                .button(str(R.string.settings_cancel)) {})
         }
         section("Logo")
-        row("Logo", "La carte-titre et le film de démarrage intégrés : ceux de canvasOS, ou ceux de l'Apple TV (tvOS). Ils servent d'icône à ces réglages et d'animation de démarrage, sauf choix contraire ci-dessous.", {
+        row("Logo", str(R.string.settings_logo_about), {
             Brand.label(prefs.brand)
         }) {
             prefs.brand = if (prefs.brand == Brand.TVOS) Brand.CANVASOS else Brand.TVOS
             showIcon(icon)
         }
         val picture = iconFile(this) != null
-        row("Icône des réglages", "L'icône de ces réglages, sur l'accueil et en haut de cette page : la carte-titre du logo choisi, votre image importée depuis la page téléphone, ou l'engrenage intégré." +
-            if (picture) "" else "\nAucune image importée pour l'instant.", {
-            when (prefs.settingsIcon) { Prefs.ICON_OWN -> "Image importée"; Prefs.ICON_GEAR -> "Engrenage"; else -> "Logo " + Brand.label(prefs.brand) }
+        row(str(R.string.settings_icon), str(R.string.settings_icon_about) +
+            if (picture) "" else str(R.string.settings_icon_no_picture), {
+            when (prefs.settingsIcon) { Prefs.ICON_OWN -> str(R.string.settings_icon_own); Prefs.ICON_GEAR -> str(R.string.settings_icon_gear); else -> "Logo " + Brand.label(prefs.brand) }
         }) {
             val opts = listOfNotNull(Prefs.ICON_BRAND, Prefs.ICON_OWN.takeIf { picture }, Prefs.ICON_GEAR)
             prefs.settingsIcon = opts[(opts.indexOf(prefs.settingsIcon) + 1) % opts.size]
             showIcon(icon)
         }
-        section("Animation de démarrage")
+        section(str(R.string.settings_intro))
         val video = Intro.videoFile(this) != null
-        row("Animation de démarrage", "Jouée au premier affichage de l'accueil après l'allumage ; à la fin, le logo s'agrandit et ouvre l'accueil. Appuyez sur une touche pour la passer.", {
-            when (prefs.intro) { Prefs.INTRO_BOOT -> "Au démarrage"; Prefs.INTRO_WAKE -> "Démarrage et réveil"; else -> "Désactivée" }
+        row(str(R.string.settings_intro), str(R.string.settings_intro_about), {
+            when (prefs.intro) { Prefs.INTRO_BOOT -> str(R.string.settings_intro_boot); Prefs.INTRO_WAKE -> str(R.string.settings_intro_wake); else -> str(R.string.settings_off_f) }
         }) {
             val opts = listOf(Prefs.INTRO_OFF, Prefs.INTRO_BOOT, Prefs.INTRO_WAKE)
             prefs.intro = opts[(opts.indexOf(prefs.intro) + 1) % opts.size]
             // This boot counts as played: turning it on doesn't start it on the next return home.
             prefs.introBoot = Intro.bootStamp(this)
         }
-        row("Contenu de l'animation", "Film du logo choisi : celui de canvasOS ou celui de l'Apple TV, selon la ligne Logo. Vidéo importée : la vôtre, depuis la page téléphone, dont le logo final s'agrandit et ouvre l'accueil. Nom canvasOS : le nom apparaît en fondu puis s'agrandit." +
-            if (video) "" else "\nAucune vidéo importée pour l'instant : à sa place, le film du logo choisi.", {
-            when (prefs.introSource) { Prefs.INTRO_VIDEO -> "Vidéo importée"; Prefs.INTRO_WORDMARK -> "Nom canvasOS"; else -> "Film " + Brand.label(prefs.brand) }
+        row(str(R.string.settings_intro_source), str(R.string.settings_intro_source_about) +
+            if (video) "" else str(R.string.settings_intro_no_video), {
+            when (prefs.introSource) { Prefs.INTRO_VIDEO -> str(R.string.settings_intro_video); Prefs.INTRO_WORDMARK -> str(R.string.settings_intro_wordmark); else -> str(R.string.settings_intro_film, Brand.label(prefs.brand)) }
         }) {
             val opts = listOfNotNull(Prefs.INTRO_BRAND, Prefs.INTRO_VIDEO.takeIf { video }, Prefs.INTRO_WORDMARK)
             prefs.introSource = opts[(opts.indexOf(prefs.introSource) + 1) % opts.size]
         }
-        row("Délai au réveil", "Au sortir de la veille, l'écran reste noir ce temps avant l'animation. Beaucoup de téléviseurs (surtout OLED) n'affichent l'image que quelques secondes après l'allumage : allongez si le début de l'animation manque, raccourcissez si le noir dure trop.", {
-            if (prefs.wakeDelay == 0) "Aucun" else "${prefs.wakeDelay / 1000.0} s".replace(".0 ", " ")
+        row(str(R.string.settings_wake_delay), str(R.string.settings_wake_delay_about), {
+            if (prefs.wakeDelay == 0) str(R.string.settings_none) else "${prefs.wakeDelay / 1000.0} s".replace(".0 ", " ")
         }) {
             val opts = listOf(0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 10_000)
             prefs.wakeDelay = opts.firstOrNull { it > prefs.wakeDelay } ?: 0
         }
-        row("Son de l'animation", "Joue le son du film ou de la vidéo d'animation.", { onOff(prefs.introSound) }) { prefs.introSound = !prefs.introSound }
-        row("Aperçu de l'animation", "Revient à l'accueil et la joue une fois maintenant.", { "" }, chevron = true) {
+        row(str(R.string.settings_intro_sound), str(R.string.settings_intro_sound_about), { onOff(prefs.introSound) }) { prefs.introSound = !prefs.introSound }
+        row(str(R.string.settings_intro_preview), str(R.string.settings_intro_preview_about), { "" }, chevron = true) {
             startActivity(Intent(this, HomeActivity::class.java)
                 .putExtra(Intro.EXTRA_PREVIEW, true)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -552,29 +535,29 @@ class SettingsActivity : Activity() {
 
     /** Fond d'écran et cadre photo. */
     private fun wallpaperGroup() {
-        section("Fond d'écran")
-        row("Fond d'écran", "Le fond de l'écran d'accueil : un thème, une source de fonds d'écran ou vos propres photos.", {
+        section(str(R.string.wallpaper_name))
+        row(str(R.string.wallpaper_name), str(R.string.settings_wallpaper_about), {
             Backgrounds.THEMES[prefs.background]?.first ?: Wallpapers.label(Wallpapers.sourceFor(prefs.background)).let {
-                if (prefs.background == Wallpapers.MINE) it else "$it (auto)"
+                if (prefs.background == Wallpapers.MINE) it else str(R.string.settings_wallpaper_auto, it)
             }
         }, chevron = true) { startActivity(Intent(this, WallpaperActivity::class.java)) }
-        row("Changer de photo", "À quelle fréquence le fond d'écran automatique change. Jamais : la photo ne change qu'avec le bouton Photo suivante du Centre de contrôle (ou Changer maintenant ci-dessous).",
+        row(str(R.string.settings_change_photo), str(R.string.settings_change_photo_about),
             { minutesLabel(prefs.wallMinutes) }) {
             val opts = listOf(0, 15, 30, 60, 180, 1440)
             prefs.wallMinutes = opts[(opts.indexOf(prefs.wallMinutes) + 1) % opts.size]
         }
-        row("Changer maintenant", "Prend une nouvelle photo de la source de fonds d'écran. Les photos sont téléchargées au moment de les afficher ; les anciennes sont effacées après quelques jours.",
-            { "${Wallpapers(this, Wallpapers.sourceFor(prefs.background)).files().size} photos" }) { v ->
-            v.text = "Téléchargement…"
+        row(str(R.string.settings_change_now), str(R.string.settings_change_now_about),
+            { Wallpapers(this, Wallpapers.sourceFor(prefs.background)).files().size.let { plural(R.plurals.settings_photos, it, it) } }) { v ->
+            v.text = str(R.string.settings_downloading)
             Thread {
                 val w = Wallpapers(applicationContext, Wallpapers.sourceFor(prefs.background))
                 w.refresh()
                 w.advance(prefs.wallMinutes, force = true)
-                runOnUiThread { v.text = "${w.files().size} photos" }
+                runOnUiThread { v.text = w.files().size.let { plural(R.plurals.settings_photos, it, it) } }
             }.start()
         }
-        section("Cadre photo")
-        row("Cadre photo en économiseur", "Après un moment d'inactivité, le téléviseur affiche en plein écran des photos ou des vues aériennes, à la place de son propre économiseur d'écran.",
+        section(str(R.string.settings_photo_frame))
+        row(str(R.string.settings_frame_saver), str(R.string.settings_frame_saver_about),
             { onOff(prefs.frameScreensaver) }) { v ->
             val on = !prefs.frameScreensaver
             val current = Settings.Secure.getString(contentResolver, "screensaver_components").orEmpty()
@@ -582,27 +565,27 @@ class SettingsActivity : Activity() {
             // Whatever the TV had before goes back when the frame is turned off (Sony's own if unknown).
             if (on && !current.startsWith(packageName)) prefs.prevScreensaver = current
             val comp = if (on) mine else prefs.prevScreensaver.ifEmpty { SONY_DREAM }
-            v.text = "Réglage…"
+            v.text = str(R.string.settings_applying)
             Thread {
                 val ok = putSecure("screensaver_components", comp) && putSecure("screensaver_enabled", "1")
                 if (ok) prefs.frameScreensaver = on
-                runOnUiThread { v.text = if (ok) onOff(prefs.frameScreensaver) else "Débogage local requis" }
+                runOnUiThread { v.text = if (ok) onOff(prefs.frameScreensaver) else str(R.string.settings_local_debug_required) }
             }.start()
         }
-        row("Contenu de l'économiseur", "Le cadre photo montre les photos du fond d'écran, ou les vues aériennes de l'Apple TV.",
-            { if (prefs.saverMode == Prefs.SAVER_AERIAL) "Vues aériennes" else "Photos" }) {
+        row(str(R.string.settings_saver_content), str(R.string.settings_saver_content_about),
+            { if (prefs.saverMode == Prefs.SAVER_AERIAL) str(R.string.settings_saver_aerials) else str(R.string.settings_saver_photos) }) {
             prefs.saverMode = if (prefs.saverMode == Prefs.SAVER_AERIAL) Prefs.SAVER_PHOTOS else Prefs.SAVER_AERIAL
         }
-        row("Délai avant le cadre photo", "Durée sans activité avant l'affichage du cadre photo.", { minutesLabel(idleMinutes()) }) { v ->
+        row(str(R.string.settings_frame_delay), str(R.string.settings_frame_delay_about), { minutesLabel(idleMinutes()) }) { v ->
             val opts = listOf(1, 3, 5, 10, 15, 30)
             val next = opts[(opts.indexOf(idleMinutes()) + 1) % opts.size]
-            v.text = "Réglage…"
+            v.text = str(R.string.settings_applying)
             Thread {
                 val ok = LocalAdb.shell(applicationContext, "settings put system screen_off_timeout ${next * 60_000}") != null
-                runOnUiThread { v.text = if (ok) minutesLabel(next) else "Débogage local requis" }
+                runOnUiThread { v.text = if (ok) minutesLabel(next) else str(R.string.settings_local_debug_required) }
             }.start()
         }
-        row("Durée par photo", "Durée d'affichage de chaque photo dans le cadre photo.", { "${prefs.frameSeconds} s" }) {
+        row(str(R.string.settings_frame_seconds), str(R.string.settings_frame_seconds_about), { "${prefs.frameSeconds} s" }) {
             val opts = listOf(15, 30, 60, 120)
             prefs.frameSeconds = opts[(opts.indexOf(prefs.frameSeconds) + 1) % opts.size]
         }
@@ -611,16 +594,13 @@ class SettingsActivity : Activity() {
     /** Top Shelf: its mode and its Android TV source. */
     private fun shelfGroup() {
         section("Top Shelf")
-        row("Top Shelf", "Les contenus de l'app sélectionnée dans le Dock, en plein écran au-dessus. Complet : la ligne « Continuer à regarder » " +
-            "publiée pour Android TV, puis les tendances TMDB (avec votre clé) et les sources web. Android TV seul : sans TMDB ni web. " +
-            "Désactivé : le fond d'écran reste visible.", {
-            when (prefs.shelfMode) { Prefs.SHELF_TV -> "Android TV seul"; Prefs.SHELF_OFF -> "Désactivé"; else -> "Complet" }
+        row("Top Shelf", str(R.string.settings_shelf_mode_about), {
+            when (prefs.shelfMode) { Prefs.SHELF_TV -> str(R.string.settings_shelf_tv); Prefs.SHELF_OFF -> str(R.string.settings_off); else -> str(R.string.settings_shelf_full) }
         }) {
             prefs.shelfMode = Prefs.SHELF_MODES[(Prefs.SHELF_MODES.indexOf(prefs.shelfMode) + 1) % Prefs.SHELF_MODES.size]
         }
-        section("Sources")
-        row("Continuer à regarder", "La ligne que les apps (YouTube, Netflix…) publient pour Android TV : ce que vous regardiez, à reprendre. " +
-            "Désactivée, le Top Shelf n'utilise que TMDB et les sources web, quand le mode du Top Shelf les autorise.",
+        section(str(R.string.settings_sources))
+        row(str(R.string.settings_watch_next), str(R.string.settings_watch_next_about),
             { onOff(prefs.watchNext) }) { prefs.watchNext = !prefs.watchNext }
     }
 
@@ -646,75 +626,68 @@ class SettingsActivity : Activity() {
     /** Télécommande: the shortcuts, one row each, and a new one. */
     private fun remoteGroup() {
         val list = bindings()
-        section("Raccourcis")
-        if (list.isEmpty()) row("Aucun raccourci", "Choisissez « Ajouter un raccourci… », la fonction, puis appuyez sur la touche de la télécommande qui la fera.", { "" }) {}
+        section(str(R.string.settings_shortcuts))
+        if (list.isEmpty()) row(str(R.string.settings_no_shortcut), str(R.string.settings_no_shortcut_about), { "" }) {}
         for (b in list) {
-            row(KeyMap.keyName(b.code, b.long), "Appuyez pour changer la touche ou la fonction, ou supprimer ce raccourci. " +
-                "Les raccourcis agissent sur l'accueil, pas dans les autres apps.", { KeyMap.label(b.action, ::boundName) }) { bindingMenu(b) }
+            row(KeyMap.keyName(b.code, b.long), str(R.string.settings_shortcut_about), { KeyMap.label(b.action, ::boundName) }) { bindingMenu(b) }
         }
-        row("Ajouter un raccourci…", "La fonction d'abord, puis la touche : un appui bref l'associe à l'appui simple, un appui maintenu à l'appui long. " +
-            "Les touches du téléviseur (Accueil, Volume) et celles de l'accueil (flèches, OK, Retour en appui simple) sont refusées.",
+        row(str(R.string.settings_add_shortcut), str(R.string.settings_add_shortcut_about),
             { "" }, chevron = true) { remoteEdit = null; open(Page.REMOTE_ACTIONS) }
         // Only where the TV has channels to go to (an operator's box).
         if (tv.hasChannels()) {
-            section("Chaînes")
-            row("Touches numérotées", "Activé par défaut. Sur l'accueil, tapez le numéro d'une chaîne (jusqu'à trois chiffres) : la télé s'ouvre " +
-                "sur cette chaîne. Un chiffre associé à un raccourci garde son raccourci. Aller directement à la chaîne demande le débogage local ; " +
-                "sans lui, la télé s'ouvre sur la chaîne en cours.", { onOff(prefs.channelKeys) }) { v ->
+            section(str(R.string.settings_channels))
+            row(str(R.string.settings_channel_keys), str(R.string.settings_channel_keys_about), { onOff(prefs.channelKeys) }) { v ->
                 prefs.channelKeys = !prefs.channelKeys
                 v.text = onOff(prefs.channelKeys)
             }
         }
-        section("Touches du téléviseur")
-        row("Capter les touches du téléviseur", "Désactivé par défaut. Les touches Réglages et Profil de la télécommande (et quelques autres : Guide, Source, TV) " +
-            "sont prises par le téléviseur avant d'atteindre canvasOS. Activé, le service d'accessibilité de canvasOS (celui de la Protection de l'accueil) " +
-            "filtre les touches : il voit alors chaque touche pressée, dans toutes les apps, et ne retient que ces touches-là, seulement sur l'accueil et " +
-            "seulement si elles sont associées ; tout le reste passe tel quel. Rien n'est enregistré. Demande le débogage local une fois.",
-            { if (!prefs.captureKeys) "Désactivé" else if (HomeGuardService.isRunning) "Activé" else "Activé (service inactif)" }) { v ->
+        section(str(R.string.settings_tv_keys))
+        row(str(R.string.settings_capture_keys), str(R.string.settings_capture_keys_about),
+            { if (!prefs.captureKeys) str(R.string.settings_off) else if (HomeGuardService.isRunning) str(R.string.settings_on) else str(R.string.settings_on_service_inactive) }) { v ->
             val on = !prefs.captureKeys
-            v.text = "Réglage…"
+            v.text = str(R.string.settings_applying)
             Thread {
                 val ok = (Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)) && Guard.setCaptureKeys(applicationContext, on)
-                runOnUiThread { v.text = if (!ok) "Débogage local requis" else if (on) "Activé" else "Désactivé" }
+                runOnUiThread { v.text = if (!ok) str(R.string.settings_local_debug_required) else if (on) str(R.string.settings_on) else str(R.string.settings_off) }
             }.start()
         }
     }
 
     private fun bindingMenu(b: KeyMap.Binding) {
         showSheet(Sheet(root).title(KeyMap.keyName(b.code, b.long)).message(KeyMap.label(b.action, ::boundName))
-            .button("Changer la touche") { learn(b.action, replacing = b) }
-            .button("Changer la fonction") { remoteEdit = b; open(Page.REMOTE_ACTIONS) }
-            .button("Supprimer") { prefs.keyMap = KeyMap.serialize(KeyMap.remove(bindings(), b)) }
-            .button("Annuler") {})
+            .button(str(R.string.settings_change_key)) { learn(b.action, replacing = b) }
+            .button(str(R.string.settings_change_function)) { remoteEdit = b; open(Page.REMOTE_ACTIONS) }
+            .button(str(R.string.settings_delete)) { prefs.keyMap = KeyMap.serialize(KeyMap.remove(bindings(), b)) }
+            .button(str(R.string.settings_cancel)) {})
     }
 
     /** The functions a key can do, then the apps and the inputs on pages of their own. */
     private fun remoteActions() {
-        heading.text = "Fonction"
-        about.text = if (remoteEdit != null) "La nouvelle fonction de « ${KeyMap.keyName(remoteEdit!!.code, remoteEdit!!.long)} »." else "Ce que fera la touche ; elle est demandée ensuite."
+        heading.text = str(R.string.settings_function)
+        about.text = if (remoteEdit != null) str(R.string.settings_function_new, KeyMap.keyName(remoteEdit!!.code, remoteEdit!!.long)) else str(R.string.settings_function_about)
         for ((id, name) in KeyMap.ACTIONS) row(name, null, { "" }) { chooseAction(id) }
-        row("Ouvrir une app…", null, { "" }, chevron = true) { open(Page.REMOTE_APPS) }
-        row("Source HDMI…", null, { "" }, chevron = true) { open(Page.REMOTE_INPUTS) }
+        row(str(R.string.settings_open_app_more), null, { "" }, chevron = true) { open(Page.REMOTE_APPS) }
+        row(str(R.string.settings_hdmi_input_more), null, { "" }, chevron = true) { open(Page.REMOTE_INPUTS) }
     }
 
     private fun remoteApps() {
-        heading.text = "Ouvrir une app"
-        about.text = "L'app que la touche ouvrira."
+        heading.text = str(R.string.settings_open_app)
+        about.text = str(R.string.settings_open_app_about)
         for (a in repo.allApps().sortedBy { it.label.lowercase() }) row(a.label, null, { "" }) { chooseAction(KeyMap.APP + a.pkg) }
     }
 
     /** The TV's inputs, read off the UI thread (a few hundred ms on some firmwares). */
     private fun remoteInputs() {
-        heading.text = "Source HDMI"
-        about.text = "L'entrée sur laquelle la touche basculera."
-        row("Recherche des entrées…", null, { "" }) {}
+        heading.text = str(R.string.settings_hdmi_input)
+        about.text = str(R.string.settings_hdmi_input_about)
+        row(str(R.string.settings_inputs_searching), null, { "" }) {}
         Thread {
             val inputs = runCatching { tv.inputs() }.getOrDefault(emptyList())
             runOnUiThread {
                 if (page != Page.REMOTE_INPUTS || isDestroyed) return@runOnUiThread
                 list.removeAllViews()
-                if (inputs.isEmpty()) row("Aucune entrée", "Ce téléviseur n'expose pas d'entrée HDMI à canvasOS (voir AGENTS.md, section 9).", { "" }) {}
-                for (i in inputs) row(i.name, null, { if (i.connected) "Connectée" else "" }) { chooseAction(KeyMap.INPUT + InputTile.encode(i)) }
+                if (inputs.isEmpty()) row(str(R.string.settings_no_input), str(R.string.settings_no_input_about), { "" }) {}
+                for (i in inputs) row(i.name, null, { if (i.connected) str(R.string.settings_input_connected) else "" }) { chooseAction(KeyMap.INPUT + InputTile.encode(i)) }
                 list.post { centreList(); list.getChildAt(0)?.requestFocus() }
             }
         }.start()
@@ -732,9 +705,9 @@ class SettingsActivity : Activity() {
 
     /** Asks for the key: the next key pressed is read in [dispatchKeyEvent], Back cancels. */
     private fun learn(action: String, replacing: KeyMap.Binding?) {
-        val sheet = Sheet(root).title("Appuyez sur la touche")
-            .message("Un appui bref l'associe à l'appui simple, un appui maintenu à l'appui long. Retour annule." +
-                if (prefs.captureKeys) "" else " Les touches Réglages et Profil demandent « Capter les touches du téléviseur ».")
+        val sheet = Sheet(root).title(str(R.string.settings_learn_title))
+            .message(str(R.string.settings_learn_message) +
+                if (prefs.captureKeys) "" else " " + str(R.string.settings_learn_capture_hint))
         learning = Learning(action, replacing, sheet)
         learnCode = -1
         // With key capture on, the service hands every key here, those the TV would keep included.
@@ -746,7 +719,7 @@ class SettingsActivity : Activity() {
     /** A key pressed ([long]: held) while learning: refused with the reason, confirmed when the key already does something, else bound. */
     private fun learnt(code: Int, long: Boolean) {
         val l = learning ?: return
-        KeyMap.reserved(code, long)?.let { l.sheet.message("$it Essayez une autre touche, ou Retour pour annuler."); return }
+        KeyMap.reserved(code, long)?.let { l.sheet.message(str(R.string.settings_learn_retry, it)); return }
         val b = KeyMap.Binding(code, long, l.action)
         val taken = KeyMap.find(bindings(), code, long)?.takeIf { l.replacing == null || !it.sameKey(l.replacing.code, l.replacing.long) }
         learning = null
@@ -754,10 +727,10 @@ class SettingsActivity : Activity() {
         page = Page.REMOTE
         l.sheet.dismiss()
         if (taken != null) {
-            showSheet(Sheet(root).title("Réaffecter « ${KeyMap.keyName(code, long)} » ?")
-                .message("Cette touche fait déjà « ${KeyMap.label(taken.action, ::boundName)} ».")
-                .button("Réaffecter") { save(b, l.replacing) }
-                .button("Annuler") {})
+            showSheet(Sheet(root).title(str(R.string.settings_reassign_title, KeyMap.keyName(code, long)))
+                .message(str(R.string.settings_reassign_message, KeyMap.label(taken.action, ::boundName)))
+                .button(str(R.string.settings_reassign)) { save(b, l.replacing) }
+                .button(str(R.string.settings_cancel)) {})
         } else save(b, l.replacing)
     }
 
@@ -790,48 +763,40 @@ class SettingsActivity : Activity() {
 
     /** Lecture et notifications: the Control Center player and the banners. */
     private fun playbackGroup() {
-        section("Lecture")
-        row("Lecture en cours", "Activée par défaut. Affiche dans le Centre de contrôle ce que lit une app (titre, artiste, pochette) avec lecture/pause et piste suivante. " +
-            "Lit pour cela les informations de lecture des apps (titre, artiste, pochette, état de lecture) via l'écouteur de notifications ; rien n'est enregistré.",
+        section(str(R.string.settings_playback))
+        row(str(R.string.settings_now_playing), str(R.string.settings_now_playing_about),
             { if (!MediaSessions.isAvailable(this)) LISTENER_NEEDED else onOff(prefs.nowPlaying) }) { v ->
             // On by default: without the listener it shows as needing it, and OK then asks for it rather than switching off.
             if (prefs.nowPlaying && MediaSessions.isAvailable(this)) { prefs.nowPlaying = false; return@row }
-            v.text = "Réglage…"
+            v.text = str(R.string.settings_applying)
             Thread {
                 val ok = MediaSessions.isAvailable(applicationContext) || (allowListener() && MediaSessions.isAvailable(applicationContext))
                 if (ok) prefs.nowPlaying = true
                 runOnUiThread { v.text = if (ok) onOff(true) else LISTENER_NEEDED }
             }.start()
         }
-        row("Lecteur sur l'accueil", "Activé par défaut, avec Lecture en cours. En haut à gauche de l'accueil, une capsule montre la pochette, le titre et l'artiste " +
-            "de ce qu'une app lit, sans commande : OK ouvre cette app ; lecture, pause et piste suivante restent dans le Centre de contrôle. " +
-            "Rien de plus n'est lu pour elle.",
-            { if (!prefs.nowPlaying) "Lecture en cours requise" else onOff(prefs.homePlayer) }) { v ->
+        row(str(R.string.settings_home_player), str(R.string.settings_home_player_about),
+            { if (!prefs.nowPlaying) str(R.string.settings_now_playing_required) else onOff(prefs.homePlayer) }) { v ->
             if (!prefs.nowPlaying) { Motion.bump(v, 1, 0); return@row }
             prefs.homePlayer = !prefs.homePlayer
         }
-        row("Paroles", "Activées par défaut. À chaque nouveau titre lu, le téléviseur demande à LRCLIB (lrclib.net, gratuit, sans clé) s'il a ses paroles : " +
-            "le titre, l'artiste, l'album et la durée du morceau sont envoyés, rien d'autre, et rien n'est enregistré. Quand il en a, un bouton Paroles sort à droite du " +
-            "lecteur de l'accueil quand celui-ci est sélectionné : OK affiche les paroles synchronisées sur le fond assombri (les paroles non synchronisées ne sont pas proposées), OK encore les retire. " +
-            "Désactivées, rien n'est envoyé à LRCLIB.",
-            { if (!prefs.nowPlaying || !prefs.homePlayer) "Lecteur sur l'accueil requis" else onOff(prefs.lyrics) }) { v ->
+        row(str(R.string.settings_lyrics), str(R.string.settings_lyrics_about),
+            { if (!prefs.nowPlaying || !prefs.homePlayer) str(R.string.settings_home_player_required) else onOff(prefs.lyrics) }) { v ->
             if (!prefs.nowPlaying || !prefs.homePlayer) { Motion.bump(v, 1, 0); return@row }
             prefs.lyrics = !prefs.lyrics
         }
-        row("Position des paroles", "Où les lignes s'affichent sur l'accueil : à gauche sous le lecteur, au centre, ou à droite.", {
-            when (prefs.lyricsAlign) { Prefs.LYRICS_CENTER -> "Centre"; Prefs.LYRICS_RIGHT -> "Droite"; else -> "Gauche" }
+        row(str(R.string.settings_lyrics_position), str(R.string.settings_lyrics_position_about), {
+            when (prefs.lyricsAlign) { Prefs.LYRICS_CENTER -> str(R.string.settings_lyrics_center); Prefs.LYRICS_RIGHT -> str(R.string.settings_lyrics_right); else -> str(R.string.settings_lyrics_left) }
         }) { prefs.lyricsAlign = Prefs.LYRICS_ALIGNS[(Prefs.LYRICS_ALIGNS.indexOf(prefs.lyricsAlign) + 1) % Prefs.LYRICS_ALIGNS.size] }
-        section("Notifications")
-        row("Bannières de notifications", "Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). " +
-            "Le titre et le texte des notifications de toutes les apps, sauf celles exclues, sont lus, affichés 6 secondes et jamais enregistrés. " +
-            "Désactivées, aucune notification n'est lue.",
+        section(str(R.string.settings_notifications))
+        row(str(R.string.settings_banners), str(R.string.settings_banners_about),
             { if (!Banners.listenerGranted(this)) LISTENER_NEEDED else onOff(prefs.banners) }) { v ->
             if (prefs.banners && Banners.listenerGranted(this)) {
                 prefs.banners = false
                 show(Page.PLAYBACK, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
                 return@row
             }
-            v.text = "Réglage…"
+            v.text = str(R.string.settings_applying)
             Thread {
                 val ok = Banners.listenerGranted(applicationContext) || allowListener()
                 // Over the app being watched, banners need the overlay permission the guard also uses.
@@ -845,88 +810,82 @@ class SettingsActivity : Activity() {
                 }
             }.start()
         }
-        if (prefs.banners) row("Apps exclues des bannières", "Les notifications des apps cochées ne sont ni lues ni affichées. Toutes les autres s'affichent en bannière." +
-            if (Settings.canDrawOverlays(this)) "" else "\nSans l'autorisation d'affichage par-dessus les autres apps (étape 4), les bannières n'apparaissent que sur l'accueil.",
+        if (prefs.banners) row(str(R.string.settings_banner_apps), str(R.string.settings_banner_apps_about) +
+            if (Settings.canDrawOverlays(this)) "" else str(R.string.settings_banner_apps_no_overlay),
             { "${prefs.bannerExcluded.size}" }, chevron = true) { open(Page.BANNER_APPS) }
     }
 
     /** Mémoire et alimentation. */
     private fun memoryGroup() {
-        section("Nettoyage")
-        row("Libérer la mémoire en veille", "Ferme les apps en arrière-plan quand le téléviseur passe en veille, pour un redémarrage plus fluide. " +
-            "Les apps qui lisent du son ou de la vidéo, ou qui font tourner un service (diffusion, serveur), sont épargnées.", { onOff(prefs.cleanOnStandby) }) {
+        section(str(R.string.settings_cleanup))
+        row(str(R.string.settings_clean_standby), str(R.string.settings_clean_standby_about), { onOff(prefs.cleanOnStandby) }) {
             prefs.cleanOnStandby = !prefs.cleanOnStandby
         }
-        row("Libération programmée", "Ferme régulièrement les apps en arrière-plan, sauf l'app à l'écran et celles qui lisent du son ou de la vidéo ou font tourner un service.", {
-            if (prefs.cleanIntervalHours == 0) "Désactivée" else "Toutes les ${prefs.cleanIntervalHours} h"
+        row(str(R.string.settings_clean_scheduled), str(R.string.settings_clean_scheduled_about), {
+            if (prefs.cleanIntervalHours == 0) str(R.string.settings_off_f) else str(R.string.settings_every_hours, prefs.cleanIntervalHours)
         }) {
             val opts = listOf(0, 2, 4, 8)
             prefs.cleanIntervalHours = opts[(opts.indexOf(prefs.cleanIntervalHours) + 1) % opts.size]
             KeeperService.start(this, KeeperService.ACTION_RESCHEDULE)
         }
-        row("Libérer la mémoire", "Ferme maintenant les apps en arrière-plan. Celles qui lisent du son ou de la vidéo, ou qui font tourner un service " +
-            "(diffusion, serveur), sont épargnées.", { cleanResult ?: "${Cleaner.availMb(this)} Mo libres" }) { v ->
-            v.text = "Libération…"
+        row(str(R.string.settings_clean_now), str(R.string.settings_clean_now_about), { cleanResult ?: str(R.string.settings_mb_free, Cleaner.availMb(this)) }) { v ->
+            v.text = str(R.string.settings_freeing)
             Thread {
                 val r = Cleaner.clean(applicationContext)
                 runOnUiThread {
                     // Short: the label must keep its room. The whole summary is on "Dernier nettoyage".
-                    cleanResult = if (r.viaAdb) "${r.freedMb} Mo · ${r.closedText}" else r.freedText
+                    cleanResult = if (r.viaAdb) "${str(R.string.settings_mb, r.freedMb)} · ${r.closedText}" else r.freedText
                     // "Dernier nettoyage" below changed too, so the page is rebuilt (where the focus is) rather than one value set.
                     if (page == Page.MEMORY && !isDestroyed) show(Page.MEMORY, list.indexOfChild(list.focusedChild).coerceAtLeast(0))
                 }
             }.start()
         }
-        row("Dernier nettoyage", if (prefs.lastClean.isEmpty()) "La mémoire n'a pas encore été libérée." else "${lastCleanWhat()}.\nAppuyez pour voir les apps fermées.",
+        row(str(R.string.settings_last_clean), if (prefs.lastClean.isEmpty()) str(R.string.settings_last_clean_none) else str(R.string.settings_last_clean_about, lastCleanWhat()),
             { lastCleanWhen() }, chevron = true) { open(Page.LAST_CLEAN) }
-        row("Apps à conserver", "Apps que la libération de la mémoire ne ferme jamais, comme la diffusion d'écran. " +
-            "Celles qui lisent du son ou de la vidéo, ou qui font tourner un service, sont de toute façon épargnées tant qu'elles le font.", { "${prefs.keep.size}" }, chevron = true) {
+        row(str(R.string.settings_keep_apps), str(R.string.settings_keep_apps_about), { "${prefs.keep.size}" }, chevron = true) {
             open(Page.KEEP)
         }
-        section("Alimentation")
-        row("Bouton marche/arrêt", "Veille : comme d'habitude. Arrêt complet : économise l'énergie, mais le démarrage est plus long.", {
-            if (prefs.shutdownOnPowerKey) "Arrêt complet" else "Veille"
+        section(str(R.string.settings_power))
+        row(str(R.string.settings_power_key), str(R.string.settings_power_key_about), {
+            if (prefs.shutdownOnPowerKey) str(R.string.settings_power_shutdown) else str(R.string.settings_power_sleep)
         }) {
             prefs.shutdownOnPowerKey = !prefs.shutdownOnPowerKey
             if (prefs.shutdownOnPowerKey && !prefs.adbAuthorized)
-                Toast.makeText(this, "Autorisez d'abord le débogage local pour l'activer", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, str(R.string.settings_power_needs_adb), Toast.LENGTH_LONG).show()
         }
     }
 
     /** Apps: hidden and removed apps, folders. */
     private fun appsGroup() {
         section("Apps")
-        row("Apps masquées", "Apps qui ne s'affichent pas sur l'écran d'accueil.", { "${prefs.hidden.size}" }, chevron = true) { open(Page.HIDDEN) }
-        row("Apps préinstallées supprimées", "Apps préinstallées supprimées depuis le menu d'appui long ; vous pouvez les restaurer ici.", { "${prefs.removed.size}" }, chevron = true) {
+        row(str(R.string.settings_hidden_apps), str(R.string.settings_hidden_apps_about), { "${prefs.hidden.size}" }, chevron = true) { open(Page.HIDDEN) }
+        row(str(R.string.settings_removed_apps), str(R.string.settings_removed_apps_about), { "${prefs.removed.size}" }, chevron = true) {
             open(Page.REMOVED)
         }
-        section("Dossiers")
-        row("Dossiers", "Les dossiers de l'accueil et leurs apps. Ils se créent et se gèrent depuis l'accueil, par un appui long sur une app ou un dossier.",
+        section(str(R.string.settings_folders))
+        row(str(R.string.settings_folders), str(R.string.settings_folders_about),
             { "${prefs.folderList().size}" }, chevron = true) { open(Page.FOLDERS) }
     }
 
     /** Profils. */
     private fun accountsGroup() {
-        section("Profils")
-        row("Profil actuel", "Le profil dont l'accueil est affiché. Changez-en avec la photo de profil, en haut à droite de l'accueil.",
+        section(str(R.string.settings_profiles))
+        row(str(R.string.settings_current_profile), str(R.string.settings_current_profile_about),
             { Profiles.displayName(prefs.current()) }) {}
-        row("Gérer les profils", PROFILES_ABOUT, { "${prefs.profileList().size}" }, chevron = true) { open(Page.PROFILES) }
+        row(str(R.string.settings_manage_profiles), PROFILES_ABOUT, { "${prefs.profileList().size}" }, chevron = true) { open(Page.PROFILES) }
     }
 
     /** Page téléphone. */
     private fun phoneGroup() {
-        section("Accès")
-        row("Afficher le QR code", "Scannez-le avec un téléphone sur le même Wi-Fi. La page qui s'ouvre sert de télécommande avec clavier, importe des photos et des liens d'images, règle l'animation de démarrage " +
-            "et la météo, et installe des apps (APK). La télécommande et l'installation d'apps demandent le débogage local.",
+        section(str(R.string.settings_access))
+        row(str(R.string.settings_show_qr), str(R.string.settings_show_qr_about),
             { "" }, chevron = true) { open(Page.PHONE) }
-        section("Sécurité")
-        row("Régénérer le code", "Change le code secret de l'adresse : les téléphones qui connaissaient l'ancienne ne peuvent plus s'en servir et doivent scanner à nouveau. " +
-            "Faites-le si un téléphone qui a ouvert la page est perdu.", { if (tokenRenewed) "Nouveau code créé" else "" }) {
+        section(str(R.string.settings_security))
+        row(str(R.string.settings_regenerate), str(R.string.settings_regenerate_about), { if (tokenRenewed) str(R.string.settings_new_code) else "" }) {
             PhoneServer.regenerate(this)
             tokenRenewed = true
         }
-        row("Page téléphone", "Le code dans l'adresse est la seule protection : toute personne qui le connaît, sur le même réseau, peut commander le téléviseur. " +
-            "Désactivée, la page ne répond plus du tout.", { onOff(prefs.phoneServer) }) {
+        row(str(R.string.settings_phone_page), str(R.string.settings_phone_server_about), { onOff(prefs.phoneServer) }) {
             prefs.phoneServer = !prefs.phoneServer
             KeeperService.start(this)
         }
@@ -934,60 +893,55 @@ class SettingsActivity : Activity() {
 
     /** Système: debugging, the home guard, the TV's own settings, updates, the version. */
     private fun systemGroup() {
-        section("Débogage")
-        row("Débogage local", "Permet à l'accueil d'éteindre le téléviseur, de libérer la mémoire, etc. via le débogage local. Dans la fenêtre qui s'affiche, choisissez « Toujours autoriser ».",
-            { if (prefs.adbAuthorized) "Autorisé" else "Non autorisé, appuyez sur OK" }) { v ->
-            v.text = "Choisissez Toujours autoriser…"
+        section(str(R.string.settings_debugging))
+        row(str(R.string.settings_local_debug), str(R.string.settings_local_debug_about),
+            { if (prefs.adbAuthorized) str(R.string.settings_allowed) else str(R.string.settings_not_allowed_press) }) { v ->
+            v.text = str(R.string.settings_choose_always_allow)
             Thread {
                 val ok = LocalAdb.shell(applicationContext, "echo ok", 60_000) != null
-                runOnUiThread { v.text = if (ok) "Autorisé" else "Non autorisé, OK pour réessayer" }
+                runOnUiThread { v.text = if (ok) str(R.string.settings_allowed) else str(R.string.settings_not_allowed_retry) }
             }.start()
         }
-        row("Débogage ADB", "Doit être activé pour qu'un ordinateur puisse se connecter au téléviseur : sans lui, pas d'installation ni de mise à jour par le réseau. " +
-            "Il se règle dans les options pour les développeurs du téléviseur.",
+        row(str(R.string.settings_adb), str(R.string.settings_adb_about),
             { onOff(Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1) }) {}
-        if (Guard.isXiaomi() || prefs.keepAdb) row("Garder le débogage ADB activé", "Empêche le système de désactiver le débogage ADB.", { onOff(prefs.keepAdb) }) { v ->
+        if (Guard.isXiaomi() || prefs.keepAdb) row(str(R.string.settings_keep_adb), str(R.string.settings_keep_adb_about), { onOff(prefs.keepAdb) }) { v ->
             val on = !prefs.keepAdb
-            v.text = "Réglage…"
+            v.text = str(R.string.settings_applying)
             Thread {
                 val ok = !on || Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)
                 if (ok) { prefs.keepAdb = on; Guard.ensureAdb(applicationContext) }
-                runOnUiThread { v.text = if (ok) onOff(prefs.keepAdb) else "Débogage local requis" }
+                runOnUiThread { v.text = if (ok) onOff(prefs.keepAdb) else str(R.string.settings_local_debug_required) }
             }.start()
         }
-        row("Adresse IP", "L'adresse du téléviseur sur le réseau local. Un ordinateur sur le même réseau s'en sert pour s'y connecter (adb connect, port 5555), " +
-            "par exemple pour installer ou mettre à jour canvasOS.", { Net.lanAddress(this) ?: "Non connecté" }) {}
+        row(str(R.string.settings_ip), str(R.string.settings_ip_about), { Net.lanAddress(this) ?: str(R.string.settings_not_connected) }) {}
         // Only where the TV keeps Home for its own launcher; on Sony or stock Android TV canvasOS is the real home.
         if (Guard.needed(this)) {
-            section("Protection")
-            row("Protection de l'accueil", "Quand la touche Accueil ramène au lanceur d'origine du téléviseur, revient automatiquement ici.",
-                { if (!prefs.guard) "Désactivée" else if (HomeGuardService.isRunning) "Activée" else "Activée (inactive)" }) { v ->
+            section(str(R.string.settings_protection))
+            row(str(R.string.guard_name), str(R.string.settings_guard_about),
+                { if (!prefs.guard) str(R.string.settings_off_f) else if (HomeGuardService.isRunning) str(R.string.settings_on_f) else str(R.string.settings_on_inactive) }) { v ->
                 val on = !prefs.guard
-                v.text = "Réglage…"
+                v.text = str(R.string.settings_applying)
                 Thread {
                     val ok = (Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)) && Guard.setEnabled(applicationContext, on)
                     runOnUiThread {
-                        v.text = if (!ok) "Débogage local requis" else if (on) "Activée" else "Désactivée"
-                        if (ok && on) Toast.makeText(this, "La touche Accueil ramènera désormais ici au lieu du lanceur d'origine", Toast.LENGTH_LONG).show()
+                        v.text = if (!ok) str(R.string.settings_local_debug_required) else if (on) str(R.string.settings_on_f) else str(R.string.settings_off_f)
+                        if (ok && on) Toast.makeText(this, str(R.string.settings_guard_on_toast), Toast.LENGTH_LONG).show()
                     }
                 }.start()
             }
-            row("Touche Accueil directe", "La protection prend la touche Accueil avant le système et ouvre directement l'accueil, sans montrer le lanceur d'origine. " +
-                "Elle voit alors passer chaque touche pressée dans toutes les apps et ne retient que la touche Accueil. Désactivez-la si une app réagit deux fois à une touche.",
+            row(str(R.string.settings_home_key), str(R.string.settings_home_key_about),
                 { onOff(prefs.homeKey) }) { v ->
                 prefs.homeKey = !prefs.homeKey
                 HomeGuardService.refreshFilter()
                 v.text = onOff(prefs.homeKey)
             }
         }
-        section("Téléviseur")
-        row("Réglages du téléviseur", "Ouvre les réglages d'origine du téléviseur.", { "" }, chevron = true) { runCatching { startActivity(TvControls(this).settingsIntent()) } }
-        section("Mise à jour")
-        row("Mise à jour", "Cherche la dernière version de canvasOS sur GitHub (Releases) et l'installe sur place : les réglages et les autorisations sont conservés. " +
-            "Appuyez une première fois pour vérifier, une seconde pour installer. L'installation demande le débogage local. " +
-            "canvasOS cherche aussi chaque jour qu'une version existe, sans rien télécharger.", { updateValue() }) { v -> updatePressed(v) }
-        section("À propos")
-        row("À propos", "canvasOS, un écran d'accueil Android TV inspiré de tvOS.",
+        section(str(R.string.settings_tv))
+        row(str(R.string.settings_tv_settings), str(R.string.settings_tv_settings_about), { "" }, chevron = true) { runCatching { startActivity(TvControls(this).settingsIntent()) } }
+        section(str(R.string.settings_update))
+        row(str(R.string.settings_update), str(R.string.settings_update_about), { updateValue() }) { v -> updatePressed(v) }
+        section(str(R.string.settings_about))
+        row(str(R.string.settings_about), str(R.string.settings_about_about),
             { "Version " + packageManager.getPackageInfo(packageName, 0).versionName }) {}
     }
 
@@ -998,7 +952,7 @@ class SettingsActivity : Activity() {
     private var updateNote: String? = null
 
     private fun updateValue(): String = Updater.working ?: updateNote
-        ?: Updater.pending(prefs)?.let { "$it disponible, OK pour installer" } ?: "Vérifier"
+        ?: Updater.pending(prefs)?.let { str(R.string.settings_update_available, it) } ?: str(R.string.settings_update_check)
 
     /**
      * The "Mise à jour" row. Pressed once it asks GitHub; when that finds a newer version it says
@@ -1013,39 +967,39 @@ class SettingsActivity : Activity() {
             v.text = text
             if (detail != null) about.text = detail
         }
-        v.text = "Vérification…"
+        v.text = str(R.string.settings_update_checking)
         Thread {
             val update = foundUpdate ?: when (val c = Updater.check(applicationContext)) {
                 is Updater.Check.UpToDate -> {
-                    updateNote = "À jour (${c.version})"
-                    return@Thread say(updateNote!!, "canvasOS ${c.version} est la dernière version publiée.")
+                    updateNote = str(R.string.settings_update_up_to_date, c.version)
+                    return@Thread say(updateNote!!, str(R.string.settings_update_latest, c.version))
                 }
                 is Updater.Check.Unavailable -> {
-                    updateNote = "Releases inaccessibles"
+                    updateNote = str(R.string.settings_update_unreachable)
                     return@Thread say(updateNote!!, c.reason)
                 }
                 is Updater.Check.Available -> c.update
             }
             foundUpdate = update
             updateNote = null
-            val mb = if (update.size > 0) " (${(update.size + 524_288) / 1_048_576} Mo)" else ""
+            val mb = if (update.size > 0) " (${str(R.string.settings_mb, (update.size + 524_288) / 1_048_576)})" else ""
             val notes = if (update.notes.isEmpty()) "" else "\n\n" + update.notes.take(400)
-            if (!offered) return@Thread say(updateValue(), "canvasOS ${update.version}$mb est disponible. Appuyez sur OK pour le télécharger et l'installer.$notes")
+            if (!offered) return@Thread say(updateValue(), str(R.string.settings_update_found, update.version, mb) + notes)
             if (!prefs.adbAuthorized) {
-                say("Choisissez Toujours autoriser…")
+                say(str(R.string.settings_choose_always_allow))
                 if (LocalAdb.shell(applicationContext, "echo ok", 60_000) == null) {
-                    updateNote = "Débogage local requis"
-                    return@Thread say(updateNote!!, "L'installation passe par le débogage local : autorisez-le (ligne « Débogage local » plus haut), puis réessayez.")
+                    updateNote = str(R.string.settings_local_debug_required)
+                    return@Thread say(updateNote!!, str(R.string.settings_update_needs_adb))
                 }
             }
             Updater.downloadAndInstall(applicationContext, update) { say(it) }
                 .onSuccess {
                     // Normally the process is gone by now.
-                    updateNote = "Installée, redémarrage…"
+                    updateNote = str(R.string.settings_update_installed)
                     say(updateNote!!)
                 }
                 .onFailure {
-                    updateNote = "Échec, OK pour réessayer"
+                    updateNote = str(R.string.settings_update_failed)
                     say(updateNote!!, it.message)
                 }
         }.start()
@@ -1053,7 +1007,7 @@ class SettingsActivity : Activity() {
 
     private fun appPicker(title: String, selected: Set<String>, includeHidden: Boolean = false, source: List<AppEntry>? = null, toggle: (String, Boolean) -> Unit) {
         heading.text = title
-        about.text = if (page == Page.KEEP) "La libération de la mémoire ne ferme pas les apps cochées." else "Les apps cochées n'apparaissent pas sur l'écran d'accueil."
+        about.text = if (page == Page.KEEP) str(R.string.settings_keep_page_about) else str(R.string.settings_hidden_page_about)
         val apps = source ?: if (includeHidden) repo.allApps().sortedBy { it.label } else repo.allApps().filter { !repo.isSystem(it.pkg) }.sortedBy { it.label }
         val sel = selected.toMutableSet()
         for (a in apps) {
@@ -1078,10 +1032,10 @@ class SettingsActivity : Activity() {
                 AppEntry(pkg, packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString(), android.content.ComponentName(pkg, ""), false)
             }.getOrNull()
         }
-        appPicker("Apps exclues des bannières", prefs.bannerExcluded, source = (listed + more).sortedBy { it.label.lowercase() }) { pkg, on ->
+        appPicker(str(R.string.settings_banner_apps), prefs.bannerExcluded, source = (listed + more).sortedBy { it.label.lowercase() }) { pkg, on ->
             prefs.bannerExcluded = if (on) prefs.bannerExcluded + pkg else prefs.bannerExcluded - pkg
         }
-        about.text = "Les notifications des apps cochées ne sont ni lues ni affichées. Celles des autres apps s'affichent 6 secondes en haut à droite."
+        about.text = str(R.string.settings_banner_apps_page_about)
     }
 
     /** Approves the notification listener through local adb, as AGENTS.md step 4 does from a computer. Blocking. */
@@ -1096,19 +1050,17 @@ class SettingsActivity : Activity() {
      * screen itself (long press), where the apps are.
      */
     private fun foldersPage() {
-        heading.text = "Dossiers"
-        about.text = "Les dossiers de l'accueil, dans leur ordre, avec le nombre d'apps qu'ils affichent."
+        heading.text = str(R.string.settings_folders)
+        about.text = str(R.string.settings_folders_page_about)
         // What the grid shows: installed apps that are not hidden.
         val folders = repo.orderedVisible().filter { it.folder != null }
-        if (folders.isEmpty()) row("Aucun dossier", null, { "" }) {}
+        if (folders.isEmpty()) row(str(R.string.settings_no_folder), null, { "" }) {}
         for (f in folders) {
             val apps = f.folder.orEmpty()
-            row(f.label, if (apps.isEmpty()) "Ce dossier est vide." else apps.joinToString(", ") { it.label },
-                { if (apps.size < 2) "${apps.size} app" else "${apps.size} apps" }) {}
+            row(f.label, if (apps.isEmpty()) str(R.string.settings_folder_empty) else apps.joinToString(", ") { it.label },
+                { plural(R.plurals.settings_apps_count, apps.size, apps.size) }) {}
         }
-        row("Les dossiers se gèrent depuis l'accueil (appui long)", "Sur l'accueil, appuyez longuement sur une app : « Nouveau dossier… » " +
-            "la range dans un nouveau dossier, « Ajouter au dossier… » dans un dossier existant. Appuyez longuement sur un dossier pour " +
-            "le renommer, y ajouter des apps, le déplacer ou le supprimer ; ses apps reviennent alors sur l'accueil.", { "" }) {}
+        row(str(R.string.settings_folders_how), str(R.string.settings_folders_how_about), { "" }) {}
     }
 
     /**
@@ -1116,47 +1068,45 @@ class SettingsActivity : Activity() {
      * then a new one and the PIN. Every change is saved at once; the page is drawn again after.
      */
     private fun profilesPage() {
-        heading.text = "Profils"
+        heading.text = str(R.string.settings_profiles)
         about.text = PROFILES_ABOUT
         val current = prefs.currentProfile
         for (p in prefs.profileList()) {
             val desc = listOfNotNull(
-                if (p.id == current) "Le profil affiché en ce moment." else null,
-                if (p.restricted) "Profil enfant : le code PIN est demandé pour en sortir, ouvrir les réglages ou supprimer une app ; « Masquer » et « Infos sur l'app » n'y sont pas proposés." else null,
-                if (p.isMain) "Le profil principal : celui de l'accueil d'avant les profils. Il ne peut pas être supprimé." else null,
-            ).joinToString("\n").ifEmpty { "Appuyez pour le renommer, changer sa couleur, en faire un profil enfant ou le supprimer." }
-            row(Profiles.displayName(p), desc, { if (p.restricted) "Enfant" else "" }, picture = ProfileAvatar.drawable(this, p, ROW_AVATAR_DP)) { profileMenu(p) }
+                if (p.id == current) str(R.string.settings_profile_shown) else null,
+                if (p.restricted) str(R.string.settings_profile_child_about) else null,
+                if (p.isMain) str(R.string.settings_profile_main_about) else null,
+            ).joinToString("\n").ifEmpty { str(R.string.settings_profile_press_about) }
+            row(Profiles.displayName(p), desc, { if (p.restricted) str(R.string.settings_profile_child_value) else "" }, picture = ProfileAvatar.drawable(this, p, ROW_AVATAR_DP)) { profileMenu(p) }
         }
-        row("Nouveau profil…", "Un profil de plus, avec son propre accueil. Il commence avec l'ordre des apps par défaut, sans apps masquées ni dossiers, " +
-            "et avec le fond d'écran du profil principal.", { "" }) {
-            showSheet(Sheet(root).title("Nouveau profil").message("Le nom du profil, par exemple « Enfants ».")
+        row(str(R.string.settings_new_profile_more), str(R.string.settings_new_profile_about), { "" }) {
+            showSheet(Sheet(root).title(str(R.string.settings_new_profile)).message(str(R.string.settings_new_profile_message))
                 .input("", Profiles.DEFAULT_NAME) { name -> prefs.addProfile(name) })
         }
-        row("Code PIN", "Demandé dans un profil enfant pour en sortir, ouvrir les réglages ou supprimer une app. De ${Profiles.PIN_MIN} à ${Profiles.PIN_MAX} chiffres ; " +
-            "le modifier ou le supprimer demande le code actuel. Oublié, il se supprime depuis un ordinateur (adb).",
-            { if (prefs.hasPin) "Défini" else "Aucun" }) { pinMenu() }
+        row(str(R.string.settings_pin), str(R.string.settings_pin_about, Profiles.PIN_MIN, Profiles.PIN_MAX),
+            { if (prefs.hasPin) str(R.string.settings_pin_set) else str(R.string.settings_none) }) { pinMenu() }
     }
 
     private fun profileMenu(p: Profile) {
         val name = Profiles.displayName(p)
         val s = Sheet(root).title(name)
-            .message(if (prefs.hasPin) null else "Un profil enfant n'est protégé qu'une fois un code PIN défini (ligne « Code PIN » de cette page).")
-            .button("Renommer") {
-                showSheet(Sheet(root).title("Renommer « $name »").message(if (p.isMain) "Laissez le champ vide pour reprendre le nom « ${Profiles.MAIN_NAME} »." else null)
+            .message(if (prefs.hasPin) null else str(R.string.settings_pin_needed))
+            .button(str(R.string.settings_rename)) {
+                showSheet(Sheet(root).title(str(R.string.settings_rename_title, name)).message(if (p.isMain) str(R.string.settings_rename_main, Profiles.MAIN_NAME) else null)
                     .input(p.name, if (p.isMain) Profiles.MAIN_NAME else Profiles.DEFAULT_NAME) { text -> prefs.editProfiles { Profiles.rename(it, p.id, text) } })
             }
-            .cycle("Couleur", Profiles.COLOR_NAMES, p.color) { c -> prefs.editProfiles { Profiles.setColor(it, p.id, c) } }
-            .button("Photo…") { photoHelp(p) }
-        if (Profiles.photoFile(this, p.id) != null) s.button("Supprimer la photo") {
+            .cycle(str(R.string.settings_color), Profiles.COLOR_NAMES, p.color) { c -> prefs.editProfiles { Profiles.setColor(it, p.id, c) } }
+            .button(str(R.string.settings_photo_more)) { photoHelp(p) }
+        if (Profiles.photoFile(this, p.id) != null) s.button(str(R.string.settings_remove_photo)) {
             Profiles.clearPhoto(this, p.id)
         }
-        s.toggle("Profil enfant", p.restricted) { on -> prefs.editProfiles { Profiles.setRestricted(it, p.id, on) } }
-        if (Profiles.canDelete(prefs.profileList(), p.id, prefs.currentProfile)) s.button("Supprimer") {
-            showSheet(Sheet(root).title("Supprimer « $name » ?").message("Son accueil (ordre des apps, apps masquées, dossiers, noms, fond d'écran) est effacé. Les apps elles-mêmes restent installées.")
-                .button("Supprimer") { prefs.deleteProfile(p.id) }
-                .button("Annuler") {})
+        s.toggle(str(R.string.settings_child_profile), p.restricted) { on -> prefs.editProfiles { Profiles.setRestricted(it, p.id, on) } }
+        if (Profiles.canDelete(prefs.profileList(), p.id, prefs.currentProfile)) s.button(str(R.string.settings_delete)) {
+            showSheet(Sheet(root).title(str(R.string.settings_delete_profile_title, name)).message(str(R.string.settings_delete_profile_message))
+                .button(str(R.string.settings_delete)) { prefs.deleteProfile(p.id) }
+                .button(str(R.string.settings_cancel)) {})
         }
-        showSheet(s.button("Annuler") {})
+        showSheet(s.button(str(R.string.settings_cancel)) {})
     }
 
     /**
@@ -1165,43 +1115,41 @@ class SettingsActivity : Activity() {
      */
     private fun photoHelp(p: Profile) {
         val name = Profiles.displayName(p)
-        showSheet(Sheet(root).title("Photo de « $name »")
-            .message("Sans photo, le profil montre l'initiale de son nom sur sa couleur.\n\n" +
-                "Depuis un téléphone : ouvrez la page téléphone (Réglages de l'accueil → Page téléphone), onglet Réglages, section Profils, puis « Changer la photo ».\n\n" +
-                "Depuis un ordinateur : adb push photo.jpg /sdcard/Android/data/$packageName/files/${Profiles.AVATARS_DIR}/${p.id}.jpg")
+        showSheet(Sheet(root).title(str(R.string.settings_photo_title, name))
+            .message(str(R.string.settings_photo_help, packageName, Profiles.AVATARS_DIR, p.id))
             .button("OK") {})
     }
 
     /** "Code PIN": set one, or change or remove it after giving the current one. */
     private fun pinMenu() {
-        if (!prefs.hasPin) { pins.choose("Définir le code PIN"); return }
-        showSheet(Sheet(root).title("Code PIN").message(null)
-            .button("Modifier") { pins.ask("Code actuel") { pins.choose("Nouveau code PIN") } }
-            .button("Supprimer") {
-                pins.ask("Code actuel") {
-                    showSheet(Sheet(root).title("Supprimer le code PIN ?").message("Les profils enfants ne seront plus protégés : on pourra en sortir et ouvrir les réglages sans code.")
-                        .button("Supprimer") { prefs.setPin(null) }
-                        .button("Annuler") {})
+        if (!prefs.hasPin) { pins.choose(str(R.string.settings_pin_define)); return }
+        showSheet(Sheet(root).title(str(R.string.settings_pin)).message(null)
+            .button(str(R.string.settings_pin_change)) { pins.ask(str(R.string.settings_pin_current)) { pins.choose(str(R.string.settings_pin_new)) } }
+            .button(str(R.string.settings_delete)) {
+                pins.ask(str(R.string.settings_pin_current)) {
+                    showSheet(Sheet(root).title(str(R.string.settings_pin_remove_title)).message(str(R.string.settings_pin_remove_message))
+                        .button(str(R.string.settings_delete)) { prefs.setPin(null) }
+                        .button(str(R.string.settings_cancel)) {})
                 }
             }
-            .button("Annuler") {})
+            .button(str(R.string.settings_cancel)) {})
     }
 
     /** Preinstalled apps deleted from the long-press menu; selecting one reinstalls it from the system partition. */
     private fun removedApps() {
-        heading.text = "Apps préinstallées supprimées"
-        about.text = "Choisissez une app pour la réinstaller depuis la partition système."
-        if (prefs.removed.isEmpty()) row("Aucune app supprimée", null, { "" }) {}
+        heading.text = str(R.string.settings_removed_apps)
+        about.text = str(R.string.settings_removed_page_about)
+        if (prefs.removed.isEmpty()) row(str(R.string.settings_no_removed), null, { "" }) {}
         for (pkg in prefs.removed.sorted()) {
             val label = try {
                 packageManager.getApplicationInfo(pkg, PackageManager.MATCH_UNINSTALLED_PACKAGES).loadLabel(packageManager).toString()
             } catch (e: Exception) { pkg }
-            row(label, null, { "Restaurer" }) { v ->
-                v.text = "Restauration…"
+            row(label, null, { str(R.string.settings_restore) }) { v ->
+                v.text = str(R.string.settings_restoring)
                 Thread {
                     val ok = LocalAdb.shell(applicationContext, "cmd package install-existing $pkg")?.contains("installed") == true
                     if (ok) prefs.removed = prefs.removed - pkg
-                    runOnUiThread { v.text = if (ok) "Restaurée" else "Échec" }
+                    runOnUiThread { v.text = if (ok) str(R.string.settings_restored) else str(R.string.settings_failed) }
                 }.start()
             }
         }
@@ -1209,11 +1157,8 @@ class SettingsActivity : Activity() {
 
     /** The phone page's QR code, large enough to scan from the sofa, with its address. */
     private fun phonePage() {
-        heading.text = "Page téléphone"
-        about.text = "Sur le même Wi-Fi, scannez le code avec l'appareil photo d'un téléphone ; la page reste accessible à tout moment. " +
-            "Télécommande et clavier, photos et liens d'images, animation de démarrage, installation d'apps (APK).\n" +
-            "Le code dans l'adresse est la seule protection : régénérez-le si un téléphone qui a ouvert la page est perdu ; " +
-            "les téléphones qui connaissaient l'ancien devront scanner à nouveau."
+        heading.text = str(R.string.settings_phone_page)
+        about.text = str(R.string.settings_phone_page_about)
         val qr = ImageView(this).apply {
             background = rounded(Color.WHITE, u(ROW_RADIUS).toFloat())
             setPadding(u(12), u(12), u(12), u(12))
@@ -1226,7 +1171,7 @@ class SettingsActivity : Activity() {
         list.addView(address, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(12) })
         list.addView(byName, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(4); bottomMargin = u(16) })
         fun load() {
-            address.text = "Démarrage…"
+            address.text = str(R.string.settings_starting)
             byName.visibility = android.view.View.GONE
             Thread {
                 // Usually already running (KeeperService); the address is read again, Wi-Fi may have changed.
@@ -1239,41 +1184,40 @@ class SettingsActivity : Activity() {
                     qr.setImageBitmap(bmp)
                     qr.visibility = if (bmp != null) android.view.View.VISIBLE else android.view.View.GONE
                     address.text = url ?: off
-                    byName.text = host?.let { "Aussi : $it (iPhone et Android récents)" }
+                    byName.text = host?.let { str(R.string.settings_phone_also, it) }
                     byName.visibility = if (host != null) android.view.View.VISIBLE else android.view.View.GONE
                 }
             }.start()
         }
         load()
         // No description of its own: the page's explanation stays under the icon.
-        row("Régénérer le code", null, { "" }) { v ->
+        row(str(R.string.settings_regenerate), null, { "" }) { v ->
             PhoneServer.regenerate(this)
             tokenRenewed = true
-            v.text = "Nouveau code créé"
+            v.text = str(R.string.settings_new_code)
             load()
         }
     }
 
     /** When the last memory cleanup ran ("22 oct. 21:40"), from [Prefs.lastClean] ("22 oct. 21:40, 312 Mo libérés, 4 apps fermées"). */
-    private fun lastCleanWhen() = prefs.lastClean.substringBefore(", ").ifEmpty { "Jamais" }
+    private fun lastCleanWhen() = prefs.lastClean.substringBefore(", ").ifEmpty { str(R.string.settings_never) }
 
     /** What it did: "312 Mo libérés, 4 apps fermées". */
     private fun lastCleanWhat() = prefs.lastClean.substringAfter(", ", "")
 
     /** The apps the last memory cleanup closed, by name. Nothing here does anything; Back returns. */
     private fun lastCleanPage() {
-        heading.text = "Dernier nettoyage"
-        val cacheOnly = lastCleanWhat().endsWith("(cache uniquement)")
+        heading.text = str(R.string.settings_last_clean)
+        val cacheOnly = lastCleanWhat().endsWith(str(R.string.sys_clean_cache_only))
         about.text = when {
-            prefs.lastClean.isEmpty() -> "La mémoire n'a pas encore été libérée."
-            cacheOnly -> "${lastCleanWhen()} : ${lastCleanWhat()}.\nSans le débogage local, seules les apps en cache ont été arrêtées, et Android ne dit pas lesquelles."
-            else -> "${lastCleanWhen()} : ${lastCleanWhat()}.\nLes apps à conserver, et celles qui lisaient du son ou de la vidéo ou faisaient tourner " +
-                "un service (diffusion, serveur), n'ont pas été fermées."
+            prefs.lastClean.isEmpty() -> str(R.string.settings_last_clean_none)
+            cacheOnly -> str(R.string.settings_last_clean_cache, lastCleanWhen(), lastCleanWhat())
+            else -> str(R.string.settings_last_clean_full, lastCleanWhen(), lastCleanWhat())
         }
         val labels = prefs.lastCleanClosed.split(',').filter { it.isNotBlank() }.map { pkg ->
             runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
         }.sortedBy { it.lowercase() }
-        if (labels.isEmpty()) row(if (cacheOnly) "Détail indisponible" else "Aucune app fermée", null, { "" }) {}
+        if (labels.isEmpty()) row(if (cacheOnly) str(R.string.settings_detail_unavailable) else str(R.string.settings_no_app_closed), null, { "" }) {}
         for (label in labels) row(label, null, { "" }) {}
     }
 
@@ -1281,7 +1225,7 @@ class SettingsActivity : Activity() {
     private fun section(title: String) {
         val first = list.childCount == 0
         list.addView(label(HEADER_SIZE, HEADER, 600).apply {
-            text = title.uppercase(java.util.Locale.FRENCH)
+            text = title.uppercase(uiLocale)
             letterSpacing = 0.02f
             tag = HEADER_TAG
         }, LinearLayout.LayoutParams(-2, -2).apply {
@@ -1365,7 +1309,7 @@ class SettingsActivity : Activity() {
         override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
     }
 
-    private fun onOff(b: Boolean) = if (b) "Activé" else "Désactivé"
+    private fun onOff(b: Boolean) = if (b) str(R.string.settings_on) else str(R.string.settings_off)
 
     /** "自动（…）" with what auto picks on this TV, or the forced choice. */
     private fun auto(pref: String, on: Boolean, yes: String, no: String) =
@@ -1380,8 +1324,8 @@ class SettingsActivity : Activity() {
         else LocalAdb.shell(applicationContext, "settings put secure $key $value") != null
 
     private fun minutesLabel(m: Int) = when {
-        m <= 0 -> "Jamais"
-        m >= 1440 -> "Chaque jour"
+        m <= 0 -> str(R.string.settings_never)
+        m >= 1440 -> str(R.string.settings_every_day)
         m >= 60 -> "${m / 60} h"
         else -> "$m min"
     }

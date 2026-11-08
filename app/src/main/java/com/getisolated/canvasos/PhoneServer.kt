@@ -700,9 +700,9 @@ class PhoneServer private constructor(private val ctx: Context) : NanoHTTPD(PORT
 
         /** Why [url] is null, for the screens that show the QR code. */
         fun unavailable(ctx: Context): String = when {
-            !Prefs(ctx).phoneServer -> "La page téléphone est désactivée (Réglages de l'accueil → Page téléphone)."
-            lanAddress(ctx) == null -> "Le téléviseur n'est pas connecté au réseau. Connectez-le, puis rouvrez cette page."
-            else -> "La page téléphone n'a pas pu démarrer : le port $PORT est peut-être pris par une autre app."
+            !Prefs(ctx).phoneServer -> str(R.string.sys_phone_off)
+            lanAddress(ctx) == null -> str(R.string.sys_phone_offline)
+            else -> str(R.string.sys_phone_port_busy, PORT)
         }
 
         /** A new token: every address handed out so far stops working at once. */

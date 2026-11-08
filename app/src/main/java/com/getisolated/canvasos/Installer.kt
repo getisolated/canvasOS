@@ -27,7 +27,7 @@ object Installer {
 
     /** Installs [apk] over the installed version (`-r`); the success value is what `pm` printed ("Success"). Blocking, up to 180 s. */
     fun install(ctx: Context, apk: File): Result<String> = synchronized(this) {
-        if (!apk.isFile || apk.length() == 0L) return Result.failure(Failure("Le fichier à installer est introuvable."))
+        if (!apk.isFile || apk.length() == 0L) return Result.failure(Failure(str(R.string.sys_install_missing)))
         val src = PhoneApi.shellQuote(apk.absolutePath)
         // The shell copies the APK to its own /data/local/tmp and installs from there: system_server
         // cannot open the app's files, and streaming the bytes through `pm install -S` breaks on some
@@ -39,7 +39,7 @@ object Installer {
             out = LocalAdb.shell(ctx, "pm install -r -S ${apk.length()} < $src", TIMEOUT_MS) ?: out
         }
         when {
-            out == null -> Result.failure(Failure("Le débogage local ne répond pas : autorisez-le dans Réglages de l'accueil → Système.", unreachable = true))
+            out == null -> Result.failure(Failure(str(R.string.sys_install_adb_off), unreachable = true))
             "Success" in out -> Result.success(out.trim())
             else -> Result.failure(Failure(
                 listOfNotNull(PhoneApi.installHint(out), out.trim().takeLast(400).ifEmpty { null }).joinToString("\n"),

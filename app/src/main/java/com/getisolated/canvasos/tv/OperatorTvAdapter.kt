@@ -8,6 +8,8 @@ import android.media.tv.TvContract
 import com.getisolated.canvasos.HomeGuardService
 import com.getisolated.canvasos.LocalAdb
 import com.getisolated.canvasos.Prefs
+import com.getisolated.canvasos.R
+import com.getisolated.canvasos.str
 
 /**
  * Operator boxes whose own launcher is also the live TV player (SFR Connect TV: SDMC DV8945-KFS,
@@ -41,7 +43,7 @@ class OperatorTvAdapter(ctx: Context) : AndroidAdapter(ctx) {
     }
 
     override fun inputSummary(list: List<Input>) =
-        if (list.singleOrNull()?.uri?.startsWith(URI_PREFIX) == true) "Chaînes en direct" else super.inputSummary(list)
+        if (list.singleOrNull()?.uri?.startsWith(URI_PREFIX) == true) str(R.string.sys_tv_live_channels) else super.inputSummary(list)
 
     /** The launcher's own banner, which operators draw for their TV (SFR's: a white TV on red). */
     override fun inputBanner(i: Input): Drawable? =

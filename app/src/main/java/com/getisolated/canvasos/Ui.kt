@@ -300,9 +300,9 @@ class Sheet(private val host: FrameLayout) {
     fun cycle(label: String, values: List<String>, index: Int, changed: (Int) -> Unit) = apply {
         var at = index.coerceIn(0, values.size - 1)
         lateinit var b: PillButton
-        b = PillButton(ctx, "$label : ${values[at]}") {
+        b = PillButton(ctx, str(R.string.home_label_value, label, values[at])) {
             at = (at + 1) % values.size
-            b.setLabel("$label : ${values[at]}")
+            b.setLabel(str(R.string.home_label_value, label, values[at]))
             changed(at)
         }
         col.addView(b, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(52)).apply { topMargin = ctx.dp(12) })
@@ -363,7 +363,7 @@ class Sheet(private val host: FrameLayout) {
         field = f
         col.addView(f, LinearLayout.LayoutParams(ctx.dp(420), ctx.dp(56)).apply { topMargin = ctx.dp(12); bottomMargin = ctx.dp(8) })
         button("OK") { done(f.text.toString()) }
-        button("Annuler") {}
+        button(str(R.string.home_cancel)) {}
         (scroll.layoutParams as FrameLayout.LayoutParams).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             topMargin = ctx.dp(56 - SCROLL_PAD)

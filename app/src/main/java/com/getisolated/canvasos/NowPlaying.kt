@@ -359,8 +359,8 @@ class NowPlaying private constructor(
         fun subtitle(hasTitle: Boolean, line: String?, app: String, playing: Boolean): String = when {
             line != null -> line
             hasTitle -> app
-            playing -> "En lecture"
-            else -> "En pause"
+            playing -> str(R.string.home_playing)
+            else -> str(R.string.home_paused)
         }
 
         /**

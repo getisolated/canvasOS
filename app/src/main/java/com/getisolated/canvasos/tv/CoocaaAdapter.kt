@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.getisolated.canvasos.R
+import com.getisolated.canvasos.str
 
 /**
  * Skyworth / Coocaa (酷开) firmware. Only inputs are adapted so far, and not yet on a real TV.
@@ -19,7 +21,7 @@ class CoocaaAdapter(ctx: Context) : AndroidAdapter(ctx) {
     override fun matches() = isCoocaa() || pickerAvailable()
 
     override fun inputs() = super.inputs().ifEmpty {
-        if (pickerAvailable()) listOf(Input(URI_PREFIX, "Sources Coocaa", "", false)) else emptyList()
+        if (pickerAvailable()) listOf(Input(URI_PREFIX, str(R.string.sys_tv_inputs_of, "Coocaa"), "", false)) else emptyList()
     }
 
     override fun setInput(i: Input) {
@@ -29,7 +31,7 @@ class CoocaaAdapter(ctx: Context) : AndroidAdapter(ctx) {
     }
 
     override fun inputSummary(list: List<Input>) =
-        if (list.firstOrNull()?.uri == URI_PREFIX) "Sélecteur de source Coocaa" else super.inputSummary(list)
+        if (list.firstOrNull()?.uri == URI_PREFIX) str(R.string.sys_tv_input_picker, "Coocaa") else super.inputSummary(list)
 
     /**
      * The launcher package alone isn't enough: an older firmware may lack the picker activity,

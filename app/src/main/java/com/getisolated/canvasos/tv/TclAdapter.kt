@@ -4,6 +4,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.getisolated.canvasos.R
+import com.getisolated.canvasos.str
 
 /**
  * TCL / FFalcon China firmware (tcl_mt5879_cn and relatives).
@@ -26,7 +28,7 @@ class TclAdapter(ctx: Context) : AndroidAdapter(ctx) {
      * (TV / HDMI1(ARC/eARC) / HDMI2-4 / AV / 投屏) for the user to choose from.
      */
     override fun inputs() = super.inputs().ifEmpty {
-        if (installed(LIVE_TV)) listOf(Input(URI_PREFIX, "Sources TCL", "", false)) else emptyList()
+        if (installed(LIVE_TV)) listOf(Input(URI_PREFIX, str(R.string.sys_tv_inputs_of, "TCL"), "", false)) else emptyList()
     }
 
     override fun setInput(i: Input) {
@@ -35,7 +37,7 @@ class TclAdapter(ctx: Context) : AndroidAdapter(ctx) {
     }
 
     override fun inputSummary(list: List<Input>) =
-        if (list.firstOrNull()?.uri == URI_PREFIX) "Sélecteur de source TCL" else super.inputSummary(list)
+        if (list.firstOrNull()?.uri == URI_PREFIX) str(R.string.sys_tv_input_picker, "TCL") else super.inputSummary(list)
 
     override fun settingsIntent() =
         if (installed(SETTINGS_PKG)) Intent(Intent.ACTION_MAIN).setComponent(ComponentName(SETTINGS_PKG, "$SETTINGS_PKG.ui.MainActivity"))

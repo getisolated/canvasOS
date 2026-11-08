@@ -159,10 +159,10 @@ class LyricsView(ctx: Context, private val io: Executor) : FrameLayout(ctx) {
         lines = emptyList()
         current = -1
         val msg = when {
-            loading -> "Paroles…"
-            r == null -> "Paroles indisponibles : LRCLIB est injoignable"
-            r.instrumental -> "Instrumental"
-            !r.synced -> "Pas de paroles synchronisées pour ce titre"
+            loading -> str(R.string.home_lyrics_loading)
+            r == null -> str(R.string.home_lyrics_unreachable)
+            r.instrumental -> str(R.string.home_instrumental)
+            !r.synced -> str(R.string.home_no_synced_lyrics)
             else -> null
         }
         status.text = msg ?: ""

@@ -53,7 +53,7 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
     /** The focusable capsule itself. */
     val capsule = Capsule()
     /** The Paroles button, out while the capsule or itself has focus and the track has lyrics. */
-    val lyrics = RoundButton(R.drawable.ic_lyrics, "Paroles")
+    val lyrics = RoundButton(R.drawable.ic_lyrics, str(R.string.home_lyrics))
 
     /** What shows, or null while the capsule is gone. */
     var now: NowPlaying? = null
@@ -280,7 +280,7 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
             background = glass
             outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
             clipToOutline = true
-            contentDescription = "Lecture"
+            contentDescription = str(R.string.home_playback)
             setPadding(art.inset, 0, context.dp(14), 0)
             addView(cover, LayoutParams(art.size, art.size).apply { marginEnd = art.inset })
             val column = LinearLayout(context).apply {
@@ -312,7 +312,7 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
             if (!n.sameAs(old) || fresh) {
                 put(title, n.title)
                 put(artist, n.sub)
-                contentDescription = "Lecture : ${n.title}, ${n.sub}"
+                contentDescription = str(R.string.home_playback_desc, n.title, n.sub)
                 if (old == null || old.art !== n.art || fresh) {
                     cover.setImageDrawable(NowPlaying.Cover(n.art, art.radius.toFloat(), context.getDrawable(R.drawable.ic_music)))
                 }
@@ -367,7 +367,7 @@ class HomePlayer(ctx: Context, private val io: Executor, private val scene: Scen
         fun pressed(v: Boolean) {
             on = v
             img.alpha = if (v || isFocused) 1f else 0.75f
-            contentDescription = if (v) "Paroles (affichées)" else "Paroles"
+            contentDescription = if (v) str(R.string.home_lyrics_shown) else str(R.string.home_lyrics)
         }
     }
 

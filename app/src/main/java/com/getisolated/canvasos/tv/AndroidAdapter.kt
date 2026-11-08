@@ -9,6 +9,9 @@ import android.media.tv.TvInputInfo
 import android.media.tv.TvInputManager
 import android.provider.Settings
 import android.util.Log
+import com.getisolated.canvasos.R
+import com.getisolated.canvasos.plural
+import com.getisolated.canvasos.str
 
 /** An HDMI input. [uri] is whatever the adapter that listed it needs to switch to it; it is also kept for inputs pinned to the home grid. */
 data class Input(val uri: String, val title: String, val label: String, val connected: Boolean) {
@@ -120,7 +123,7 @@ open class AndroidAdapter(protected val ctx: Context) : TvAdapter {
     }
 
     override fun inputSummary(list: List<Input>) =
-        if (list.isEmpty()) "Sources illisibles" else if (list.size == 1) "1 entrée HDMI" else "${list.size} entrées HDMI"
+        if (list.isEmpty()) str(R.string.sys_tv_inputs_unreadable) else plural(R.plurals.sys_tv_hdmi_inputs, list.size, list.size)
 
     override fun inputBanner(i: Input): Drawable? = null
 
