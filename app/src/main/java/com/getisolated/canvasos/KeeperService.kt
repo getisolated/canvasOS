@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.bluetooth.BluetoothAdapter
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -100,6 +101,14 @@ class KeeperService : Service() {
         worker.execute { Mdns.restart(applicationContext) }
     }
 
+    /** Wake, or Bluetooth switched on: the last speaker may need asking again ([AudioReconnect]). */
+    private val audioKick = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            if (i.action == Intent.ACTION_SCREEN_ON ||
+                i.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR) == BluetoothAdapter.STATE_ON) AudioReconnect.kick(c)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         prefs = Prefs(this)
@@ -111,6 +120,9 @@ class KeeperService : Service() {
             .setContentText("Libère la mémoire en veille")
             .build())
         registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        registerReceiver(audioKick, IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(BluetoothAdapter.ACTION_STATE_CHANGED) })
+        // Boot, or canvasOS started again: the speaker may still be starting up too.
+        AudioReconnect.kick(this)
         contentResolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ADB_ENABLED), false, adbObserver)
         // Reports the current network at once, which records the first address seen.
         runCatching { getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(network) }
@@ -155,6 +167,7 @@ class KeeperService : Service() {
 
     override fun onDestroy() {
         unregisterReceiver(screenOff)
+        runCatching { unregisterReceiver(audioKick) }
         contentResolver.unregisterContentObserver(adbObserver)
         main.removeCallbacks(periodic)
         main.removeCallbacks(updateCheck)

@@ -1257,13 +1257,14 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
         val narrow = shape == Shape.CAPSULE && s.w == 2
         return when (id) {
             CcLayout.POWER -> GlassButton("Éteindre", R.drawable.ic_power, shape, narrow = narrow) {
-                confirm("Éteindre", "Le téléviseur s'éteint complètement. Rallumez-le avec le bouton marche/arrêt de la télécommande.") { Cleaner.shutdown(ctx) }
+                confirm("Éteindre", if (LocalAdb.unavailable(ctx)) "Le téléviseur se met en veille : Fire OS ne permet pas à une app de l'éteindre complètement. Rallumez-le avec le bouton marche/arrêt de la télécommande."
+                    else "Le téléviseur s'éteint complètement. Rallumez-le avec le bouton marche/arrêt de la télécommande.") { Cleaner.shutdown(ctx) }
             }
             CcLayout.NETWORK -> GlassButton("Réseau", R.drawable.ic_wifi, shape, accent = Color.rgb(48, 222, 239), narrow = narrow) {
                 close()
                 runCatching { ctx.startActivity(tv.wifiIntent()) }
             }.also { networkModule = it }
-            CcLayout.SLEEP -> GlassButton("Veille", R.drawable.ic_moon, shape, narrow = narrow) { needAdb { close(); sleepSheet() } }
+            CcLayout.SLEEP -> GlassButton("Veille", R.drawable.ic_moon, shape, narrow = narrow) { needSleep { close(); sleepSheet() } }
                 .also { sleepModule = it }
             CcLayout.MEMORY -> GlassButton("Libérer la mémoire", R.drawable.ic_memory, shape, narrow = narrow, wrap = true) { cleanNow() }
             CcLayout.PHOTO -> GlassButton("Photo suivante", R.drawable.ic_photo, shape, narrow = narrow, wrap = true) {
@@ -2853,7 +2854,7 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
     }
 
     /** A remote shortcut ([KeyMap.SLEEP_TIMER]): the Veille choices, behind the local-adb check like the capsule. */
-    fun sleepTimer() = needAdb { sleepSheet() }
+    fun sleepTimer() = needSleep { sleepSheet() }
 
     /** A remote shortcut ([KeyMap.CLEAN]): the memory cleanup, as the capsule's. */
     fun cleanMemory() = cleanNow()
@@ -2876,7 +2877,18 @@ class ControlCenter(private val home: HomeActivity, private val host: FrameLayou
             .button("Annuler") {})
     }
 
-    private fun confirm(title: String, msg: String, action: () -> Unit) = needAdb {
+    /**
+     * Sleep and power off go through local adb, or on Fire OS (no local adb, [LocalAdb.unavailable])
+     * through the guard's service, which then has to be on.
+     */
+    private fun needSleep(action: () -> Unit) {
+        if (!LocalAdb.unavailable(ctx)) return needAdb(action)
+        if (Cleaner.canSleep(ctx)) action() else home.showSheet(Sheet(host).title("Protection de l'accueil désactivée")
+            .message("Sur Fire TV, la veille passe par la protection de l'accueil. Activez-la dans Réglages de l'accueil → Système ; si elle demande un ordinateur, un ordinateur l'active par adb.")
+            .button("OK") {})
+    }
+
+    private fun confirm(title: String, msg: String, action: () -> Unit) = needSleep {
         home.showSheet(Sheet(host).title("$title ?").message(msg)
             .button(title) { action() }
             .button("Annuler") {})

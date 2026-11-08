@@ -5,4 +5,6 @@
     <string name="wallpaper_name">Fond d\'écran</string>
     <string name="guard_name">Protection de l\'accueil</string>
     <string name="guard_description">Quand le lanceur d\'origine du téléviseur passe au premier plan, ramène l\'écran d\'accueil. Regarde seulement quelle app est au premier plan, sans lire le contenu de l\'écran.</string>
+    <string name="guard_fire_name">Protection de l\'accueil (Fire TV)</string>
+    <string name="guard_fire_description">Quand l\'accueil d\'Amazon passe au premier plan, ramène l\'écran d\'accueil. Pour laisser ouverts les Paramètres et l\'Appstore, qu\'Amazon ouvre depuis son accueil, lit les identifiants des onglets de l\'accueil d\'Amazon, sans lire aucun texte.</string>
 </resources>

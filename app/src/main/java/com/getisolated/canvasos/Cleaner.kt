@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
+import com.getisolated.canvasos.tv.FireOsAdapter
 import dadb.AdbKeyPair
 import dadb.Dadb
 import java.io.File
@@ -65,6 +66,13 @@ object LocalAdb {
         if (out != null) Prefs(ctx).adbAuthorized = true
         return out
     }
+
+    /**
+     * Fire OS 7.6.6.9 / 8.1.0.3 and later close the connection to 127.0.0.1:5555 during the handshake
+     * (CVE-2024-27350), without the authorization window: there local adb is never offered, unless
+     * it was authorized on an older Fire OS and still works.
+     */
+    fun unavailable(ctx: Context) = FireOsAdapter.isFireOs() && !Prefs(ctx).adbAuthorized
 
     /** Fire-and-forget variant for commands that kill the connection (shutdown). */
     fun shellAsync(ctx: Context, cmd: String) {
@@ -194,7 +202,7 @@ object Cleaner {
         var closed = emptyList<String>()
         var spared = emptyList<String>()
 
-        val list = LocalAdb.shell(ctx, "pm list packages -3")
+        val list = if (LocalAdb.unavailable(ctx)) null else LocalAdb.shell(ctx, "pm list packages -3")
         if (list != null) {
             val candidates = list.lineSequence()
                 .map { it.removePrefix("package:").trim() }
@@ -214,7 +222,8 @@ object Cleaner {
             }
         }
         if (!viaAdb) {
-            // No adb authorization yet: only cached background processes can go.
+            // No adb authorization yet (or none possible, Fire OS): only cached background processes can go.
+            // KILL_BACKGROUND_PROCESSES is granted at install.
             val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             for (app in ctx.packageManager.getInstalledApplications(0)) {
                 if (app.packageName in keep || app.packageName in inUse) continue
@@ -245,7 +254,21 @@ object Cleaner {
         LocalAdb.shell(ctx, "dumpsys activity activities | grep -m1 topResumedActivity")
             ?.let { Regex("""u0 ([\w.]+)/""").find(it)?.groupValues?.get(1) }
 
-    fun shutdown(ctx: Context) = LocalAdb.shellAsync(ctx, "svc power shutdown")
+    /** Where local adb cannot run it (Fire OS), the TV goes to standby instead, the most an app may do there. */
+    fun shutdown(ctx: Context) {
+        // Without local adb nothing else can do it: never fall back to a command that cannot run.
+        if (LocalAdb.unavailable(ctx)) { if (!HomeGuardService.lockScreen()) Log.w(TAG, "standby refused: no guard service"); return }
+        LocalAdb.shellAsync(ctx, "svc power shutdown")
+    }
+
     fun reboot(ctx: Context) = LocalAdb.shellAsync(ctx, "svc power reboot")
-    fun sleep(ctx: Context) = LocalAdb.shellAsync(ctx, "input keyevent KEYCODE_SLEEP")
+
+    /** Through the guard's service where local adb cannot send the sleep key (Fire OS). */
+    fun sleep(ctx: Context) {
+        if (LocalAdb.unavailable(ctx)) { if (!HomeGuardService.lockScreen()) Log.w(TAG, "sleep refused: no guard service"); return }
+        LocalAdb.shellAsync(ctx, "input keyevent KEYCODE_SLEEP")
+    }
+
+    /** Whether [sleep] can work: local adb is authorized, or Fire OS's guard service is running. */
+    fun canSleep(ctx: Context) = Prefs(ctx).adbAuthorized || (LocalAdb.unavailable(ctx) && HomeGuardService.isRunning)
 }

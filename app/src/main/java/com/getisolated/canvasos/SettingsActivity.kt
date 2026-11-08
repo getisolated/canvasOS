@@ -15,6 +15,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.getisolated.canvasos.tv.FireOsAdapter
 import com.getisolated.canvasos.tv.TvControls
 
 /**
@@ -598,8 +599,8 @@ class SettingsActivity : Activity() {
             val next = opts[(opts.indexOf(idleMinutes()) + 1) % opts.size]
             v.text = "Réglage…"
             Thread {
-                val ok = LocalAdb.shell(applicationContext, "settings put system screen_off_timeout ${next * 60_000}") != null
-                runOnUiThread { v.text = if (ok) minutesLabel(next) else "Débogage local requis" }
+                val ok = !LocalAdb.unavailable(applicationContext) && LocalAdb.shell(applicationContext, "settings put system screen_off_timeout ${next * 60_000}") != null
+                runOnUiThread { v.text = if (ok) minutesLabel(next) else needed() }
             }.start()
         }
         row("Durée par photo", "Durée d'affichage de chaque photo dans le cadre photo.", { "${prefs.frameSeconds} s" }) {
@@ -674,8 +675,8 @@ class SettingsActivity : Activity() {
             val on = !prefs.captureKeys
             v.text = "Réglage…"
             Thread {
-                val ok = (Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)) && Guard.setCaptureKeys(applicationContext, on)
-                runOnUiThread { v.text = if (!ok) "Débogage local requis" else if (on) "Activé" else "Désactivé" }
+                val ok = (Guard.hasSecureSettings(this) || (!LocalAdb.unavailable(this) && Guard.grantViaLocalAdb(applicationContext))) && Guard.setCaptureKeys(applicationContext, on)
+                runOnUiThread { v.text = if (!ok) needed() else if (on) "Activé" else "Désactivé" }
             }.start()
         }
     }
@@ -884,7 +885,8 @@ class SettingsActivity : Activity() {
             open(Page.KEEP)
         }
         section("Alimentation")
-        row("Bouton marche/arrêt", "Veille : comme d'habitude. Arrêt complet : économise l'énergie, mais le démarrage est plus long.", {
+        // Fire OS refuses apps their own adb ([LocalAdb.unavailable]), which the full shutdown needs.
+        if (!LocalAdb.unavailable(this)) row("Bouton marche/arrêt", "Veille : comme d'habitude. Arrêt complet : économise l'énergie, mais le démarrage est plus long.", {
             if (prefs.shutdownOnPowerKey) "Arrêt complet" else "Veille"
         }) {
             prefs.shutdownOnPowerKey = !prefs.shutdownOnPowerKey
@@ -932,10 +934,15 @@ class SettingsActivity : Activity() {
         }
     }
 
+    /** What a setting that needs secure settings lacks: local adb, or on Fire OS a computer. */
+    private fun needed() = if (LocalAdb.unavailable(this)) "Ordinateur requis (adb)" else "Débogage local requis"
+
     /** Système: debugging, the home guard, the TV's own settings, updates, the version. */
     private fun systemGroup() {
         section("Débogage")
-        row("Débogage local", "Permet à l'accueil d'éteindre le téléviseur, de libérer la mémoire, etc. via le débogage local. Dans la fenêtre qui s'affiche, choisissez « Toujours autoriser ».",
+        if (LocalAdb.unavailable(this)) row("Débogage local", "Fire OS ne permet plus aux apps d'utiliser le débogage local. La veille passe par la protection de l'accueil ; " +
+            "pour le reste (autorisations, mises à jour), un ordinateur se connecte au téléviseur (adb).", { "Indisponible sur Fire OS" }) {}
+        else row("Débogage local", "Permet à l'accueil d'éteindre le téléviseur, de libérer la mémoire, etc. via le débogage local. Dans la fenêtre qui s'affiche, choisissez « Toujours autoriser ».",
             { if (prefs.adbAuthorized) "Autorisé" else "Non autorisé, appuyez sur OK" }) { v ->
             v.text = "Choisissez Toujours autoriser…"
             Thread {
@@ -950,9 +957,9 @@ class SettingsActivity : Activity() {
             val on = !prefs.keepAdb
             v.text = "Réglage…"
             Thread {
-                val ok = !on || Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)
+                val ok = !on || Guard.hasSecureSettings(this) || (!LocalAdb.unavailable(this) && Guard.grantViaLocalAdb(applicationContext))
                 if (ok) { prefs.keepAdb = on; Guard.ensureAdb(applicationContext) }
-                runOnUiThread { v.text = if (ok) onOff(prefs.keepAdb) else "Débogage local requis" }
+                runOnUiThread { v.text = if (ok) onOff(prefs.keepAdb) else needed() }
             }.start()
         }
         row("Adresse IP", "L'adresse du téléviseur sur le réseau local. Un ordinateur sur le même réseau s'en sert pour s'y connecter (adb connect, port 5555), " +
@@ -965,14 +972,15 @@ class SettingsActivity : Activity() {
                 val on = !prefs.guard
                 v.text = "Réglage…"
                 Thread {
-                    val ok = (Guard.hasSecureSettings(this) || Guard.grantViaLocalAdb(applicationContext)) && Guard.setEnabled(applicationContext, on)
+                    val ok = (Guard.hasSecureSettings(this) || (!LocalAdb.unavailable(this) && Guard.grantViaLocalAdb(applicationContext))) && Guard.setEnabled(applicationContext, on)
                     runOnUiThread {
-                        v.text = if (!ok) "Débogage local requis" else if (on) "Activée" else "Désactivée"
+                        v.text = if (!ok) needed() else if (on) "Activée" else "Désactivée"
                         if (ok && on) Toast.makeText(this, "La touche Accueil ramènera désormais ici au lieu du lanceur d'origine", Toast.LENGTH_LONG).show()
                     }
                 }.start()
             }
-            row("Touche Accueil directe", "La protection prend la touche Accueil avant le système et ouvre directement l'accueil, sans montrer le lanceur d'origine. " +
+            // Fire OS never lets the Home key reach an accessibility service: nothing to switch.
+            if (!FireOsAdapter.isFireOs()) row("Touche Accueil directe", "La protection prend la touche Accueil avant le système et ouvre directement l'accueil, sans montrer le lanceur d'origine. " +
                 "Elle voit alors passer chaque touche pressée dans toutes les apps et ne retient que la touche Accueil. Désactivez-la si une app réagit deux fois à une touche.",
                 { onOff(prefs.homeKey) }) { v ->
                 prefs.homeKey = !prefs.homeKey
@@ -1031,6 +1039,10 @@ class SettingsActivity : Activity() {
             val mb = if (update.size > 0) " (${(update.size + 524_288) / 1_048_576} Mo)" else ""
             val notes = if (update.notes.isEmpty()) "" else "\n\n" + update.notes.take(400)
             if (!offered) return@Thread say(updateValue(), "canvasOS ${update.version}$mb est disponible. Appuyez sur OK pour le télécharger et l'installer.$notes")
+            if (LocalAdb.unavailable(applicationContext)) {
+                updateNote = "Ordinateur requis"
+                return@Thread say(updateNote!!, "Fire OS ne permet pas à canvasOS de s'installer lui-même : installez cette version depuis un ordinateur (adb install -r).")
+            }
             if (!prefs.adbAuthorized) {
                 say("Choisissez Toujours autoriser…")
                 if (LocalAdb.shell(applicationContext, "echo ok", 60_000) == null) {
