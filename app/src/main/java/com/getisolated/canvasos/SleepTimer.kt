@@ -72,10 +72,10 @@ object SleepTimer {
     fun span(ms: Long): String {
         val minutes = (ms + 59_999L) / 60_000L
         return when {
-            minutes < 1 -> "moins d'une minute"
-            minutes < 60 -> "$minutes min"
-            minutes % 60 == 0L -> "${minutes / 60} h"
-            else -> "${minutes / 60} h ${(minutes % 60).toString().padStart(2, '0')}"
+            minutes < 1 -> str(R.string.sys_sleep_under_minute)
+            minutes < 60 -> str(R.string.sys_sleep_minutes, minutes)
+            minutes % 60 == 0L -> str(R.string.sys_sleep_hours, minutes / 60)
+            else -> str(R.string.sys_sleep_hours_minutes, minutes / 60, (minutes % 60).toString().padStart(2, '0'))
         }
     }
 }

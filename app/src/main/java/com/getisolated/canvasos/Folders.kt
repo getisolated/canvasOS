@@ -15,7 +15,7 @@ data class Folder(val id: String, val name: String, val apps: List<String>)
  */
 object Folders {
     const val PREFIX = "folder:"
-    const val DEFAULT_NAME = "Dossier"
+    val DEFAULT_NAME get() = str(R.string.home_folder_default)
     private const val ID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
     private const val ID_LENGTH = 6
     private val ID = Regex("[A-Za-z0-9_-]{1,32}")

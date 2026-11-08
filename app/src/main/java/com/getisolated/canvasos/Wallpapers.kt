@@ -134,7 +134,7 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
     private fun listBing(items: JSONArray) {
         val uhd = targetWidth(ctx) >= 3840
         for (idx in listOf(0, 7)) {
-            val json = get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=$idx&n=8&mkt=fr-FR").decodeToString()
+            val json = get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=$idx&n=8&mkt=${uiLocale.toLanguageTag()}").decodeToString()
             val imgs = JSONObject(json).getJSONArray("images")
             for (i in 0 until imgs.length()) {
                 val o = imgs.getJSONObject(i)
@@ -495,10 +495,10 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
         }
 
         /** Hosts to the captions the photo frame shows under their pictures (API feeds write their own). */
-        private val CAPTIONS = mapOf("360.cn" to "Fonds d'écran 360", "wallhaven.cc" to "Wallhaven", "alcy.cc" to "alcy.cc",
-            "clevelandart.org" to "Cleveland Museum of Art · Domaine public", "picsum.photos" to "Lorem Picsum · Unsplash",
+        private val CAPTIONS = mapOf("360.cn" to str(R.string.wall_caption_360), "wallhaven.cc" to "Wallhaven", "alcy.cc" to "alcy.cc",
+            "clevelandart.org" to "Cleveland Museum of Art · " + str(R.string.wall_public_domain), "picsum.photos" to "Lorem Picsum · Unsplash",
             "wikimedia.org" to "Wikimedia Commons", "apod.nasa.gov" to "NASA APOD", "api.nasa.gov" to "NASA APOD",
-            "metmuseum.org" to "The Met · Domaine public", "artic.edu" to "Art Institute of Chicago · Domaine public",
+            "metmuseum.org" to "The Met · " + str(R.string.wall_public_domain), "artic.edu" to "Art Institute of Chicago · " + str(R.string.wall_public_domain),
             "dog.ceo" to "Dog CEO", "thecatapi.com" to "TheCatAPI", "unsplash.com" to "Unsplash")
 
         /** A day's list is read again after this long; an empty one after [RETRY]. */
@@ -521,12 +521,12 @@ class Wallpapers(private val ctx: Context, private val source: String = BING) {
         fun label(source: String) = when (source) {
             UNSPLASH -> "Unsplash"
             ANIME -> "Anime"
-            SCENERY -> "Paysages"
-            FRESH -> "Animaux mignons"
-            ART -> "Chefs-d'œuvre"
-            MINE -> "Mes photos"
-            CUSTOM -> "Lien personnalisé"
-            else -> "Photos du jour"
+            SCENERY -> str(R.string.wall_src_scenery)
+            FRESH -> str(R.string.wall_src_animals)
+            ART -> str(R.string.wall_src_art)
+            MINE -> str(R.string.wall_src_mine)
+            CUSTOM -> str(R.string.wall_src_custom)
+            else -> str(R.string.wall_src_daily)
         }
 
         /** Whether Unsplash accepts [key]: true or false, or null when it cannot be reached. Blocking. */
@@ -687,7 +687,7 @@ object WallFeeds {
             val url = raw + (if ('?' in raw) "&" else "?") + "w=$width&fit=max&q=85&fm=jpg"
             val who = o.optJSONObject("user")?.text("name").orEmpty()
             val what = shorten(plain(o.text("description").ifEmpty { o.text("alt_description") }), 80)
-            val caption = listOf(what, if (who.isEmpty()) "" else "Photo de $who", "Unsplash").filter { it.isNotEmpty() }.joinToString(" · ")
+            val caption = listOf(what, if (who.isEmpty()) "" else str(R.string.wall_photo_by, who), "Unsplash").filter { it.isNotEmpty() }.joinToString(" · ")
             out += UnsplashPic(url, caption, "us-$id", o.optJSONObject("links")?.text("download_location").orEmpty())
         }
         return out
@@ -704,7 +704,7 @@ object WallFeeds {
         val dates = (0L until 7L).map { today.minusDays(it) } + (1L..20L).map { today.minusYears(it) }
         return "https://commons.wikimedia.org/w/api.php?action=query&format=json&formatversion=2" +
             "&generator=images&gimlimit=max&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata&iiurlwidth=1920" +
-            "&iiextmetadatalanguage=fr&iiextmetadatafilter=ObjectName%7CImageDescription%7CArtist%7CLicenseShortName" +
+            "&iiextmetadatalanguage=${uiLocale.language}&iiextmetadatafilter=ObjectName%7CImageDescription%7CArtist%7CLicenseShortName" +
             "&titles=" + dates.joinToString("%7C") { "Template:Potd/$it" }
     }
 
@@ -727,7 +727,7 @@ object WallFeeds {
             val title = page.text("title")
             val what = field("ImageDescription").replace(LABEL, "").ifEmpty { field("ObjectName") }
                 .ifEmpty { title.substringAfter(':').substringBeforeLast('.') }
-            val license = field("LicenseShortName").let { if (it.equals("Public domain", ignoreCase = true)) "Domaine public" else it }
+            val license = field("LicenseShortName").let { if (it.equals("Public domain", ignoreCase = true)) str(R.string.wall_public_domain) else it }
             // The photo frame shows two lines; the author and licence must stay in them (CC BY-SA asks for both).
             val work = listOf(shorten(what, 64), shorten(field("Artist"), 30)).filter { it.isNotEmpty() }.joinToString(" — ")
             out += FeedPic(url, listOf(work, "Wikimedia Commons", license).filter { it.isNotEmpty() }.joinToString(" · "),
@@ -992,7 +992,7 @@ object WallFeeds {
     private fun credit(title: String, artist: String, date: String, museum: String): String {
         val by = listOf(plain(artist), plain(date).let { if (it.isEmpty()) "" else "($it)" }).filter { it.isNotEmpty() }.joinToString(" ")
         val work = listOf(shorten(plain(title), 70), shorten(by, 50)).filter { it.isNotEmpty() }.joinToString(" — ")
-        return listOf(work, museum, "Domaine public").filter { it.isNotEmpty() }.joinToString(" · ")
+        return listOf(work, museum, str(R.string.wall_public_domain)).filter { it.isNotEmpty() }.joinToString(" · ")
     }
 
     /** Wide enough (at least [minWidth] px), and of a shape a 16:9 crop doesn't ruin: 5:4 to 12:5. */
@@ -1038,31 +1038,31 @@ object WallFeeds {
 object Backgrounds {
     /** key -> (label, colour blobs as x, y, radius (fractions of width), colour). */
     val THEMES: LinkedHashMap<String, Pair<String, List<Blob>>> = linkedMapOf(
-        "green" to ("Vert" to listOf(
+        "green" to (str(R.string.wall_theme_green) to listOf(
             Blob(0.10f, 0.35f, 0.75f, 0xFF0B7A2E.toInt()),
             Blob(0.48f, -0.05f, 0.70f, 0xFF02B43C.toInt()),
             Blob(1.00f, 0.20f, 0.55f, 0xFF0F7F8A.toInt()),
             Blob(1.05f, 0.80f, 0.45f, 0xFF3C2B8F.toInt()),
         )),
-        "blue" to ("Bleu" to listOf(
+        "blue" to (str(R.string.wall_theme_blue) to listOf(
             Blob(0.10f, 0.30f, 0.75f, 0xFF0B3C8C.toInt()),
             Blob(0.50f, -0.05f, 0.70f, 0xFF1E6FE0.toInt()),
             Blob(1.00f, 0.20f, 0.55f, 0xFF16A3C4.toInt()),
             Blob(1.05f, 0.85f, 0.45f, 0xFF5B2EA6.toInt()),
         )),
-        "purple" to ("Violet" to listOf(
+        "purple" to (str(R.string.wall_theme_purple) to listOf(
             Blob(0.10f, 0.30f, 0.75f, 0xFF4A1C8C.toInt()),
             Blob(0.50f, -0.05f, 0.70f, 0xFF8E3BE0.toInt()),
             Blob(1.00f, 0.20f, 0.55f, 0xFFD24C9A.toInt()),
             Blob(1.05f, 0.85f, 0.45f, 0xFF2D3FA8.toInt()),
         )),
-        "orange" to ("Orange" to listOf(
+        "orange" to (str(R.string.wall_theme_orange) to listOf(
             Blob(0.10f, 0.30f, 0.75f, 0xFF9A3412.toInt()),
             Blob(0.50f, -0.05f, 0.70f, 0xFFF0802A.toInt()),
             Blob(1.00f, 0.20f, 0.55f, 0xFFE0466A.toInt()),
             Blob(1.05f, 0.85f, 0.45f, 0xFF6B2FA0.toInt()),
         )),
-        "graphite" to ("Graphite" to listOf(
+        "graphite" to (str(R.string.wall_theme_graphite) to listOf(
             Blob(0.10f, 0.30f, 0.75f, 0xFF2A2D34.toInt()),
             Blob(0.50f, -0.05f, 0.70f, 0xFF4A505C.toInt()),
             Blob(1.00f, 0.20f, 0.55f, 0xFF36404F.toInt()),

@@ -38,7 +38,7 @@ object Profiles {
     const val MAIN = "main"
     /** How the main profile is called until it is given a name. */
     const val MAIN_NAME = "Principal"
-    const val DEFAULT_NAME = "Profil"
+    val DEFAULT_NAME = str(R.string.sys_profile_default_name)
     const val MAX_NAME = 30
     /** The main store ([Prefs]); another profile's grid is in "tvhome-<id>". */
     const val STORE = "tvhome"
@@ -52,7 +52,7 @@ object Profiles {
      * deeper so a white letter reads on them, and a gold rather than a yellow for the same reason.
      */
     val COLORS = listOf(0xFF2F7CF6, 0xFF34B356, 0xFFF5821F, 0xFFE8483B, 0xFF9F5AD8, 0xFFD6A01D).map { it.toInt() }
-    val COLOR_NAMES = listOf("Bleu", "Vert", "Orange", "Rouge", "Violet", "Jaune")
+    val COLOR_NAMES = listOf(str(R.string.sys_profile_color_blue), str(R.string.sys_profile_color_green), str(R.string.sys_profile_color_orange), str(R.string.sys_profile_color_red), str(R.string.sys_profile_color_purple), str(R.string.sys_profile_color_yellow))
 
     /** App storage (and Android/data/…/files, for pictures pushed over adb) folder of the profile photos, `<id>.jpg`. */
     const val AVATARS_DIR = "avatars"
@@ -74,7 +74,7 @@ object Profiles {
         name?.trim()?.take(MAX_NAME)?.takeIf { it.isNotEmpty() } ?: if (main) "" else DEFAULT_NAME
 
     /** What the profile is called on screen. */
-    fun displayName(p: Profile): String = p.name.ifEmpty { if (p.isMain) MAIN_NAME else DEFAULT_NAME }
+    fun displayName(p: Profile): String = p.name.ifEmpty { if (p.isMain) str(R.string.sys_profile_main_name) else DEFAULT_NAME }
 
     private fun cleanColor(c: Int) = c.mod(COLORS.size)
 
@@ -113,7 +113,7 @@ object Profiles {
 
     /** The profile called [name] on screen, whatever the case ("principal" finds the unnamed main profile). */
     fun byName(list: List<Profile>, name: String): Profile? =
-        name.trim().let { n -> list.firstOrNull { displayName(it).equals(n, ignoreCase = true) } }
+        name.trim().let { n -> list.firstOrNull { displayName(it).equals(n, ignoreCase = true) || (it.isMain && it.name.isEmpty() && MAIN_NAME.equals(n, ignoreCase = true)) } }
 
     /** [id] when it is one of [list], else [MAIN]: a profile deleted elsewhere does not leave the TV on nothing. */
     fun resolve(list: List<Profile>, id: String): String = if (byId(list, id) != null) id else MAIN
@@ -372,9 +372,9 @@ class PinSheets(private val host: FrameLayout, private val prefs: Prefs, private
     fun ask(title: String, tries: Int = 0, ok: () -> Unit) {
         if (!prefs.hasPin) { ok(); return }
         val left = Profiles.MAX_TRIES - tries
-        val msg = if (tries == 0) "Saisissez le code PIN."
-            else "Code incorrect. " + if (left > 1) "Encore $left essais." else "Dernier essai."
-        show(Sheet(host).title(title).message(msg).input("", "Code PIN", pinInput, Profiles.PIN_MAX) { pin ->
+        val msg = if (tries == 0) str(R.string.sys_pin_enter)
+            else plural(R.plurals.sys_pin_wrong, left, left)
+        show(Sheet(host).title(title).message(msg).input("", str(R.string.sys_pin_hint), pinInput, Profiles.PIN_MAX) { pin ->
             when {
                 prefs.checkPin(pin) -> ok()
                 tries + 1 < Profiles.MAX_TRIES -> ask(title, tries + 1, ok)
@@ -384,12 +384,12 @@ class PinSheets(private val host: FrameLayout, private val prefs: Prefs, private
 
     /** Asks for a new PIN, then for it again, and saves it; [done] runs once it is saved. */
     fun choose(title: String, message: String? = null, done: () -> Unit = {}) {
-        val intro = message ?: "De ${Profiles.PIN_MIN} à ${Profiles.PIN_MAX} chiffres."
-        show(Sheet(host).title(title).message(intro).input("", "Nouveau code", pinInput, Profiles.PIN_MAX) { pin ->
-            if (!Profiles.validPin(pin)) return@input choose(title, "Le code doit compter de ${Profiles.PIN_MIN} à ${Profiles.PIN_MAX} chiffres.", done)
-            show(Sheet(host).title("Confirmer le code").message("Saisissez le même code une seconde fois.")
-                .input("", "Code PIN", pinInput, Profiles.PIN_MAX) { again ->
-                    if (again != pin) return@input choose(title, "Les deux codes étaient différents. Recommencez.", done)
+        val intro = message ?: str(R.string.sys_pin_digits, Profiles.PIN_MIN, Profiles.PIN_MAX)
+        show(Sheet(host).title(title).message(intro).input("", str(R.string.sys_pin_new_hint), pinInput, Profiles.PIN_MAX) { pin ->
+            if (!Profiles.validPin(pin)) return@input choose(title, str(R.string.sys_pin_bad_length, Profiles.PIN_MIN, Profiles.PIN_MAX), done)
+            show(Sheet(host).title(str(R.string.sys_pin_confirm_title)).message(str(R.string.sys_pin_confirm))
+                .input("", str(R.string.sys_pin_hint), pinInput, Profiles.PIN_MAX) { again ->
+                    if (again != pin) return@input choose(title, str(R.string.sys_pin_mismatch), done)
                     prefs.setPin(pin)
                     done()
                 })

@@ -2,7 +2,7 @@
 
 Vous installez canvasOS, un lanceur Android TV, sur le téléviseur de l'utilisateur depuis son ordinateur. Vous trouvez vous-même le téléviseur sur le réseau local, puis vous accompagnez l'utilisateur pas à pas jusqu'à ce que canvasOS soit son écran d'accueil. Suivez les étapes ci-dessous dans l'ordre. Parlez à l'utilisateur dans sa langue (la plupart des utilisateurs écrivent en français). Le téléviseur est l'appareil d'un foyer : chaque fois qu'une étape dit de demander, demandez d'abord.
 
-Ce dépôt (getisolated/canvasOS) est public ; l'interface de l'app est en français. Dans l'app, l'écran d'accueil s'appelle « Accueil ».
+Ce dépôt (getisolated/canvasOS) est public ; l'interface de l'app est en français, en anglais ou en allemand selon la langue du téléviseur (français pour les autres langues). Dans l'app en français, l'écran d'accueil s'appelle « Accueil ».
 
 ## Accompagner l'utilisateur
 
@@ -269,6 +269,7 @@ adb -s <TV_IP>:5555 shell am broadcast -a com.getisolated.canvasos.CONFIG -n com
 # --es settings_icon brand|own|gear (l'icône des réglages : la carte-titre du logo, l'image importée, ou l'engrenage ; own sans image importée affiche la carte-titre ;
 #   l'ancienne clé own_icon true|false reste acceptée et vaut own|gear ; le fichier importé est conservé dans tous les cas)
 # background daily|scenery|fresh|anime|art|mine|custom|green|blue|purple|orange|graphite (source du fond d'écran de l'accueil, ou un dégradé intégré)
+# --es language auto|fr|en|de (Réglages → Système → Langue : auto suit la langue du téléviseur, français pour une langue non traduite ; les listes déjà affichées changent au prochain démarrage de canvasOS ; la réponse indique language=…)
 # home_key true|false (Touche Accueil directe : avec la protection de l'accueil, la touche Accueil ouvre canvasOS sans passer par le lanceur d'origine ; true par défaut, section 10 ; la réponse indique home_key=…)
 # phone_server true|false (la page téléphone, activée par défaut ; désactivée, son adresse ne répond plus du tout)
 # dock_recents true|false (true par défaut : l'app ouverte passe en tête de l'accueil ; false : l'ordre choisi avec « Modifier l'accueil » est conservé)

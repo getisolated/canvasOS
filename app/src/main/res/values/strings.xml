@@ -5,4 +5,806 @@
     <string name="wallpaper_name">Fond d\'écran</string>
     <string name="guard_name">Protection de l\'accueil</string>
     <string name="guard_description">Quand le lanceur d\'origine du téléviseur passe au premier plan, ramène l\'écran d\'accueil. Regarde seulement quelle app est au premier plan, sans lire le contenu de l\'écran.</string>
+
+    <!-- Langue de cette traduction, pour les dates et les réponses des services en ligne (météo, Top Shelf). -->
+    <string name="ui_language" translatable="false">fr-FR</string>
+
+    <!-- Météo -->
+    <string name="wx_sunny">Ensoleillé</string>
+    <string name="wx_clear">Dégagé</string>
+    <string name="wx_mostly_clear">Peu nuageux</string>
+    <string name="wx_partly_cloudy">Nuageux</string>
+    <string name="wx_overcast">Couvert</string>
+    <string name="wx_fog">Brouillard</string>
+    <string name="wx_drizzle">Bruine</string>
+    <string name="wx_freezing_rain">Pluie verglaçante</string>
+    <string name="wx_light_rain">Pluie faible</string>
+    <string name="wx_rain">Pluie</string>
+    <string name="wx_heavy_rain">Forte pluie</string>
+    <string name="wx_light_snow">Neige faible</string>
+    <string name="wx_snow">Neige</string>
+    <string name="wx_heavy_snow">Forte neige</string>
+    <string name="wx_showers">Averses</string>
+    <string name="wx_heavy_showers">Fortes averses</string>
+    <string name="wx_snow_showers">Averses de neige</string>
+    <string name="wx_thunderstorm">Orage</string>
+    <string name="wx_thunderstorm_hail">Orage et grêle</string>
+    <string name="wx_unknown">Temps inconnu</string>
+    <string name="wx_today">Aujourd\'hui</string>
+    <string name="wx_tomorrow">Demain</string>
+    <string name="wx_place_detected">%1$s (détecté)</string>
+
+    <!-- Accueil : en-tête et date -->
+    <string name="home_date_pattern">EEEE d MMMM</string>
+    <string name="home_network_settings">Réglages réseau</string>
+    <string name="home_control_center">Centre de contrôle</string>
+
+    <!-- Accueil : fond d'écran -->
+    <string name="home_wallpaper_gradient">Fond d\'écran : dégradé fixe, choisissez une source de photos</string>
+    <string name="home_next_photo">Photo suivante…</string>
+    <string name="home_no_photo_yet">Aucune photo pour l\'instant</string>
+    <string name="home_one_photo">Une seule photo disponible pour l\'instant</string>
+
+    <!-- Accueil : menu d'une app -->
+    <string name="home_cannot_open">Impossible d\'ouvrir %1$s</string>
+    <string name="home_edit_home">Modifier l\'accueil</string>
+    <string name="home_rename">Renommer</string>
+    <string name="home_unpin">Retirer de l\'accueil</string>
+    <string name="home_cancel">Annuler</string>
+    <string name="home_hide">Masquer</string>
+    <string name="home_app_info">Infos sur l\'app</string>
+    <string name="home_delete_app">Supprimer l\'app</string>
+    <string name="home_original_image">Image d\'origine</string>
+    <string name="home_move_hint">Déplacez avec les flèches, puis appuyez sur OK</string>
+    <string name="home_rename_title">Renommer « %1$s »</string>
+    <string name="home_rename_message">Laissez le champ vide pour reprendre le nom d\'origine, « %1$s ».</string>
+
+    <!-- Accueil : dossiers -->
+    <string name="home_folder_default">Dossier</string>
+    <string name="home_new_folder_ellipsis">Nouveau dossier…</string>
+    <string name="home_add_to_folder_ellipsis">Ajouter au dossier…</string>
+    <string name="home_new_folder">Nouveau dossier</string>
+    <string name="home_new_folder_message">Le dossier prend la place de « %1$s » sur l\'accueil, avec l\'app dedans.</string>
+    <string name="home_add_to_folder">Ajouter au dossier</string>
+    <string name="home_add_to_folder_message">« %1$s » quitte l\'accueil pour le dossier choisi.</string>
+    <string name="home_open">Ouvrir</string>
+    <string name="home_rename_folder">Renommer le dossier</string>
+    <string name="home_add_apps_ellipsis">Ajouter des apps…</string>
+    <string name="home_delete_folder">Supprimer le dossier</string>
+    <string name="home_add_apps">Ajouter des apps</string>
+    <string name="home_add_apps_message">Les apps cochées sont dans « %1$s » ; les autres restent sur l\'accueil.</string>
+    <string name="home_delete_title">Supprimer « %1$s » ?</string>
+    <string name="home_delete_folder_message">Le dossier disparaît ; ses apps reviennent sur l\'accueil à sa place.</string>
+    <string name="home_delete">Supprimer</string>
+    <string name="home_remove_from_folder">Retirer du dossier</string>
+
+    <!-- Accueil : supprimer une app -->
+    <string name="home_allow_local_debugging">Autoriser le débogage local</string>
+    <string name="home_delete_needs_adb">Supprimer une app préinstallée nécessite le débogage local. Appuyez sur Commencer : le téléviseur affiche « Autoriser le débogage ? ». Cochez « Toujours autoriser », puis choisissez « Autoriser ».</string>
+    <string name="home_start">Commencer</string>
+    <string name="home_delete_system_message">Cette app est préinstallée sur le téléviseur. Une fois supprimée, elle n\'apparaît plus sur l\'accueil et ne tourne plus en arrière-plan. Vous pourrez la restaurer dans Réglages de l\'accueil → Apps → Apps préinstallées supprimées.</string>
+    <string name="home_delete_launcher_message">Cette app est un écran d\'accueil, qui peut prendre le relais si celui-ci a un problème. Sans elle, le téléviseur n\'aura plus d\'accueil de secours si celui-ci ne démarre pas. L\'app et ses données seront supprimées.</string>
+    <string name="home_delete_app_message">L\'app et ses données seront supprimées.</string>
+    <string name="home_delete_failed">Échec de la suppression : %1$s</string>
+    <string name="home_local_debugging_unavailable">débogage local indisponible</string>
+
+    <!-- Accueil : profils -->
+    <string name="home_profiles">Profils</string>
+    <string name="home_profile_desc">Profil : %1$s</string>
+    <string name="home_profiles_no_pin">Un profil enfant demande un code PIN pour changer de profil, ouvrir les réglages ou supprimer une app. Aucun code n\'est encore défini.</string>
+    <string name="home_profiles_one">Chaque profil a son propre accueil : ordre des apps, apps masquées, dossiers et fond d\'écran. Créez-en dans « Gérer les profils… ».</string>
+    <string name="home_set_pin">Définir un code PIN…</string>
+    <string name="home_pin">Code PIN</string>
+    <string name="home_manage_profiles">Gérer les profils…</string>
+    <string name="home_child_needs_pin">« %1$s » est un profil enfant : choisissez d\'abord le code PIN qui permettra d\'en sortir (de %2$d à %3$d chiffres).</string>
+    <string name="home_switch_profile">Changer de profil</string>
+
+    <!-- Accueil : touches de la télécommande -->
+    <string name="home_channel">Chaîne %1$s</string>
+    <string name="home_channel_needs_adb">Pour aller directement à la chaîne, autorisez le débogage local (Réglages de l\'accueil → Système).</string>
+    <string name="home_tv_settings">Réglages du téléviseur</string>
+    <string name="home_nothing_playing">Rien en lecture</string>
+
+    <!-- Accueil : débogage local -->
+    <string name="home_enable_power_memory">Activer l\'extinction et la mémoire</string>
+    <string name="home_adb_once_message">Le débogage local doit être autorisé une fois. Appuyez sur Commencer : le téléviseur affiche « Autoriser le débogage ? ». Cochez « Toujours autoriser », puis choisissez « Autoriser ».</string>
+    <string name="home_later">Plus tard</string>
+    <string name="home_adb_dialog_hint">Dans la fenêtre qui s\'affiche, cochez « Toujours autoriser » puis choisissez « Autoriser »</string>
+    <string name="home_adb_done">C\'est fait : l\'extinction et la libération de la mémoire sont disponibles</string>
+    <string name="home_adb_refused">Autorisation refusée ; réessayez dans Réglages de l\'accueil</string>
+
+    <!-- Accueil : lecture en cours et paroles -->
+    <string name="home_playback">Lecture</string>
+    <string name="home_playback_desc">Lecture : %1$s, %2$s</string>
+    <string name="home_playing">En lecture</string>
+    <string name="home_paused">En pause</string>
+    <string name="home_lyrics">Paroles</string>
+    <string name="home_lyrics_shown">Paroles (affichées)</string>
+    <string name="home_lyrics_loading">Paroles…</string>
+    <string name="home_lyrics_unreachable">Paroles indisponibles : LRCLIB est injoignable</string>
+    <string name="home_instrumental">Instrumental</string>
+    <string name="home_no_synced_lyrics">Pas de paroles synchronisées pour ce titre</string>
+
+    <!-- Feuilles (Ui.kt) -->
+    <string name="home_label_value">%1$s : %2$s</string>
+
+    <!-- Commandes -->
+    <string name="cc_turn_off">Éteindre</string>
+    <string name="cc_turn_off_msg">Le téléviseur s\'éteint complètement. Rallumez-le avec le bouton marche/arrêt de la télécommande.</string>
+    <string name="cc_confirm_title">%1$s ?</string>
+    <string name="cc_network">Réseau</string>
+    <string name="cc_connected">Connecté</string>
+    <string name="cc_disconnected">Déconnecté</string>
+    <string name="cc_sleep">Veille</string>
+    <string name="cc_free_memory">Libérer la mémoire</string>
+    <string name="cc_freeing_memory">Libération de la mémoire…</string>
+    <string name="cc_next_photo">Photo suivante</string>
+    <string name="cc_photo_frame">Cadre photo</string>
+    <string name="cc_settings">Réglages</string>
+    <string name="cc_update_available">canvasOS %1$s disponible</string>
+    <string name="cc_brightness">Luminosité</string>
+    <string name="cc_input">Source</string>
+    <string name="cc_no_input">Aucune entrée</string>
+    <plurals name="cc_inputs">
+        <item quantity="one">%1$d entrées</item>
+        <item quantity="other">%1$d entrées</item>
+    </plurals>
+    <string name="cc_player">Lecteur</string>
+    <string name="cc_weather">Météo</string>
+
+    <!-- Modification -->
+    <string name="cc_edit_hint">OK sur une commande pour la déplacer, changer sa taille ou la retirer. Retour pour terminer.</string>
+    <string name="cc_page">Page %1$d</string>
+    <string name="cc_move">Déplacer</string>
+    <string name="cc_size">Taille : %1$s</string>
+    <string name="cc_remove">Retirer</string>
+    <string name="cc_empty_page">Page vide</string>
+    <string name="cc_empty_page_msg">Page %1$d : ajoutez-y une commande, ou supprimez-la.</string>
+    <string name="cc_delete_page">Supprimer cette page</string>
+    <string name="cc_add_control_more">Ajouter une commande…</string>
+    <string name="cc_add_page">Ajouter une page</string>
+    <string name="cc_reset_panel">Réinitialiser le panneau</string>
+    <string name="cc_done">Terminer</string>
+    <string name="cc_cancel">Annuler</string>
+    <string name="cc_spot_taken">Une autre commande occupe cette place.</string>
+    <string name="cc_no_room_size">Pas assez de place ici pour cette taille : déplacez d\'abord la commande.</string>
+    <string name="cc_keep_one">Le Centre de contrôle garde au moins une commande.</string>
+    <string name="cc_add_control">Ajouter une commande</string>
+    <string name="cc_add_control_msg">Elle prend la première place libre de cette page, sinon d\'une autre page, sinon d\'une nouvelle page.</string>
+    <string name="cc_no_room">Plus de place : retirez une commande ou réduisez-en une.</string>
+    <string name="cc_reset_title">Réinitialiser le Centre de contrôle ?</string>
+    <string name="cc_reset_msg">Les commandes reprennent leur place et leur taille d\'origine, sur deux pages.</string>
+    <string name="cc_reset">Réinitialiser</string>
+
+    <!-- Source -->
+    <string name="cc_show_on_home_more">Afficher sur l\'accueil…</string>
+    <string name="cc_show_on_home">Afficher sur l\'accueil</string>
+    <string name="cc_show_on_home_msg">Chaque source cochée devient une icône sur l\'accueil : une pression suffit pour y basculer.</string>
+
+    <!-- Météo -->
+    <string name="cc_weather_off">Météo désactivée</string>
+    <string name="cc_offline">Hors connexion</string>
+    <string name="cc_no_forecast">Pas encore de prévisions</string>
+    <string name="cc_weather_in">Météo à %1$s</string>
+    <string name="cc_forecast_credit">Prévisions : Open-Meteo.com</string>
+    <string name="cc_weather_auto_place">Lieu détecté d\'après l\'adresse IP du téléviseur ; choisissez une autre ville depuis la page téléphone (onglet Réglages).</string>
+    <string name="cc_weather_waiting">Les prévisions s\'afficheront ici dès que le téléviseur les aura reçues ; il lui faut pour cela une connexion à Internet.</string>
+
+    <!-- Lecture en cours -->
+    <string name="cc_now_playing">Lecture</string>
+    <string name="cc_now_playing_none">Lecture : rien en cours</string>
+    <string name="cc_open_app">Ouvrir l\'app</string>
+    <string name="cc_open_item">Ouvrir %1$s</string>
+    <string name="cc_back">Retour</string>
+    <string name="cc_play_pause">Lecture ou pause</string>
+    <string name="cc_next">Suivant</string>
+    <string name="cc_position">Position</string>
+
+    <!-- Bluetooth -->
+    <string name="cc_unavailable">Indisponible</string>
+    <string name="cc_permission_needed">Autorisation requise</string>
+    <string name="cc_off">Désactivé</string>
+    <string name="cc_bt_not_allowed">Bluetooth non autorisé</string>
+    <string name="cc_bt_not_allowed_msg">canvasOS a besoin de l\'autorisation « Appareils à proximité » pour afficher vos appareils Bluetooth et en connecter un. Elle ne sert à rien d\'autre : le téléviseur ne cherche aucun appareil.</string>
+    <string name="cc_allow_with_adb">Autoriser avec le débogage local</string>
+    <string name="cc_bt_off_msg">Le Bluetooth du téléviseur est désactivé. Activez-le dans les réglages du téléviseur.</string>
+    <string name="cc_bt_none_msg">Aucun appareil associé. Associez-en un depuis les réglages Bluetooth du téléviseur.</string>
+    <string name="cc_bt_controller_msg">Allumez la manette : elle se reconnecte seule.</string>
+    <plurals name="cc_bt_more">
+        <item quantity="one">… et %1$d autres appareils associés</item>
+        <item quantity="other">… et %1$d autres appareils associés</item>
+    </plurals>
+    <string name="cc_pair_device">Associer un appareil…</string>
+    <string name="cc_connecting">Connexion…</string>
+    <string name="cc_disconnecting">Déconnexion…</string>
+    <string name="cc_connect_failed">Connexion impossible</string>
+    <string name="cc_disconnect_failed">Déconnexion impossible</string>
+    <string name="cc_connect_failed_msg">Ce téléviseur ne laisse pas canvasOS connecter « %1$s ». Faites-le depuis les réglages Bluetooth du téléviseur.</string>
+    <string name="cc_disconnect_failed_msg">Ce téléviseur ne laisse pas canvasOS déconnecter « %1$s ». Faites-le depuis les réglages Bluetooth du téléviseur.</string>
+    <string name="cc_bt_settings">Réglages Bluetooth</string>
+
+    <!-- Veille -->
+    <string name="cc_in">Dans %1$s</string>
+    <string name="cc_now">Maintenant</string>
+    <string name="cc_cancel_timer_left">Annuler le minuteur (reste %1$s)</string>
+    <string name="cc_sleep_in">Veille dans %1$s</string>
+    <string name="cc_timer_cancelled">Minuteur de veille annulé</string>
+    <string name="cc_sleep_in_minute">Veille dans une minute</string>
+    <string name="cc_sleep_warning_msg">Le téléviseur va se mettre en veille. Annulez le minuteur pour continuer.</string>
+    <string name="cc_cancel_timer">Annuler le minuteur</string>
+
+    <!-- Débogage local -->
+    <string name="cc_allow_adb">Autoriser le débogage local</string>
+    <string name="cc_allow_adb_msg">Appuyez sur Commencer : le téléviseur affiche « Autoriser le débogage ? ». Cochez « Toujours autoriser », puis choisissez « Autoriser ».</string>
+    <string name="cc_start">Commencer</string>
+
+    <!-- Commun -->
+    <string name="settings_on">Activé</string>
+    <string name="settings_off">Désactivé</string>
+    <string name="settings_on_f">Activée</string>
+    <string name="settings_off_f">Désactivée</string>
+    <string name="settings_applying">Réglage…</string>
+    <string name="settings_local_debug_required">Débogage local requis</string>
+    <string name="settings_listener_needed">Écouteur requis (étape 4)</string>
+    <string name="settings_cancel">Annuler</string>
+    <string name="settings_delete">Supprimer</string>
+    <string name="settings_none">Aucun</string>
+    <string name="settings_never">Jamais</string>
+    <string name="settings_every_day">Chaque jour</string>
+    <string name="settings_mb">%1$d Mo</string>
+
+    <!-- Groupes -->
+    <string name="settings_look">Apparence</string>
+    <string name="settings_look_about">L\'horloge, le Dock, la photo de profil, la météo, l\'effet de sélection, le Centre de contrôle (son style, ses commandes) et l\'animation de démarrage.</string>
+    <string name="settings_wallpaper_group">Fond d\'écran et cadre photo</string>
+    <string name="settings_wallpaper_group_about">Le fond de l\'écran d\'accueil et la fréquence à laquelle il change, et le cadre photo que le téléviseur affiche en économiseur d\'écran.</string>
+    <string name="settings_shelf_about">Les contenus de l\'app sélectionnée dans le Dock, en plein écran au-dessus de lui, et d\'où ils viennent.</string>
+    <string name="settings_playback_group">Lecture et notifications</string>
+    <string name="settings_playback_group_about">Le lecteur du Centre de contrôle pour ce que lisent les apps, et les bannières de notifications en haut à droite de l\'écran.</string>
+    <string name="settings_memory_group">Mémoire et alimentation</string>
+    <string name="settings_memory_group_about">La libération de la mémoire, en veille, à heures régulières ou tout de suite, les apps qu\'elle épargne, et ce que fait le bouton marche/arrêt.</string>
+    <string name="settings_apps_group_about">Les apps masquées de l\'accueil, les apps préinstallées supprimées et les dossiers.</string>
+    <string name="settings_profiles">Profils</string>
+    <string name="settings_profiles_group_about">Un accueil par personne, avec ses apps, ses dossiers et son fond d\'écran ; un profil enfant est protégé par un code PIN.</string>
+    <string name="settings_phone_page">Page téléphone</string>
+    <string name="settings_phone_group_about">Une page web pour un téléphone sur le même Wi-Fi : télécommande avec clavier, photos et liens d\'images, installation d\'apps. Son QR code et sa protection.</string>
+    <string name="settings_remote">Télécommande</string>
+    <string name="settings_remote_about">Des touches de la télécommande associées à des fonctions de canvasOS, sur l\'accueil : appui simple ou appui long, la touche apprise en appuyant dessus ; sur un décodeur, les numéros de chaîne.</string>
+    <string name="settings_system">Système</string>
+    <string name="settings_system_about">Le débogage local et ADB, l\'adresse du téléviseur, la protection de l\'accueil, les réglages d\'origine du téléviseur, la mise à jour de canvasOS et sa version.</string>
+
+    <!-- Apparence -->
+    <string name="settings_clock">Horloge</string>
+    <string name="settings_time_format">Format de l\'heure</string>
+    <string name="settings_time_format_about">L\'heure sur l\'écran d\'accueil et dans le Centre de contrôle, au format 12 h (11:49 AM) ou 24 h (23:49).</string>
+    <string name="settings_clock_about">Une petite horloge en haut à droite, ou une grande horloge avec la date en haut à gauche (l\'ancien style), ou aucune.</string>
+    <string name="settings_clock_large">Grande, à gauche</string>
+    <string name="settings_clock_hidden">Masquée</string>
+    <string name="settings_clock_corner">En haut à droite</string>
+    <string name="settings_section_home">Accueil</string>
+    <string name="settings_dock_about">Récents : l\'app que vous ouvrez passe en tête, comme aujourd\'hui. Fixe : l\'ordre que vous avez choisi avec « Modifier l\'accueil » est conservé.</string>
+    <string name="settings_dock_recents">Récents</string>
+    <string name="settings_dock_fixed">Fixe</string>
+    <string name="settings_profile_picture">Photo de profil</string>
+    <string name="settings_profile_picture_about">La photo du profil en haut à droite de l\'accueil : l\'initiale de son nom sur sa couleur, ou une photo importée depuis la page téléphone. Appuyez dessus pour changer de profil. Elle reste affichée tant qu\'il existe plusieurs profils.</string>
+    <string name="settings_weather">Météo</string>
+    <string name="settings_weather_about">La température et le temps qu\'il fait à côté de l\'horloge, et les prévisions sur cinq jours dans le Centre de contrôle. Elles viennent d\'Open-Meteo et sont mises à jour toutes les 30 minutes pendant que l\'accueil est affiché. Tant qu\'aucune ville n\'est choisie, le lieu est deviné une fois d\'après l\'adresse IP publique du téléviseur (ip-api.com).</string>
+    <string name="settings_weather_place">Lieu de la météo</string>
+    <string name="settings_weather_place_about">Pour choisir une autre ville : la page téléphone (onglet Réglages, section Météo), ou un ordinateur avec la commande CONFIG (weather_city).</string>
+    <string name="settings_weather_place_unset">Pas encore défini</string>
+    <string name="settings_effects">Effets</string>
+    <string name="settings_focus_effect">Effet de sélection</string>
+    <string name="settings_focus_effect_about">tvOS : l\'app sélectionnée s\'agrandit, s\'incline selon la direction et un reflet passe dessus. Simple : elle s\'agrandit seulement.\nAuto choisit Simple sur les téléviseurs peu puissants.</string>
+    <string name="settings_focus_simple">Simple</string>
+    <string name="settings_control_center">Centre de contrôle</string>
+    <string name="settings_cc_style">Style du Centre de contrôle</string>
+    <string name="settings_cc_style_about">Verre : du verre dépoli qui laisse voir l\'image derrière ; le bouton sélectionné devient blanc. Panneau : l\'ancien panneau sombre.\nAuto choisit Verre sur tous les téléviseurs.</string>
+    <string name="settings_cc_glass">Verre</string>
+    <string name="settings_cc_panel">Panneau</string>
+    <string name="settings_cc_customize">Personnaliser le Centre de contrôle</string>
+    <string name="settings_cc_customize_about">Ouvre le Centre de contrôle en mode modification. Ses commandes sont sur une grille de 4 × 6 cases, sur trois pages au plus (Bas depuis la dernière ligne passe à la page suivante). OK sur une commande : la déplacer, changer sa taille, la retirer, ajouter une commande ou une page. Retour pour terminer. Ailleurs, un appui long sur OK sur le bouton du Centre de contrôle, en haut à droite de l\'accueil, fait de même.</string>
+    <string name="settings_cc_reset_row">Réinitialiser le panneau</string>
+    <string name="settings_cc_reset_row_about">Remet les commandes du Centre de contrôle à leur place et à leur taille d\'origine, sur deux pages.</string>
+    <string name="settings_cc_reset_title">Réinitialiser le Centre de contrôle ?</string>
+    <string name="settings_cc_reset_message">Les commandes reprennent leur place et leur taille d\'origine, sur deux pages.</string>
+    <string name="settings_reset">Réinitialiser</string>
+    <string name="settings_logo_about">La carte-titre et le film de démarrage intégrés : ceux de canvasOS, ou ceux de l\'Apple TV (tvOS). Ils servent d\'icône à ces réglages et d\'animation de démarrage, sauf choix contraire ci-dessous.</string>
+    <string name="settings_icon">Icône des réglages</string>
+    <string name="settings_icon_about">L\'icône de ces réglages, sur l\'accueil et en haut de cette page : la carte-titre du logo choisi, votre image importée depuis la page téléphone, ou l\'engrenage intégré.</string>
+    <string name="settings_icon_no_picture">\nAucune image importée pour l\'instant.</string>
+    <string name="settings_icon_own">Image importée</string>
+    <string name="settings_icon_gear">Engrenage</string>
+    <string name="settings_intro">Animation de démarrage</string>
+    <string name="settings_intro_about">Jouée au premier affichage de l\'accueil après l\'allumage ; à la fin, le logo s\'agrandit et ouvre l\'accueil. Appuyez sur une touche pour la passer.</string>
+    <string name="settings_intro_boot">Au démarrage</string>
+    <string name="settings_intro_wake">Démarrage et réveil</string>
+    <string name="settings_intro_source">Contenu de l\'animation</string>
+    <string name="settings_intro_source_about">Film du logo choisi : celui de canvasOS ou celui de l\'Apple TV, selon la ligne Logo. Vidéo importée : la vôtre, depuis la page téléphone, dont le logo final s\'agrandit et ouvre l\'accueil. Nom canvasOS : le nom apparaît en fondu puis s\'agrandit.</string>
+    <string name="settings_intro_no_video">\nAucune vidéo importée pour l\'instant : à sa place, le film du logo choisi.</string>
+    <string name="settings_intro_video">Vidéo importée</string>
+    <string name="settings_intro_wordmark">Nom canvasOS</string>
+    <string name="settings_intro_film">Film %1$s</string>
+    <string name="settings_wake_delay">Délai au réveil</string>
+    <string name="settings_wake_delay_about">Au sortir de la veille, l\'écran reste noir ce temps avant l\'animation. Beaucoup de téléviseurs (surtout OLED) n\'affichent l\'image que quelques secondes après l\'allumage : allongez si le début de l\'animation manque, raccourcissez si le noir dure trop.</string>
+    <string name="settings_intro_sound">Son de l\'animation</string>
+    <string name="settings_intro_sound_about">Joue le son du film ou de la vidéo d\'animation.</string>
+    <string name="settings_intro_preview">Aperçu de l\'animation</string>
+    <string name="settings_intro_preview_about">Revient à l\'accueil et la joue une fois maintenant.</string>
+
+    <!-- Fond d'écran et cadre photo -->
+    <string name="settings_wallpaper_about">Le fond de l\'écran d\'accueil : un thème, une source de fonds d\'écran ou vos propres photos.</string>
+    <string name="settings_wallpaper_auto">%1$s (auto)</string>
+    <string name="settings_change_photo">Changer de photo</string>
+    <string name="settings_change_photo_about">À quelle fréquence le fond d\'écran automatique change. Jamais : la photo ne change qu\'avec le bouton Photo suivante du Centre de contrôle (ou Changer maintenant ci-dessous).</string>
+    <string name="settings_change_now">Changer maintenant</string>
+    <string name="settings_change_now_about">Prend une nouvelle photo de la source de fonds d\'écran. Les photos sont téléchargées au moment de les afficher ; les anciennes sont effacées après quelques jours.</string>
+    <string name="settings_downloading">Téléchargement…</string>
+    <string name="settings_photo_frame">Cadre photo</string>
+    <string name="settings_frame_saver">Cadre photo en économiseur</string>
+    <string name="settings_frame_saver_about">Après un moment d\'inactivité, le téléviseur affiche en plein écran des photos ou des vues aériennes, à la place de son propre économiseur d\'écran.</string>
+    <string name="settings_saver_content">Contenu de l\'économiseur</string>
+    <string name="settings_saver_content_about">Le cadre photo montre les photos du fond d\'écran, ou les vues aériennes de l\'Apple TV.</string>
+    <string name="settings_saver_aerials">Vues aériennes</string>
+    <string name="settings_saver_photos">Photos</string>
+    <string name="settings_frame_delay">Délai avant le cadre photo</string>
+    <string name="settings_frame_delay_about">Durée sans activité avant l\'affichage du cadre photo.</string>
+    <string name="settings_frame_seconds">Durée par photo</string>
+    <string name="settings_frame_seconds_about">Durée d\'affichage de chaque photo dans le cadre photo.</string>
+
+    <!-- Top Shelf -->
+    <string name="settings_shelf_mode_about">Les contenus de l\'app sélectionnée dans le Dock, en plein écran au-dessus. Complet : la ligne « Continuer à regarder » publiée pour Android TV, puis les tendances TMDB (avec votre clé) et les sources web. Android TV seul : sans TMDB ni web. Désactivé : le fond d\'écran reste visible.</string>
+    <string name="settings_shelf_tv">Android TV seul</string>
+    <string name="settings_shelf_full">Complet</string>
+    <string name="settings_sources">Sources</string>
+    <string name="settings_watch_next">Continuer à regarder</string>
+    <string name="settings_watch_next_about">La ligne que les apps (YouTube, Netflix…) publient pour Android TV : ce que vous regardiez, à reprendre. Désactivée, le Top Shelf n\'utilise que TMDB et les sources web, quand le mode du Top Shelf les autorise.</string>
+
+    <!-- Télécommande -->
+    <string name="settings_shortcuts">Raccourcis</string>
+    <string name="settings_no_shortcut">Aucun raccourci</string>
+    <string name="settings_no_shortcut_about">Choisissez « Ajouter un raccourci… », la fonction, puis appuyez sur la touche de la télécommande qui la fera.</string>
+    <string name="settings_shortcut_about">Appuyez pour changer la touche ou la fonction, ou supprimer ce raccourci. Les raccourcis agissent sur l\'accueil, pas dans les autres apps.</string>
+    <string name="settings_add_shortcut">Ajouter un raccourci…</string>
+    <string name="settings_add_shortcut_about">La fonction d\'abord, puis la touche : un appui bref l\'associe à l\'appui simple, un appui maintenu à l\'appui long. Les touches du téléviseur (Accueil, Volume) et celles de l\'accueil (flèches, OK, Retour en appui simple) sont refusées.</string>
+    <string name="settings_channels">Chaînes</string>
+    <string name="settings_channel_keys">Touches numérotées</string>
+    <string name="settings_channel_keys_about">Activé par défaut. Sur l\'accueil, tapez le numéro d\'une chaîne (jusqu\'à trois chiffres) : la télé s\'ouvre sur cette chaîne. Un chiffre associé à un raccourci garde son raccourci. Aller directement à la chaîne demande le débogage local ; sans lui, la télé s\'ouvre sur la chaîne en cours.</string>
+    <string name="settings_tv_keys">Touches du téléviseur</string>
+    <string name="settings_capture_keys">Capter les touches du téléviseur</string>
+    <string name="settings_capture_keys_about">Désactivé par défaut. Les touches Réglages et Profil de la télécommande (et quelques autres : Guide, Source, TV) sont prises par le téléviseur avant d\'atteindre canvasOS. Activé, le service d\'accessibilité de canvasOS (celui de la Protection de l\'accueil) filtre les touches : il voit alors chaque touche pressée, dans toutes les apps, et ne retient que ces touches-là, seulement sur l\'accueil et seulement si elles sont associées ; tout le reste passe tel quel. Rien n\'est enregistré. Demande le débogage local une fois.</string>
+    <string name="settings_on_service_inactive">Activé (service inactif)</string>
+    <string name="settings_change_key">Changer la touche</string>
+    <string name="settings_change_function">Changer la fonction</string>
+    <string name="settings_function">Fonction</string>
+    <string name="settings_function_new">La nouvelle fonction de « %1$s ».</string>
+    <string name="settings_function_about">Ce que fera la touche ; elle est demandée ensuite.</string>
+    <string name="settings_open_app_more">Ouvrir une app…</string>
+    <string name="settings_hdmi_input_more">Source HDMI…</string>
+    <string name="settings_open_app">Ouvrir une app</string>
+    <string name="settings_open_app_about">L\'app que la touche ouvrira.</string>
+    <string name="settings_hdmi_input">Source HDMI</string>
+    <string name="settings_hdmi_input_about">L\'entrée sur laquelle la touche basculera.</string>
+    <string name="settings_inputs_searching">Recherche des entrées…</string>
+    <string name="settings_no_input">Aucune entrée</string>
+    <string name="settings_no_input_about">Ce téléviseur n\'expose pas d\'entrée HDMI à canvasOS (voir AGENTS.md, section 9).</string>
+    <string name="settings_input_connected">Connectée</string>
+    <string name="settings_learn_title">Appuyez sur la touche</string>
+    <string name="settings_learn_message">Un appui bref l\'associe à l\'appui simple, un appui maintenu à l\'appui long. Retour annule.</string>
+    <string name="settings_learn_capture_hint">Les touches Réglages et Profil demandent « Capter les touches du téléviseur ».</string>
+    <string name="settings_learn_retry">%1$s Essayez une autre touche, ou Retour pour annuler.</string>
+    <string name="settings_reassign_title">Réaffecter « %1$s » ?</string>
+    <string name="settings_reassign_message">Cette touche fait déjà « %1$s ».</string>
+    <string name="settings_reassign">Réaffecter</string>
+
+    <!-- Lecture et notifications -->
+    <string name="settings_playback">Lecture</string>
+    <string name="settings_now_playing">Lecture en cours</string>
+    <string name="settings_now_playing_about">Activée par défaut. Affiche dans le Centre de contrôle ce que lit une app (titre, artiste, pochette) avec lecture/pause et piste suivante. Lit pour cela les informations de lecture des apps (titre, artiste, pochette, état de lecture) via l\'écouteur de notifications ; rien n\'est enregistré.</string>
+    <string name="settings_home_player">Lecteur sur l\'accueil</string>
+    <string name="settings_home_player_about">Activé par défaut, avec Lecture en cours. En haut à gauche de l\'accueil, une capsule montre la pochette, le titre et l\'artiste de ce qu\'une app lit, sans commande : OK ouvre cette app ; lecture, pause et piste suivante restent dans le Centre de contrôle. Rien de plus n\'est lu pour elle.</string>
+    <string name="settings_now_playing_required">Lecture en cours requise</string>
+    <string name="settings_lyrics">Paroles</string>
+    <string name="settings_lyrics_about">Activées par défaut. À chaque nouveau titre lu, le téléviseur demande à LRCLIB (lrclib.net, gratuit, sans clé) s\'il a ses paroles : le titre, l\'artiste, l\'album et la durée du morceau sont envoyés, rien d\'autre, et rien n\'est enregistré. Quand il en a, un bouton Paroles sort à droite du lecteur de l\'accueil quand celui-ci est sélectionné : OK affiche les paroles synchronisées sur le fond assombri (les paroles non synchronisées ne sont pas proposées), OK encore les retire. Désactivées, rien n\'est envoyé à LRCLIB.</string>
+    <string name="settings_home_player_required">Lecteur sur l\'accueil requis</string>
+    <string name="settings_lyrics_position">Position des paroles</string>
+    <string name="settings_lyrics_position_about">Où les lignes s\'affichent sur l\'accueil : à gauche sous le lecteur, au centre, ou à droite.</string>
+    <string name="settings_lyrics_center">Centre</string>
+    <string name="settings_lyrics_right">Droite</string>
+    <string name="settings_lyrics_left">Gauche</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_banners">Bannières de notifications</string>
+    <string name="settings_banners_about">Activées par défaut. Affiche en haut à droite les notifications des apps (sonnette, messages, domotique…). Le titre et le texte des notifications de toutes les apps, sauf celles exclues, sont lus, affichés 6 secondes et jamais enregistrés. Désactivées, aucune notification n\'est lue.</string>
+    <string name="settings_banner_apps">Apps exclues des bannières</string>
+    <string name="settings_banner_apps_about">Les notifications des apps cochées ne sont ni lues ni affichées. Toutes les autres s\'affichent en bannière.</string>
+    <string name="settings_banner_apps_no_overlay">\nSans l\'autorisation d\'affichage par-dessus les autres apps (étape 4), les bannières n\'apparaissent que sur l\'accueil.</string>
+    <string name="settings_banner_apps_page_about">Les notifications des apps cochées ne sont ni lues ni affichées. Celles des autres apps s\'affichent 6 secondes en haut à droite.</string>
+
+    <!-- Mémoire et alimentation -->
+    <string name="settings_cleanup">Nettoyage</string>
+    <string name="settings_clean_standby">Libérer la mémoire en veille</string>
+    <string name="settings_clean_standby_about">Ferme les apps en arrière-plan quand le téléviseur passe en veille, pour un redémarrage plus fluide. Les apps qui lisent du son ou de la vidéo, ou qui font tourner un service (diffusion, serveur), sont épargnées.</string>
+    <string name="settings_clean_scheduled">Libération programmée</string>
+    <string name="settings_clean_scheduled_about">Ferme régulièrement les apps en arrière-plan, sauf l\'app à l\'écran et celles qui lisent du son ou de la vidéo ou font tourner un service.</string>
+    <string name="settings_every_hours">Toutes les %1$d h</string>
+    <string name="settings_clean_now">Libérer la mémoire</string>
+    <string name="settings_clean_now_about">Ferme maintenant les apps en arrière-plan. Celles qui lisent du son ou de la vidéo, ou qui font tourner un service (diffusion, serveur), sont épargnées.</string>
+    <string name="settings_mb_free">%1$d Mo libres</string>
+    <string name="settings_freeing">Libération…</string>
+    <string name="settings_last_clean">Dernier nettoyage</string>
+    <string name="settings_last_clean_none">La mémoire n\'a pas encore été libérée.</string>
+    <string name="settings_last_clean_about">%1$s.\nAppuyez pour voir les apps fermées.</string>
+    <string name="settings_keep_apps">Apps à conserver</string>
+    <string name="settings_keep_apps_about">Apps que la libération de la mémoire ne ferme jamais, comme la diffusion d\'écran. Celles qui lisent du son ou de la vidéo, ou qui font tourner un service, sont de toute façon épargnées tant qu\'elles le font.</string>
+    <string name="settings_power">Alimentation</string>
+    <string name="settings_power_key">Bouton marche/arrêt</string>
+    <string name="settings_power_key_about">Veille : comme d\'habitude. Arrêt complet : économise l\'énergie, mais le démarrage est plus long.</string>
+    <string name="settings_power_shutdown">Arrêt complet</string>
+    <string name="settings_power_sleep">Veille</string>
+    <string name="settings_power_needs_adb">Autorisez d\'abord le débogage local pour l\'activer</string>
+
+    <!-- Apps -->
+    <string name="settings_hidden_apps">Apps masquées</string>
+    <string name="settings_hidden_apps_about">Apps qui ne s\'affichent pas sur l\'écran d\'accueil.</string>
+    <string name="settings_removed_apps">Apps préinstallées supprimées</string>
+    <string name="settings_removed_apps_about">Apps préinstallées supprimées depuis le menu d\'appui long ; vous pouvez les restaurer ici.</string>
+    <string name="settings_folders">Dossiers</string>
+    <string name="settings_folders_about">Les dossiers de l\'accueil et leurs apps. Ils se créent et se gèrent depuis l\'accueil, par un appui long sur une app ou un dossier.</string>
+
+    <!-- Profils -->
+    <string name="settings_current_profile">Profil actuel</string>
+    <string name="settings_current_profile_about">Le profil dont l\'accueil est affiché. Changez-en avec la photo de profil, en haut à droite de l\'accueil.</string>
+    <string name="settings_manage_profiles">Gérer les profils</string>
+    <string name="settings_profiles_about">Chaque profil a son propre accueil : l\'ordre des apps, les apps masquées, les dossiers, les noms des apps, les entrées épinglées et le fond d\'écran. Les autres réglages valent pour tous. Un profil enfant demande le code PIN pour changer de profil, ouvrir les réglages ou supprimer une app.</string>
+
+    <!-- Page téléphone -->
+    <string name="settings_access">Accès</string>
+    <string name="settings_show_qr">Afficher le QR code</string>
+    <string name="settings_show_qr_about">Scannez-le avec un téléphone sur le même Wi-Fi. La page qui s\'ouvre sert de télécommande avec clavier, importe des photos et des liens d\'images, règle l\'animation de démarrage et la météo, et installe des apps (APK). La télécommande et l\'installation d\'apps demandent le débogage local.</string>
+    <string name="settings_security">Sécurité</string>
+    <string name="settings_regenerate">Régénérer le code</string>
+    <string name="settings_regenerate_about">Change le code secret de l\'adresse : les téléphones qui connaissaient l\'ancienne ne peuvent plus s\'en servir et doivent scanner à nouveau. Faites-le si un téléphone qui a ouvert la page est perdu.</string>
+    <string name="settings_new_code">Nouveau code créé</string>
+    <string name="settings_phone_server_about">Le code dans l\'adresse est la seule protection : toute personne qui le connaît, sur le même réseau, peut commander le téléviseur. Désactivée, la page ne répond plus du tout.</string>
+
+    <!-- Système -->
+    <string name="settings_debugging">Débogage</string>
+    <string name="settings_local_debug">Débogage local</string>
+    <string name="settings_local_debug_about">Permet à l\'accueil d\'éteindre le téléviseur, de libérer la mémoire, etc. via le débogage local. Dans la fenêtre qui s\'affiche, choisissez « Toujours autoriser ».</string>
+    <string name="settings_allowed">Autorisé</string>
+    <string name="settings_not_allowed_press">Non autorisé, appuyez sur OK</string>
+    <string name="settings_choose_always_allow">Choisissez Toujours autoriser…</string>
+    <string name="settings_not_allowed_retry">Non autorisé, OK pour réessayer</string>
+    <string name="settings_adb">Débogage ADB</string>
+    <string name="settings_adb_about">Doit être activé pour qu\'un ordinateur puisse se connecter au téléviseur : sans lui, pas d\'installation ni de mise à jour par le réseau. Il se règle dans les options pour les développeurs du téléviseur.</string>
+    <string name="settings_keep_adb">Garder le débogage ADB activé</string>
+    <string name="settings_keep_adb_about">Empêche le système de désactiver le débogage ADB.</string>
+    <string name="settings_ip">Adresse IP</string>
+    <string name="settings_ip_about">L\'adresse du téléviseur sur le réseau local. Un ordinateur sur le même réseau s\'en sert pour s\'y connecter (adb connect, port 5555), par exemple pour installer ou mettre à jour canvasOS.</string>
+    <string name="settings_not_connected">Non connecté</string>
+    <string name="settings_protection">Protection</string>
+    <string name="settings_guard_about">Quand la touche Accueil ramène au lanceur d\'origine du téléviseur, revient automatiquement ici.</string>
+    <string name="settings_on_inactive">Activée (inactive)</string>
+    <string name="settings_guard_on_toast">La touche Accueil ramènera désormais ici au lieu du lanceur d\'origine</string>
+    <string name="settings_home_key">Touche Accueil directe</string>
+    <string name="settings_home_key_about">La protection prend la touche Accueil avant le système et ouvre directement l\'accueil, sans montrer le lanceur d\'origine. Elle voit alors passer chaque touche pressée dans toutes les apps et ne retient que la touche Accueil. Désactivez-la si une app réagit deux fois à une touche.</string>
+    <string name="settings_tv">Téléviseur</string>
+    <string name="settings_tv_settings">Réglages du téléviseur</string>
+    <string name="settings_tv_settings_about">Ouvre les réglages d\'origine du téléviseur.</string>
+    <string name="settings_update">Mise à jour</string>
+    <string name="settings_update_about">Cherche la dernière version de canvasOS sur GitHub (Releases) et l\'installe sur place : les réglages et les autorisations sont conservés. Appuyez une première fois pour vérifier, une seconde pour installer. L\'installation demande le débogage local. canvasOS cherche aussi chaque jour qu\'une version existe, sans rien télécharger.</string>
+    <string name="settings_about">À propos</string>
+    <string name="settings_about_about">canvasOS, un écran d\'accueil Android TV inspiré de tvOS.</string>
+    <string name="settings_update_available">%1$s disponible, OK pour installer</string>
+    <string name="settings_update_check">Vérifier</string>
+    <string name="settings_update_checking">Vérification…</string>
+    <string name="settings_update_up_to_date">À jour (%1$s)</string>
+    <string name="settings_update_latest">canvasOS %1$s est la dernière version publiée.</string>
+    <string name="settings_update_unreachable">Releases inaccessibles</string>
+    <string name="settings_update_found">canvasOS %1$s%2$s est disponible. Appuyez sur OK pour le télécharger et l\'installer.</string>
+    <string name="settings_update_needs_adb">L\'installation passe par le débogage local : autorisez-le (ligne « Débogage local » plus haut), puis réessayez.</string>
+    <string name="settings_update_installed">Installée, redémarrage…</string>
+    <string name="settings_update_failed">Échec, OK pour réessayer</string>
+
+    <!-- Listes d'apps, dossiers -->
+    <string name="settings_keep_page_about">La libération de la mémoire ne ferme pas les apps cochées.</string>
+    <string name="settings_hidden_page_about">Les apps cochées n\'apparaissent pas sur l\'écran d\'accueil.</string>
+    <string name="settings_folders_page_about">Les dossiers de l\'accueil, dans leur ordre, avec le nombre d\'apps qu\'ils affichent.</string>
+    <string name="settings_no_folder">Aucun dossier</string>
+    <string name="settings_folder_empty">Ce dossier est vide.</string>
+    <string name="settings_folders_how">Les dossiers se gèrent depuis l\'accueil (appui long)</string>
+    <string name="settings_folders_how_about">Sur l\'accueil, appuyez longuement sur une app : « Nouveau dossier… » la range dans un nouveau dossier, « Ajouter au dossier… » dans un dossier existant. Appuyez longuement sur un dossier pour le renommer, y ajouter des apps, le déplacer ou le supprimer ; ses apps reviennent alors sur l\'accueil.</string>
+
+    <!-- Profils (page) -->
+    <string name="settings_profile_shown">Le profil affiché en ce moment.</string>
+    <string name="settings_profile_child_about">Profil enfant : le code PIN est demandé pour en sortir, ouvrir les réglages ou supprimer une app ; « Masquer » et « Infos sur l\'app » n\'y sont pas proposés.</string>
+    <string name="settings_profile_main_about">Le profil principal : celui de l\'accueil d\'avant les profils. Il ne peut pas être supprimé.</string>
+    <string name="settings_profile_press_about">Appuyez pour le renommer, changer sa couleur, en faire un profil enfant ou le supprimer.</string>
+    <string name="settings_profile_child_value">Enfant</string>
+    <string name="settings_new_profile_more">Nouveau profil…</string>
+    <string name="settings_new_profile_about">Un profil de plus, avec son propre accueil. Il commence avec l\'ordre des apps par défaut, sans apps masquées ni dossiers, et avec le fond d\'écran du profil principal.</string>
+    <string name="settings_new_profile">Nouveau profil</string>
+    <string name="settings_new_profile_message">Le nom du profil, par exemple « Enfants ».</string>
+    <string name="settings_pin">Code PIN</string>
+    <string name="settings_pin_about">Demandé dans un profil enfant pour en sortir, ouvrir les réglages ou supprimer une app. De %1$d à %2$d chiffres ; le modifier ou le supprimer demande le code actuel. Oublié, il se supprime depuis un ordinateur (adb).</string>
+    <string name="settings_pin_set">Défini</string>
+    <string name="settings_pin_needed">Un profil enfant n\'est protégé qu\'une fois un code PIN défini (ligne « Code PIN » de cette page).</string>
+    <string name="settings_rename">Renommer</string>
+    <string name="settings_rename_title">Renommer « %1$s »</string>
+    <string name="settings_rename_main">Laissez le champ vide pour reprendre le nom « %1$s ».</string>
+    <string name="settings_color">Couleur</string>
+    <string name="settings_photo_more">Photo…</string>
+    <string name="settings_remove_photo">Supprimer la photo</string>
+    <string name="settings_child_profile">Profil enfant</string>
+    <string name="settings_delete_profile_title">Supprimer « %1$s » ?</string>
+    <string name="settings_delete_profile_message">Son accueil (ordre des apps, apps masquées, dossiers, noms, fond d\'écran) est effacé. Les apps elles-mêmes restent installées.</string>
+    <string name="settings_photo_title">Photo de « %1$s »</string>
+    <string name="settings_photo_help">Sans photo, le profil montre l\'initiale de son nom sur sa couleur.\n\nDepuis un téléphone : ouvrez la page téléphone (Réglages de l\'accueil → Page téléphone), onglet Réglages, section Profils, puis « Changer la photo ».\n\nDepuis un ordinateur : adb push photo.jpg /sdcard/Android/data/%1$s/files/%2$s/%3$s.jpg</string>
+    <string name="settings_pin_define">Définir le code PIN</string>
+    <string name="settings_pin_change">Modifier</string>
+    <string name="settings_pin_current">Code actuel</string>
+    <string name="settings_pin_new">Nouveau code PIN</string>
+    <string name="settings_pin_remove_title">Supprimer le code PIN ?</string>
+    <string name="settings_pin_remove_message">Les profils enfants ne seront plus protégés : on pourra en sortir et ouvrir les réglages sans code.</string>
+
+    <!-- Apps supprimées, page téléphone, dernier nettoyage -->
+    <string name="settings_removed_page_about">Choisissez une app pour la réinstaller depuis la partition système.</string>
+    <string name="settings_no_removed">Aucune app supprimée</string>
+    <string name="settings_restore">Restaurer</string>
+    <string name="settings_restoring">Restauration…</string>
+    <string name="settings_restored">Restaurée</string>
+    <string name="settings_failed">Échec</string>
+    <string name="settings_phone_page_about">Sur le même Wi-Fi, scannez le code avec l\'appareil photo d\'un téléphone ; la page reste accessible à tout moment. Télécommande et clavier, photos et liens d\'images, animation de démarrage, installation d\'apps (APK).\nLe code dans l\'adresse est la seule protection : régénérez-le si un téléphone qui a ouvert la page est perdu ; les téléphones qui connaissaient l\'ancien devront scanner à nouveau.</string>
+    <string name="settings_starting">Démarrage…</string>
+    <string name="settings_phone_also">Aussi : %1$s (iPhone et Android récents)</string>
+    <string name="settings_last_clean_cache">%1$s : %2$s.\nSans le débogage local, seules les apps en cache ont été arrêtées, et Android ne dit pas lesquelles.</string>
+    <string name="settings_last_clean_full">%1$s : %2$s.\nLes apps à conserver, et celles qui lisaient du son ou de la vidéo ou faisaient tourner un service (diffusion, serveur), n\'ont pas été fermées.</string>
+    <string name="settings_detail_unavailable">Détail indisponible</string>
+    <string name="settings_no_app_closed">Aucune app fermée</string>
+
+    <!-- Nombres -->
+    <plurals name="settings_photos">
+        <item quantity="one">%1$d photos</item>
+        <item quantity="other">%1$d photos</item>
+    </plurals>
+    <plurals name="settings_apps_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+
+    <!-- Système → Langue -->
+    <string name="settings_language">Langue</string>
+    <string name="settings_language_about">Automatique suit la langue du téléviseur.</string>
+    <string name="settings_language_auto">Automatique</string>
+
+    <!-- Cadre photo -->
+    <string name="wall_date_pattern">EEEE d MMMM</string>
+
+    <!-- Fond d'écran -->
+    <string name="wall_intro">Choisissez le fond de l\'écran d\'accueil ; le cadre photo utilise la même source.</string>
+    <string name="wall_from_phone">Depuis un téléphone</string>
+    <string name="wall_from_phone_help">Sur le même Wi-Fi, scannez le code avec l\'appareil photo du téléphone : importez des photos ou ajoutez des liens d\'images (une image, une API d\'images aléatoires, une page ou un JSON qui liste des images). Le téléviseur les récupère chaque jour. La même page sert aussi de télécommande.</string>
+    <string name="wall_starting">Démarrage…</string>
+    <string name="wall_also_at">Aussi : %1$s (iPhone et Android récents)</string>
+    <string name="wall_scan_to_import">Scannez pour importer</string>
+    <string name="wall_scan_to_add_link">Scannez pour ajouter un lien</string>
+    <string name="wall_unsplash_key_scan">Clé Unsplash : scannez</string>
+    <string name="wall_downloaded_on_select">Téléchargé à la sélection</string>
+    <string name="wall_unsplash_needs_key">Unsplash demande une clé gratuite : scannez le code QR à droite et collez-la dans l\'onglet Réglages</string>
+    <string name="wall_no_photos_yet">Aucune photo pour l\'instant : scannez le code QR à droite avec un téléphone pour en importer</string>
+    <string name="wall_no_links_yet">Aucun lien pour l\'instant : scannez le code QR à droite avec un téléphone pour en ajouter</string>
+
+    <!-- Sources -->
+    <string name="wall_src_scenery">Paysages</string>
+    <string name="wall_src_animals">Animaux mignons</string>
+    <string name="wall_src_art">Chefs-d\'œuvre</string>
+    <string name="wall_src_mine">Mes photos</string>
+    <string name="wall_src_custom">Lien personnalisé</string>
+    <string name="wall_src_daily">Photos du jour</string>
+
+    <!-- Légendes -->
+    <string name="wall_caption_360">Fonds d\'écran 360</string>
+    <string name="wall_public_domain">Domaine public</string>
+    <string name="wall_photo_by">Photo de %1$s</string>
+
+    <!-- Dégradés -->
+    <string name="wall_theme_green">Vert</string>
+    <string name="wall_theme_blue">Bleu</string>
+    <string name="wall_theme_purple">Violet</string>
+    <string name="wall_theme_orange">Orange</string>
+    <string name="wall_theme_graphite">Graphite</string>
+
+    <!-- Top Shelf -->
+    <string name="shelf_trending">Tendances</string>
+    <string name="shelf_live">En direct</string>
+    <string name="shelf_views">%1$s vues</string>
+    <string name="shelf_popularity">popularité %1$s</string>
+    <string name="shelf_my_list">Ma liste</string>
+    <string name="shelf_continue_watching">Continuer à regarder</string>
+    <string name="shelf_season_n">Saison %1$s</string>
+    <string name="shelf_episode_n">Épisode %1$s</string>
+    <string name="shelf_remaining">Il reste %1$s</string>
+    <string name="shelf_minutes">%1$d min</string>
+    <string name="shelf_hours_minutes">%1$d h %2$02d</string>
+    <string name="shelf_type_movie">Film</string>
+    <string name="shelf_type_series">Série</string>
+    <string name="shelf_type_season">Saison</string>
+    <string name="shelf_type_episode">Épisode</string>
+    <string name="shelf_type_clip">Vidéo</string>
+    <string name="shelf_type_event">Événement</string>
+    <string name="shelf_type_channel">Chaîne</string>
+    <string name="shelf_type_track">Morceau</string>
+    <string name="shelf_type_album">Album</string>
+    <string name="shelf_type_artist">Artiste</string>
+    <string name="shelf_type_playlist">Playlist</string>
+    <string name="shelf_type_station">Radio</string>
+    <string name="shelf_type_game">Jeu</string>
+
+    <!-- Télécommande : actions -->
+    <string name="sys_key_action_control_center">Centre de contrôle</string>
+    <string name="sys_key_action_play_pause">Lecture / pause</string>
+    <string name="sys_key_action_next">Piste suivante</string>
+    <string name="sys_key_action_previous">Piste précédente</string>
+    <string name="sys_key_action_open_playing">Ouvrir l\'app qui lit</string>
+    <string name="sys_key_action_lyrics">Paroles</string>
+    <string name="sys_key_action_next_photo">Photo suivante</string>
+    <string name="sys_key_action_photo_frame">Cadre photo</string>
+    <string name="sys_key_action_sleep_timer">Minuteur de veille</string>
+    <string name="sys_key_action_clean">Libérer la mémoire</string>
+    <string name="sys_key_action_home_settings">Réglages de l\'accueil</string>
+    <string name="sys_key_action_tv_settings">Réglages du téléviseur</string>
+    <string name="sys_key_action_profiles">Liste des profils</string>
+
+    <!-- Télécommande : touches refusées -->
+    <string name="sys_key_reserved_tv">Cette touche est réservée au téléviseur.</string>
+    <string name="sys_key_reserved_nav_long">L\'appui long sur cette touche sert déjà sur l\'accueil.</string>
+    <string name="sys_key_reserved_nav">Cette touche sert déjà sur l\'accueil.</string>
+    <string name="sys_key_reserved_home">Cette touche sert déjà sur l\'accueil : maintenez-la pour l\'associer à un appui long.</string>
+
+    <!-- Télécommande : noms -->
+    <string name="sys_key_open_app">Ouvrir %1$s</string>
+    <string name="sys_key_input">Source %1$s</string>
+    <string name="sys_key_button">Touche %1$s</string>
+    <string name="sys_key_long">%1$s (appui long)</string>
+    <string name="sys_key_name_red">Touche rouge</string>
+    <string name="sys_key_name_green">Touche verte</string>
+    <string name="sys_key_name_yellow">Touche jaune</string>
+    <string name="sys_key_name_blue">Touche bleue</string>
+    <string name="sys_key_name_back">Retour</string>
+    <string name="sys_key_name_menu">Menu</string>
+    <string name="sys_key_name_settings">Réglages</string>
+    <string name="sys_key_name_profile">Profil</string>
+    <string name="sys_key_name_notifications">Notifications</string>
+    <string name="sys_key_name_tv_input">Source</string>
+    <string name="sys_key_name_bookmark">Favoris</string>
+    <string name="sys_key_name_captions">Sous-titres</string>
+    <string name="sys_key_name_channel_up">Chaîne +</string>
+    <string name="sys_key_name_channel_down">Chaîne −</string>
+    <string name="sys_key_name_play_pause">Lecture/pause</string>
+    <string name="sys_key_name_play">Lecture</string>
+    <string name="sys_key_name_stop">Stop</string>
+    <string name="sys_key_name_next">Suivant</string>
+    <string name="sys_key_name_previous">Précédent</string>
+    <string name="sys_key_name_fast_forward">Avance rapide</string>
+    <string name="sys_key_name_rewind">Retour rapide</string>
+    <string name="sys_key_name_record">Enregistrer</string>
+    <string name="sys_key_name_last_channel">Dernière chaîne</string>
+
+    <!-- Profils -->
+    <string name="sys_profile_main_name">Principal</string>
+    <string name="sys_profile_default_name">Profil</string>
+    <string name="sys_profile_color_blue">Bleu</string>
+    <string name="sys_profile_color_green">Vert</string>
+    <string name="sys_profile_color_orange">Orange</string>
+    <string name="sys_profile_color_red">Rouge</string>
+    <string name="sys_profile_color_purple">Violet</string>
+    <string name="sys_profile_color_yellow">Jaune</string>
+
+    <!-- Code PIN -->
+    <string name="sys_pin_enter">Saisissez le code PIN.</string>
+    <plurals name="sys_pin_wrong">
+        <item quantity="one">Code incorrect. Dernier essai.</item>
+        <item quantity="other">Code incorrect. Encore %1$d essais.</item>
+    </plurals>
+    <string name="sys_pin_hint">Code PIN</string>
+    <string name="sys_pin_digits">De %1$d à %2$d chiffres.</string>
+    <string name="sys_pin_new_hint">Nouveau code</string>
+    <string name="sys_pin_bad_length">Le code doit compter de %1$d à %2$d chiffres.</string>
+    <string name="sys_pin_confirm_title">Confirmer le code</string>
+    <string name="sys_pin_confirm">Saisissez le même code une seconde fois.</string>
+    <string name="sys_pin_mismatch">Les deux codes étaient différents. Recommencez.</string>
+
+    <!-- Libérer la mémoire -->
+    <plurals name="sys_clean_freed">
+        <item quantity="one">%1$d Mo libéré</item>
+        <item quantity="other">%1$d Mo libérés</item>
+    </plurals>
+    <string name="sys_clean_none_closed">aucune app fermée</string>
+    <plurals name="sys_clean_closed">
+        <item quantity="one">%1$d app fermée</item>
+        <item quantity="other">%1$d apps fermées</item>
+    </plurals>
+    <string name="sys_clean_cache_only">(cache uniquement)</string>
+    <plurals name="sys_clean_spared">
+        <item quantity="one">%1$d en cours d\'utilisation épargnée</item>
+        <item quantity="other">%1$d en cours d\'utilisation épargnées</item>
+    </plurals>
+    <string name="sys_clean_date_pattern">d MMM HH:mm</string>
+
+    <!-- Bluetooth -->
+    <string name="sys_bt_headphones">Casque</string>
+    <string name="sys_bt_speaker">Enceinte</string>
+    <string name="sys_bt_controller">Manette</string>
+    <string name="sys_bt_connected">connecté</string>
+    <string name="sys_bt_disconnected">déconnecté</string>
+    <string name="sys_bt_battery">%1$d %%</string>
+    <string name="sys_bt_none">Aucun appareil connecté</string>
+    <plurals name="sys_bt_connected_count">
+        <item quantity="one">%1$d appareil connecté</item>
+        <item quantity="other">%1$d appareils connectés</item>
+    </plurals>
+
+    <!-- Minuteur de veille -->
+    <string name="sys_sleep_under_minute">moins d\'une minute</string>
+    <string name="sys_sleep_minutes">%1$d min</string>
+    <string name="sys_sleep_hours">%1$d h</string>
+    <string name="sys_sleep_hours_minutes">%1$d h %2$s</string>
+
+    <!-- Service en arrière-plan -->
+    <string name="sys_keeper_new_address_title">Page téléphone : nouvelle adresse</string>
+    <string name="sys_keeper_new_address">Le téléviseur a changé d\'adresse (%1$s). canvasos.local marche toujours ; sinon rescannez le QR code dans Réglages de l\'accueil → Page téléphone.</string>
+    <string name="sys_keeper_channel">Accueil en arrière-plan</string>
+    <string name="sys_keeper_title">Accueil</string>
+    <string name="sys_keeper_text">Libère la mémoire en veille</string>
+
+    <!-- Installation d'APK -->
+    <string name="sys_install_missing">Le fichier à installer est introuvable.</string>
+    <string name="sys_install_adb_off">Le débogage local ne répond pas : autorisez-le dans Réglages de l\'accueil → Système.</string>
+    <string name="sys_install_hint_verification">Le téléviseur refuse les installations par le débogage (c\'est le cas des TCL) : installez cette app depuis le téléviseur, avec son gestionnaire de fichiers.</string>
+    <string name="sys_install_hint_signature">Une autre version de cette app est déjà installée avec une signature différente : désinstallez-la d\'abord.</string>
+    <string name="sys_install_hint_downgrade">Une version plus récente de cette app est déjà installée.</string>
+    <string name="sys_install_hint_older_sdk">Cette app demande une version d\'Android plus récente que celle du téléviseur.</string>
+    <string name="sys_install_hint_abi">Cette app n\'est pas compilée pour le processeur de ce téléviseur.</string>
+    <string name="sys_install_hint_storage">Le téléviseur n\'a plus assez d\'espace de stockage.</string>
+    <string name="sys_install_hint_invalid">Ce fichier n\'est pas un APK valide, ou il est incomplet.</string>
+
+    <!-- Page téléphone (affiché sur le téléviseur) -->
+    <string name="sys_phone_off">La page téléphone est désactivée (Réglages de l\'accueil → Page téléphone).</string>
+    <string name="sys_phone_offline">Le téléviseur n\'est pas connecté au réseau. Connectez-le, puis rouvrez cette page.</string>
+    <string name="sys_phone_port_busy">La page téléphone n\'a pas pu démarrer : le port %1$d est peut-être pris par une autre app.</string>
+
+    <!-- Mise à jour -->
+    <string name="sys_update_no_release">GitHub n\'affiche aucune Release publique de canvasOS (dépôt privé, ou pas encore de Release).</string>
+    <string name="sys_update_rate_limit">GitHub limite les requêtes de ce réseau : réessayez dans une heure.</string>
+    <string name="sys_update_forbidden">GitHub refuse l\'accès aux Releases (dépôt privé ?).</string>
+    <string name="sys_update_http">GitHub a répondu HTTP %1$d.</string>
+    <string name="sys_update_answer_too_large">La réponse de GitHub est trop volumineuse.</string>
+    <string name="sys_update_unreachable">GitHub est injoignable : vérifiez la connexion Internet du téléviseur.</string>
+    <string name="sys_update_answer_unreadable">La réponse de GitHub est illisible.</string>
+    <string name="sys_update_bad_version">La version « %1$s » de la Release est illisible.</string>
+    <string name="sys_update_no_asset">La Release %1$s ne contient pas %2$s.</string>
+    <string name="sys_update_bad_link">Le lien de %1$s dans la Release %2$s est invalide.</string>
+    <string name="sys_update_no_storage">Le stockage de l\'application est indisponible.</string>
+    <string name="sys_update_busy">Une mise à jour est déjà en cours.</string>
+    <string name="sys_update_downloading">Téléchargement %1$d %%…</string>
+    <string name="sys_update_download_failed">Le téléchargement a échoué : %1$s.</string>
+    <string name="sys_update_installing">Installation…</string>
+    <string name="sys_update_signature">Cette installation de canvasOS n\'a pas la signature des Releases : mettez-la à jour une première fois depuis un ordinateur (AGENTS.md, étape 3).</string>
+    <string name="sys_update_file_too_large">Le fichier de la Release est trop volumineux (%1$d Mo).</string>
+    <string name="sys_update_over_max">Le fichier téléchargé dépasse %1$d Mo.</string>
+    <string name="sys_update_incomplete">Le fichier est incomplet (%1$d octets reçus sur %2$d).</string>
+    <string name="sys_update_not_apk">Le fichier téléchargé n\'est pas un APK.</string>
+    <string name="sys_update_apk_unreadable">Le fichier téléchargé est illisible.</string>
+    <string name="sys_update_not_canvasos">Le fichier téléchargé n\'est pas canvasOS.</string>
+    <string name="sys_update_not_newer">Cette Release ne contient pas de version plus récente (APK en %1$s).</string>
+
+    <!-- Entrées du téléviseur -->
+    <string name="sys_tv_inputs_unreadable">Sources illisibles</string>
+    <plurals name="sys_tv_hdmi_inputs">
+        <item quantity="one">%1$d entrée HDMI</item>
+        <item quantity="other">%1$d entrées HDMI</item>
+    </plurals>
+    <string name="sys_tv_inputs_of">Sources %1$s</string>
+    <string name="sys_tv_input_picker">Sélecteur de source %1$s</string>
+    <string name="sys_tv_live_channels">Chaînes en direct</string>
+    <string name="sys_tv_current_home">Actuelle : accueil</string>
 </resources>

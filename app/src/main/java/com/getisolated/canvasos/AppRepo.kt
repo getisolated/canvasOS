@@ -21,7 +21,6 @@ import com.getisolated.canvasos.tv.TvControls
 import org.json.JSONObject
 import java.io.File
 import java.text.Collator
-import java.util.Locale
 
 data class AppEntry(
     val pkg: String,
@@ -105,7 +104,7 @@ class AppRepo(private val ctx: Context) {
                 if (byPkg[key]?.leanback == true) continue
                 byPkg[key] = AppEntry(
                     key,
-                    ri.loadLabel(pm).toString().trim(),
+                    if (ai.packageName == ctx.packageName && ai.labelRes != 0) str(ai.labelRes) else ri.loadLabel(pm).toString().trim(),
                     ComponentName(ai.packageName, ai.name),
                     leanback,
                 )
@@ -151,7 +150,7 @@ class AppRepo(private val ctx: Context) {
         var order = prefs.order
         if (order.isEmpty()) order = Prefs.DEFAULT_ORDER
         val rank = order.withIndex().associate { it.value to it.index }
-        val collator = Collator.getInstance(Locale.FRANCE)
+        val collator = Collator.getInstance(uiLocale)
         val folders = prefs.folderList()
         val inFolder = Folders.members(folders)
         val byKey = apps.associateBy { it.pkg }

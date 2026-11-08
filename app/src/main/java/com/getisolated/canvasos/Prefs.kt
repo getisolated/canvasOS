@@ -133,6 +133,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("home_key", true)
         set(v) = sp.edit().putBoolean("home_key", v).apply()
 
+    /** « Langue » (Réglages → Système): auto follows the TV's language, or fr / en / de (App.kt, Strings). */
+    var language: String
+        get() = sp.getString("language", AUTO) ?: AUTO
+        set(v) { sp.edit().putString("language", v).commit() }   // commit: Strings.restart ends the process right after
+
     /** Switch ADB debugging back on whenever the firmware turns it off (Xiaomi does on wake). */
     var keepAdb: Boolean
         get() = sp.getBoolean("keep_adb", false)
@@ -547,6 +552,7 @@ class Prefs(ctx: Context) {
         const val SAVER_AERIAL = "aerial"
 
         const val AUTO = "auto"
+        val LANGUAGES = listOf(AUTO, "fr", "en", "de")
         const val CLOCK_CORNER = "corner"
         const val CLOCK_LARGE = "large"
         const val CLOCK_OFF = "off"

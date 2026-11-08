@@ -40,7 +40,7 @@ object ShelfFeeds {
      */
     fun discoverUrl(kind: String, providers: String): String =
         "$TMDB_API/discover/$kind?watch_region=FR&with_watch_providers=${URLEncoder.encode(providers, "UTF-8")}" +
-            "&with_watch_monetization_types=flatrate&sort_by=popularity.desc&language=fr-FR&include_adult=false&page=1"
+            "&with_watch_monetization_types=flatrate&sort_by=popularity.desc&language=${uiLocale.toLanguageTag()}&include_adult=false&page=1"
 
     /** Any cheap call that answers 401 to a bad key. */
     const val TMDB_CHECK = "$TMDB_API/authentication"
@@ -74,9 +74,9 @@ object ShelfFeeds {
             // A rating from a handful of votes says nothing.
             val rating = o.optDouble("vote_average", 0.0).takeIf { it > 0 && o.optInt("vote_count", 0) >= 10 }
             val meta = listOfNotNull(
-                if (tv) "Série" else "Film",
+                if (tv) str(R.string.shelf_type_series) else str(R.string.shelf_type_movie),
                 year,
-                rating?.let { "★ " + String.format(Locale.FRANCE, "%.1f", it) },
+                rating?.let { "★ " + String.format(uiLocale, "%.1f", it) },
             ).joinToString(" · ")
             Shelf.Item(title, meta, TMDB_IMAGE + backdrop) to o.optDouble("popularity", 0.0)
         }
@@ -135,8 +135,8 @@ object ShelfFeeds {
 
     /** "Ma liste" when the app only put titles to watch later there, "Continuer à regarder" otherwise. */
     fun watchNextLabel(rows: List<TvRow>): String =
-        if (rows.isNotEmpty() && rows.filter { it.browsable }.all { it.watchNextType == WATCHLIST }) "Ma liste"
-        else "Continuer à regarder"
+        if (rows.isNotEmpty() && rows.filter { it.browsable }.all { it.watchNextType == WATCHLIST }) str(R.string.shelf_my_list)
+        else str(R.string.shelf_continue_watching)
 
     /** A row as a shelf item, or null without a title or a picture. */
     fun item(r: TvRow, watchNext: Boolean): Shelf.Item? {
@@ -167,8 +167,8 @@ object ShelfFeeds {
         val parts = ArrayList<String>()
         val season = r.season?.trim()?.takeIf { it.isNotEmpty() }
         val episode = r.episode?.trim()?.takeIf { it.isNotEmpty() }
-        season?.let { parts += "Saison $it" }
-        episode?.let { parts += "Épisode $it" }
+        season?.let { parts += str(R.string.shelf_season_n, it) }
+        episode?.let { parts += str(R.string.shelf_episode_n, it) }
         r.episodeTitle?.trim()?.takeIf { it.isNotEmpty() && it != title }?.let { parts += it }
         if (watchNext) remaining(r.positionMs, r.durationMs)?.let { parts += it }
         if (parts.isEmpty()) oneLine(r.description)?.let { return it }
@@ -182,29 +182,29 @@ object ShelfFeeds {
 
     fun remaining(positionMs: Long, durationMs: Long): String? {
         if (positionMs <= 0 || durationMs <= 0 || positionMs >= durationMs) return null
-        return "Il reste " + length(durationMs - positionMs)
+        return str(R.string.shelf_remaining, length(durationMs - positionMs))
     }
 
     /** "23 min", "1 h 05", rounded up to the minute. */
     fun length(ms: Long): String {
         val min = ((ms + 59_999) / 60_000).coerceAtLeast(1)
-        return if (min < 60) "$min min" else "%d h %02d".format(min / 60, min % 60)
+        return if (min < 60) str(R.string.shelf_minutes, min) else str(R.string.shelf_hours_minutes, min / 60, min % 60)
     }
 
     fun typeLabel(type: Int): String? = when (type) {
-        0 -> "Film"            // TYPE_MOVIE
-        1 -> "Série"           // TYPE_TV_SERIES
-        2 -> "Saison"          // TYPE_TV_SEASON
-        3 -> "Épisode"         // TYPE_TV_EPISODE
-        4 -> "Vidéo"           // TYPE_CLIP
-        5 -> "Événement"       // TYPE_EVENT
-        6 -> "Chaîne"          // TYPE_CHANNEL
-        7 -> "Morceau"         // TYPE_TRACK
-        8 -> "Album"           // TYPE_ALBUM
-        9 -> "Artiste"         // TYPE_ARTIST
-        10 -> "Playlist"       // TYPE_PLAYLIST
-        11 -> "Radio"          // TYPE_STATION
-        12 -> "Jeu"            // TYPE_GAME
+        0 -> str(R.string.shelf_type_movie)            // TYPE_MOVIE
+        1 -> str(R.string.shelf_type_series)           // TYPE_TV_SERIES
+        2 -> str(R.string.shelf_type_season)          // TYPE_TV_SEASON
+        3 -> str(R.string.shelf_type_episode)         // TYPE_TV_EPISODE
+        4 -> str(R.string.shelf_type_clip)           // TYPE_CLIP
+        5 -> str(R.string.shelf_type_event)       // TYPE_EVENT
+        6 -> str(R.string.shelf_type_channel)          // TYPE_CHANNEL
+        7 -> str(R.string.shelf_type_track)         // TYPE_TRACK
+        8 -> str(R.string.shelf_type_album)           // TYPE_ALBUM
+        9 -> str(R.string.shelf_type_artist)         // TYPE_ARTIST
+        10 -> str(R.string.shelf_type_playlist)       // TYPE_PLAYLIST
+        11 -> str(R.string.shelf_type_station)          // TYPE_STATION
+        12 -> str(R.string.shelf_type_game)            // TYPE_GAME
         else -> null
     }
 
