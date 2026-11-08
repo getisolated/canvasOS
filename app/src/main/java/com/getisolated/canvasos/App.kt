@@ -1,6 +1,9 @@
 package com.getisolated.canvasos
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.content.res.Configuration
 import android.content.res.Resources
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
@@ -9,7 +12,7 @@ import java.util.Locale
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
-        Strings.res = resources
+        Strings.apply(this)
     }
 }
 
@@ -19,6 +22,23 @@ class App : Application() {
  */
 object Strings {
     @Volatile var res: Resources? = null
+
+    /** Reads the text in the language chosen in Réglages → Système → Langue, or the TV's when it is auto. */
+    fun apply(ctx: Context) {
+        val app = ctx.applicationContext
+        val lang = Prefs(app).language
+        res = if (lang == Prefs.AUTO) app.resources
+        else app.createConfigurationContext(Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) }).resources
+    }
+
+    /**
+     * After a language change: some lists (key names, wallpaper sources) are read once per process, so
+     * the app starts again on the home screen rather than showing two languages at once.
+     */
+    fun restart(ctx: Context) {
+        ctx.startActivity(Intent(ctx, HomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        Runtime.getRuntime().exit(0)
+    }
 
     /** Local unit tests have no Resources: TestStrings (test sources only) reads values/strings.xml instead. */
     @Volatile var stub: ((id: Int, count: Int?, args: Array<out Any>) -> String)? = null

@@ -893,6 +893,14 @@ class SettingsActivity : Activity() {
 
     /** Système: debugging, the home guard, the TV's own settings, updates, the version. */
     private fun systemGroup() {
+        section(str(R.string.settings_language))
+        row(str(R.string.settings_language), str(R.string.settings_language_about), { languageName(prefs.language) }) {
+            val s = Sheet(root).title(str(R.string.settings_language))
+            for (l in Prefs.LANGUAGES) s.button(if (l == prefs.language) "✓  ${languageName(l)}" else languageName(l)) {
+                if (l != prefs.language) { prefs.language = l; Strings.restart(this) }
+            }
+            showSheet(s)
+        }
         section(str(R.string.settings_debugging))
         row(str(R.string.settings_local_debug), str(R.string.settings_local_debug_about),
             { if (prefs.adbAuthorized) str(R.string.settings_allowed) else str(R.string.settings_not_allowed_press) }) { v ->
@@ -1312,6 +1320,14 @@ class SettingsActivity : Activity() {
     private fun onOff(b: Boolean) = if (b) str(R.string.settings_on) else str(R.string.settings_off)
 
     /** "自动（…）" with what auto picks on this TV, or the forced choice. */
+    /** Each language under its own name, as on Apple TV; only « Automatique » is translated. */
+    private fun languageName(l: String) = when (l) {
+        "fr" -> "Français"
+        "en" -> "English"
+        "de" -> "Deutsch"
+        else -> str(R.string.settings_language_auto)
+    }
+
     private fun auto(pref: String, on: Boolean, yes: String, no: String) =
         if (pref == Prefs.AUTO) "Auto (${if (on) yes else no})" else if (on) yes else no
 

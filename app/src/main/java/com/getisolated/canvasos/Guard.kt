@@ -456,6 +456,8 @@ class ConfigReceiver : BroadcastReceiver() {
         if (i.hasExtra("keep_adb")) prefs.keepAdb = i.getBooleanExtra("keep_adb", false)
         if (i.hasExtra("home_key")) { prefs.homeKey = i.getBooleanExtra("home_key", true); HomeGuardService.refreshFilter() }
         if (i.hasExtra("guard")) Guard.setEnabled(c, i.getBooleanExtra("guard", false))
+        // Réglages → Système → Langue: auto, fr, en or de. Lists read once per process change at the next start.
+        i.getStringExtra("language")?.takeIf { it in Prefs.LANGUAGES }?.let { prefs.language = it; Strings.apply(c) }
         // Looks (主屏幕设置 → 外观 / 开机动画), mostly for agents setting a TV up.
         i.getStringExtra("cc_style")?.let { prefs.ccStyle = it }
         i.getStringExtra("focus_style")?.let { prefs.focusStyle = it }
@@ -485,7 +487,7 @@ class ConfigReceiver : BroadcastReceiver() {
             runCatching { KeeperService.start(c) }.onFailure { PhoneServer.ensure(c) }
         }
         Guard.ensure(c)
-        resultData = "guard=${prefs.guard} home_key=${prefs.homeKey} keep_adb=${prefs.keepAdb} secure_settings=${Guard.hasSecureSettings(c)} " +
+        resultData = "guard=${prefs.guard} home_key=${prefs.homeKey} language=${prefs.language} keep_adb=${prefs.keepAdb} secure_settings=${Guard.hasSecureSettings(c)} " +
             "background=${prefs.background} cc_style=${prefs.ccStyle} focus_style=${prefs.focusStyle} clock_style=${prefs.clockStyle} clock_24=${prefs.clock24} " +
             "intro=${prefs.intro} intro_source=${prefs.introSource} wake_delay=${prefs.wakeDelay} brand=${prefs.brand} settings_icon=${prefs.settingsIcon} low_end=${Device.isLowEnd(c)} " +
             "phone_server=${prefs.phoneServer} dock_recents=${prefs.dockRecents} " +

@@ -570,6 +570,10 @@
         <item quantity="other">%1$d apps</item>
     </plurals>
 
+    <!-- Système → Langue -->
+    <string name="settings_language">Language</string>
+    <string name="settings_language_about">Automatic follows the TV\'s language.</string>
+    <string name="settings_language_auto">Automatic</string>
 
     <!-- Photo Frame -->
     <string name="wall_date_pattern">EEEE, MMMM d</string>

@@ -22,7 +22,7 @@
 
 canvasOS remplace l'écran d'accueil d'Android TV, de Google TV ou d'une box Android par une interface calquée sur **tvOS**, le système de l'Apple TV. Un Dock en verre liquide posé sur une grande photo. Un **Top Shelf** où l'app sélectionnée affiche ses contenus. Un **Centre de contrôle** en verre dépoli, ouvert par la touche Retour. Des réglages présentés comme ceux de l'Apple TV. Un cadre photo et les vues aériennes de l'Apple TV en économiseur d'écran. Et une animation de démarrage dont le logo final s'agrandit et s'ouvre sur l'accueil.
 
-Tout le reste du téléviseur est conservé : vos apps, vos entrées HDMI, les réglages du fabricant. canvasOS est un lanceur, pas un firmware. Il s'installe comme une app, prend la place de l'écran d'accueil, et se désinstalle de la même façon. L'interface est en français.
+Tout le reste du téléviseur est conservé : vos apps, vos entrées HDMI, les réglages du fabricant. canvasOS est un lanceur, pas un firmware. Il s'installe comme une app, prend la place de l'écran d'accueil, et se désinstalle de la même façon. L'interface est en français, en anglais ou en allemand, selon la langue du téléviseur (Réglages de l'accueil → Système → Langue pour en choisir une autre).
 
 canvasOS est un projet indépendant et open source. Il n'est ni affilié à Apple, ni approuvé par Apple.
 

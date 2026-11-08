@@ -571,6 +571,10 @@
         <item quantity="other">%1$d apps</item>
     </plurals>
 
+    <!-- Système → Langue -->
+    <string name="settings_language">Langue</string>
+    <string name="settings_language_about">Automatique suit la langue du téléviseur.</string>
+    <string name="settings_language_auto">Automatique</string>
 
     <!-- Cadre photo -->
     <string name="wall_date_pattern">EEEE d MMMM</string>
